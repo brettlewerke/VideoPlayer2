@@ -93,7 +93,7 @@ dist-portable/
 
 # Manual packaging outputs
 H-Player-Manual-*.zip
-H-Player-Test/
+H-Player-*/
 dist-manual/
 
 # Test artifacts
