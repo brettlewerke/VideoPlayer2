@@ -1,0 +1,169 @@
+/**
+ * Video player page component
+ */
+
+import React, { useEffect } from 'react';
+import { useAppStore } from '../store/useAppStore.js';
+
+export function PlayerPage() {
+  const { 
+    playerStatus, 
+    isPlaying, 
+    isMuted, 
+    volume, 
+    position, 
+    duration,
+    currentMovie,
+    currentEpisode
+  } = useAppStore();
+
+  const currentMedia = currentMovie || currentEpisode;
+
+  useEffect(() => {
+    const handleKeyPress = (e: KeyboardEvent) => {
+      switch (e.code) {
+        case 'Space':
+          e.preventDefault();
+          if (isPlaying) {
+            window.electronAPI.player.pause();
+          } else {
+            window.electronAPI.player.play();
+          }
+          break;
+        case 'KeyM':
+          window.electronAPI.player.setMuted(!isMuted);
+          break;
+        case 'ArrowLeft':
+          e.preventDefault();
+          window.electronAPI.player.seek(Math.max(0, position - 10));
+          break;
+        case 'ArrowRight':
+          e.preventDefault();
+          window.electronAPI.player.seek(position + 10);
+          break;
+        case 'ArrowUp':
+          e.preventDefault();
+          window.electronAPI.player.setVolume(Math.min(100, volume + 5));
+          break;
+        case 'ArrowDown':
+          e.preventDefault();
+          window.electronAPI.player.setVolume(Math.max(0, volume - 5));
+          break;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyPress);
+    return () => window.removeEventListener('keydown', handleKeyPress);
+  }, [position, volume, isPlaying, isMuted]);
+
+  const formatTime = (seconds: number) => {
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = Math.floor(seconds % 60);
+    
+    if (hours > 0) {
+      return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    }
+    return `${minutes}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const getStatusText = () => {
+    if (!playerStatus) return 'No Status';
+    if (playerStatus.state === 'playing') return 'Now Playing';
+    if (playerStatus.state === 'paused') return 'Paused';
+    if (playerStatus.state === 'loading') return 'Loading...';
+    return 'Stopped';
+  };
+
+  if (!currentMedia) {
+    return (
+      <div className="h-full flex items-center justify-center bg-black">
+        <div className="text-center text-white">
+          <div className="text-6xl mb-4">🎬</div>
+          <h2 className="text-2xl font-bold mb-2">No Media Playing</h2>
+          <p className="text-slate-400">Select a movie or episode to start watching</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="h-full bg-black relative group">
+      {/* Video Player Area */}
+      <div className="h-full flex items-center justify-center">
+        <div className="text-center text-white">
+          <div className="text-8xl mb-4">
+            {isPlaying ? '▶️' : '⏸️'}
+          </div>
+          <h2 className="text-3xl font-bold mb-2">{currentMedia.title}</h2>
+          <p className="text-slate-400 text-lg">
+            {getStatusText()}
+          </p>
+        </div>
+      </div>
+
+      {/* Controls Overlay */}
+      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent 
+        opacity-0 group-hover:opacity-100 transition-opacity duration-300 p-6">
+        
+        {/* Progress Bar */}
+        <div className="mb-4">
+          <div className="w-full h-2 bg-slate-600 rounded-full">
+            <div className="h-full bg-blue-500 rounded-full transition-all duration-200 w-1/3" />
+          </div>
+          <div className="flex justify-between text-sm text-slate-300 mt-1">
+            <span>{formatTime(position)}</span>
+            <span>{duration ? formatTime(duration) : '--:--'}</span>
+          </div>
+        </div>
+
+        {/* Control Buttons */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-4">
+            {/* Play/Pause */}
+            <button
+              onClick={() => isPlaying ? window.electronAPI.player.pause() : window.electronAPI.player.play()}
+              className="text-white hover:text-blue-400 transition-colors text-2xl
+                focus:outline-none focus:ring-2 focus:ring-blue-500/50 rounded"
+            >
+              {isPlaying ? '⏸️' : '▶️'}
+            </button>
+
+            {/* Volume */}
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={() => window.electronAPI.player.setMuted(!isMuted)}
+                className="text-white hover:text-blue-400 transition-colors
+                  focus:outline-none focus:ring-2 focus:ring-blue-500/50 rounded"
+              >
+                {isMuted ? '🔇' : volume > 50 ? '🔊' : volume > 0 ? '🔉' : '🔈'}
+              </button>
+              <div className="w-20 h-1 bg-slate-600 rounded-full">
+                <div className="h-full bg-white rounded-full w-3/4" />
+              </div>
+              <span className="text-sm text-slate-300 w-8">{Math.round(isMuted ? 0 : volume)}</span>
+            </div>
+          </div>
+
+          <div className="flex items-center space-x-4">
+            {/* Settings placeholder */}
+            <button className="text-white hover:text-blue-400 transition-colors
+              focus:outline-none focus:ring-2 focus:ring-blue-500/50 rounded px-3 py-1">
+              ⚙️ Settings
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Help Text */}
+      <div className="absolute top-4 right-4 text-slate-400 text-sm opacity-0 group-hover:opacity-100 transition-opacity">
+        <div className="bg-black/60 rounded-lg p-3 space-y-1">
+          <div>Space: Play/Pause</div>
+          <div>M: Mute</div>
+          <div>←/→: Seek ±10s</div>
+          <div>↑/↓: Volume ±5</div>
+        </div>
+      </div>
+    </div>
+  );
+}

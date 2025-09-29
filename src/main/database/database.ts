@@ -103,11 +103,9 @@ export class DatabaseManager {
           this.db!.exec(statement);
         }
         
-        this.db!.exec(
-          'INSERT INTO schema_migrations (version, applied_at) VALUES (?, ?)',
-          migration.version,
-          Date.now()
-        );
+        this.db!.prepare(
+          'INSERT INTO schema_migrations (version, applied_at) VALUES (?, ?)'
+        ).run(migration.version, Date.now());
       }
     });
     
@@ -635,10 +633,10 @@ export class DatabaseManager {
     if (!this.db) throw new Error('Database not initialized');
 
     const transaction = this.db.transaction(() => {
-      this.db!.exec('DELETE FROM episodes WHERE show_id IN (SELECT id FROM shows WHERE drive_id = ?)', driveId);
-      this.db!.exec('DELETE FROM seasons WHERE show_id IN (SELECT id FROM shows WHERE drive_id = ?)', driveId);
-      this.db!.exec('DELETE FROM shows WHERE drive_id = ?', driveId);
-      this.db!.exec('DELETE FROM movies WHERE drive_id = ?', driveId);
+      this.db!.prepare('DELETE FROM episodes WHERE show_id IN (SELECT id FROM shows WHERE drive_id = ?)').run(driveId);
+      this.db!.prepare('DELETE FROM seasons WHERE show_id IN (SELECT id FROM shows WHERE drive_id = ?)').run(driveId);
+      this.db!.prepare('DELETE FROM shows WHERE drive_id = ?').run(driveId);
+      this.db!.prepare('DELETE FROM movies WHERE drive_id = ?').run(driveId);
     });
     
     transaction();

@@ -70,9 +70,11 @@ class VideoPlayerApp {
     });
 
     // Load the renderer
-    if (process.env.NODE_ENV === 'development') {
+    // Force development mode for now
+    const isDevelopment = true; // process.env.NODE_ENV === 'development';
+    if (isDevelopment) {
       // Development mode - load from Vite dev server
-      await this.mainWindow.loadURL('http://localhost:3000');
+      await this.mainWindow.loadURL('http://localhost:3003');
       this.mainWindow.webContents.openDevTools();
     } else {
       // Production mode - load from built files
