@@ -7,7 +7,7 @@
 
 ; General Configuration
 Name "H Player"
-OutFile "H-Player-Setup-1.1.0.exe"
+OutFile "H-Player-Setup-1.2.0.exe"
 Unicode True
 InstallDir "$PROGRAMFILES\H Player"
 InstallDirRegKey HKCU "Software\H Player" ""
@@ -38,12 +38,12 @@ RequestExecutionLevel admin
 !insertmacro MUI_LANGUAGE "English"
 
 ; Version Information
-VIProductVersion "1.1.0.0"
+VIProductVersion "1.2.0.0"
 VIAddVersionKey "ProductName" "H Player"
 VIAddVersionKey "CompanyName" "H Player Project"
 VIAddVersionKey "LegalCopyright" "Copyright (c) 2024 H Player Project"
-VIAddVersionKey "FileVersion" "1.1.0.0"
-VIAddVersionKey "ProductVersion" "1.1.0.0"
+VIAddVersionKey "FileVersion" "1.2.0.0"
+VIAddVersionKey "ProductVersion" "1.2.0.0"
 VIAddVersionKey "FileDescription" "H Player - Local Desktop Video Player"
 
 ; Installer Section
