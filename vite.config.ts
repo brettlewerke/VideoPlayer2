@@ -4,13 +4,13 @@ import { resolve } from 'path';
 
 export default defineConfig({
   plugins: [react()],
-  root: 'src/renderer',
+  root: '.',
   base: './',
   build: {
-    outDir: '../../dist/renderer',
+    outDir: 'dist/renderer',
     emptyOutDir: true,
     rollupOptions: {
-      input: resolve(__dirname, 'index.html'),
+      input: 'index.html',
     },
   },
   resolve: {

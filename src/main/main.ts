@@ -115,21 +115,49 @@ class VideoPlayerApp {
   }
 
   private getAppIcon(): string | undefined {
-    // Resolve platform specific icons packaged by electron-builder
-    const root = join(__dirname, '..', '..', '..'); // adjust if needed depending on asar packaging
-    const buildDir = join(root, 'build');
+    // In production, electron-builder places resources in app.asar or resources folder
+    // In development, use build/ directory
+    const isPackaged = app.isPackaged;
     let candidate: string | undefined;
+
     switch (platform()) {
       case 'win32':
-        candidate = join(buildDir, 'icon.ico');
+        candidate = isPackaged
+          ? join(process.resourcesPath, 'build', 'icon.ico')
+          : join(__dirname, '..', '..', '..', 'build', 'icon.ico');
         break;
       case 'darwin':
-        candidate = join(buildDir, 'icon.icns');
+        candidate = isPackaged
+          ? join(process.resourcesPath, 'build', 'icon.icns')
+          : join(__dirname, '..', '..', '..', 'build', 'icon.icns');
         break;
-      default:
-        candidate = join(buildDir, 'icons', '512x512.png');
+      default: // linux
+        candidate = isPackaged
+          ? join(process.resourcesPath, 'build', 'icons', '512x512.png')
+          : join(__dirname, '..', '..', '..', 'build', 'icons', '512x512.png');
         break;
     }
+
+    // Fallback: try alternative paths if primary candidate doesn't exist
+    if (candidate && existsSync(candidate)) {
+      return candidate;
+    }
+
+    // Try without resources path in packaged app
+    if (isPackaged) {
+      switch (platform()) {
+        case 'win32':
+          candidate = join(__dirname, '..', '..', '..', 'build', 'icon.ico');
+          break;
+        case 'darwin':
+          candidate = join(__dirname, '..', '..', '..', 'build', 'icon.icns');
+          break;
+        default:
+          candidate = join(__dirname, '..', '..', '..', 'build', 'icons', '512x512.png');
+          break;
+      }
+    }
+
     return candidate && existsSync(candidate) ? candidate : undefined;
   }
 

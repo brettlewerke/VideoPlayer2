@@ -1,113 +1,63 @@
-# VideoPlayer2
+# H Player
 
-A comprehensive cross-platform desktop media player built with Electron, React, TypeScript, and TailwindCSS. Designed for a ten-foot TV experience with keyboard, remote, and gamepad navigation support.
+A beautiful, local desktop media player for Movies & TV Shows on plugged-in drives. No internet connection required - just plug in your drive and start watching.
 
-## Features
+![H Player Logo](assets/brand/H-logo.svg)
 
-### 🎬 Local Media Library
-- Automatic scanning of Movies and TV Shows folder structures
-- Support for common video formats (MP4, MKV, AVI, MOV, etc.)
-- Metadata extraction and artwork detection
-- Continue watching and recently watched tracking
-- SQLite database for fast local storage
+## ✨ Features
 
-### 🎮 Player Backends
-- **MPV Player**: High-performance video playback with hardware acceleration
-- **Mock Player**: Development and testing backend
-- Swappable player architecture for future backends (libVLC, etc.)
+- **📱 Netflix-like Interface**: Modern, green-and-black themed UI optimized for TV viewing
+- **💾 Local Media Library**: Automatic scanning of Movies and TV Shows folders
+- **🎬 Hardware-Accelerated Playback**: MPV backend with optional libVLC support
+- **🔌 Drive Detection**: Automatic detection of Windows drives, macOS volumes, and Linux mounts
+- **📺 Ten-Foot Experience**: Keyboard navigation, remote control ready
+- **🏠 Offline First**: No internet required, no data collection
+- **🔒 Secure**: Context isolation, no node integration, secure IPC
+- **📦 Portable**: Run from any folder without installation
 
-### 🖥️ Cross-Platform Support
-- Windows, macOS, and Linux compatibility
-- Platform-specific drive detection and monitoring
-- Native file system integration
+## 🚀 Quick Start
 
-### 🎯 Ten-Foot Interface
-- Optimized for TV viewing distances
-- Keyboard navigation (arrow keys, space, etc.)
-- Remote control support
-- Gamepad navigation ready
-- Full-screen experience
+### Option 1: Installer (Recommended)
 
-### 🔒 Security First
-- Secure IPC communication between processes
-- Context isolation enabled
-- No node integration in renderer
-- Input validation and sanitization
+1. **Download** the installer for your platform:
+   - **Windows**: `H-Player-Setup-X.X.X.exe` (NSIS installer)
+   - **macOS**: `H-Player-X.X.X.dmg` (DMG with drag-to-Applications)
+   - **Linux**: `h-player_X.X.X_amd64.AppImage` or `h-player_X.X.X_amd64.deb`
 
-## Technology Stack
+2. **Install** the application:
+   - Windows: Run the installer, follow prompts, creates Start Menu and Desktop shortcuts
+   - macOS: Open DMG, drag H Player to Applications folder
+   - Linux: Run AppImage directly or install DEB package
 
-- **Electron 27.1.0** - Cross-platform desktop framework
-- **React 18.2.0** - UI library
-- **TypeScript 5.2.2** - Type safety and development experience
-- **TailwindCSS 3.3.5** - Utility-first CSS framework
-- **better-sqlite3** - Local database with WAL mode
-- **Vite 4.5.0** - Fast build tool for renderer process
-- **MPV** - Media player backend
+3. **Launch**: Double-click the desktop shortcut or start menu entry
 
-## Project Structure
+### Option 2: Portable Bundle
 
-```
-src/
-├── main/                 # Electron main process
-│   ├── database/         # SQLite database management
-│   ├── ipc/             # Inter-process communication
-│   ├── player/          # Media player backends
-│   └── services/        # Core services (drive manager, scanner)
-├── preload/             # Secure preload script
-├── renderer/            # React frontend (to be created)
-└── shared/              # Shared types and utilities
-```
+1. **Download** the portable archive for your platform:
+   - **Windows**: `H-Player-Portable-win32-x64.zip`
+   - **macOS**: `H-Player-Portable-darwin-x64.tar.gz` or `H-Player-Portable-darwin-arm64.tar.gz`
+   - **Linux**: `H-Player-Portable-linux-x64.tar.gz`
 
-## Getting Started
+2. **Extract** the archive to any folder (USB drive, Documents, Desktop, etc.)
 
-### Prerequisites
+3. **Run** the launcher script:
+   - Windows: Double-click `Run-H-Player.ps1`
+   - macOS: Double-click `Run-H-Player.command`
+   - Linux: Run `./run-h-player.sh` or double-click in file manager
 
-- Node.js 18+ 
-- npm or yarn
-- Git
+## 📁 Media Organization
 
-### Installation
+H Player automatically scans for media in `Movies/` and `TV Shows/` folders on attached drives.
 
-1. Clone the repository:
-```bash
-git clone <repository-url>
-cd VideoPlayer2
-```
-
-2. Install dependencies:
-```bash
-npm install
-```
-
-3. Development mode:
-```bash
-npm run dev
-```
-
-4. Build for production:
-```bash
-npm run build
-```
-
-### Available Scripts
-
-- `npm run dev` - Start development mode
-- `npm run build` - Build for production
-- `npm run type-check` - TypeScript compilation check
-- `npm run lint` - ESLint code checking
-- `npm run test` - Run tests (when implemented)
-
-## Media Organization
-
-### Expected Folder Structure
+### Expected Structure
 
 ```
-Media/
+Any Drive/
 ├── Movies/
 │   ├── Movie Title (2023)/
 │   │   ├── Movie Title (2023).mkv
-│   │   ├── poster.jpg
-│   │   └── backdrop.jpg
+│   │   ├── poster.jpg          # Optional artwork
+│   │   └── backdrop.jpg        # Optional backdrop
 │   └── Another Movie (2022)/
 │       └── Another Movie (2022).mp4
 └── TV Shows/
@@ -115,8 +65,6 @@ Media/
     │   ├── Season 1/
     │   │   ├── S01E01 - Episode Title.mkv
     │   │   └── S01E02 - Episode Title.mkv
-    │   ├── Season 2/
-    │   │   └── S02E01 - Episode Title.mkv
     │   ├── poster.jpg
     │   └── backdrop.jpg
     └── Another Show/
@@ -124,94 +72,156 @@ Media/
         └── S01E02.mkv
 ```
 
-### Supported File Formats
+### Supported Formats
 
-**Video**: MP4, MKV, AVI, MOV, WMV, FLV, M4V, 3GP
-**Subtitles**: SRT, ASS, SSA, VTT (auto-detected)
-**Artwork**: JPG, PNG, WEBP (poster.jpg, backdrop.jpg, fanart.jpg)
+- **Video**: MP4, MKV, AVI, MOV, WMV, FLV, M4V, 3GP, WebM
+- **Audio**: MP3, AAC, AC3, DTS, FLAC (in video containers)
+- **Subtitles**: SRT, ASS, SSA, VTT (auto-detected)
+- **Artwork**: JPG, PNG, WEBP (poster.jpg, backdrop.jpg, fanart.jpg)
 
-## Development
+## 🎮 Usage
 
-### Architecture Principles
+### Navigation
+- **Arrow Keys**: Navigate interface
+- **Enter/Space**: Select items, play/pause
+- **Backspace/Escape**: Go back
+- **F**: Toggle fullscreen
+- **M**: Toggle mute
+- **S**: Settings (when implemented)
 
-1. **Security First**: All IPC communication is validated and sanitized
-2. **Type Safety**: Comprehensive TypeScript coverage
-3. **Separation of Concerns**: Clear boundaries between main/renderer processes
-4. **Extensibility**: Plugin architecture for player backends
-5. **Performance**: SQLite with WAL mode, efficient file scanning
+### Interface
+- **Home Screen**: Featured content, Continue Watching, Recently Added
+- **Movies**: Browse movie library
+- **TV Shows**: Browse TV series
+- **Search**: Find content (when implemented)
+- **Settings**: Configure player backend, UI preferences
 
-### Key Components
+### Drive Management
+- Plug in any drive with Movies/TV Shows folders
+- App automatically detects and scans new drives
+- No configuration needed - just works
 
-- **DatabaseManager**: SQLite operations with migrations
-- **DriveManager**: Cross-platform drive detection and monitoring
-- **MediaScanner**: Intelligent media discovery and indexing
-- **PlayerFactory**: Swappable media player backends
-- **IPCHandler**: Secure communication layer
+## 🔧 Troubleshooting
 
-### Adding New Player Backends
+### "Drive not found" screen appears
+- Ensure your drive is connected and mounted
+- Check that it contains `Movies/` and/or `TV Shows/` folders at the root
+- Try the **Rescan** button in the empty state
+- On Linux: Check `/media/` or `/run/media/` mount points
 
-1. Implement the `IPlayer` interface
-2. Register with `PlayerFactory`
-3. Add configuration options
-4. Test cross-platform compatibility
+### Playback issues
+- Ensure MPV/ffmpeg binaries are available (included in portable bundles)
+- Check Settings for player backend selection
+- Try switching to libVLC backend if available
+- Verify video file is not corrupted
 
-## Configuration
+### App won't start
+- **Windows**: Try running as Administrator
+- **macOS**: Check System Preferences > Security & Privacy for unsigned app warning
+- **Linux**: Ensure execute permissions on launcher script: `chmod +x run-h-player.sh`
 
-Settings are stored in the SQLite database and include:
+### Build Issues
 
-- Player backend selection
-- Playback preferences
-- UI customization
-- Keyboard shortcuts
-- Scan locations
+#### "Cannot create symbolic link" during packaging
+This occurs on Windows when electron-builder tries to extract macOS code signing tools.
 
-## Contributing
+**Solution**: Use manual packaging instead:
+```bash
+npm run pack:manual
+```
+This creates a working package without electron-builder's cross-platform code signing.
 
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests if applicable
-5. Ensure TypeScript compilation passes
-6. Submit a pull request
+#### Missing dependencies
+```bash
+# Clean install
+rm -rf node_modules package-lock.json
+npm install
+```
 
-## Roadmap
+#### Permission errors on Windows
+- Run terminal as Administrator
+- Or use manual packaging: `npm run pack:manual`
 
-### Phase 1: Core Functionality (Current)
-- [x] Project setup and architecture
-- [x] Database schema and management
-- [x] Media scanning and indexing
-- [x] Player backend infrastructure
-- [x] IPC communication layer
-- [ ] React UI components
-- [ ] Basic playback functionality
+## 🛠️ For Developers
 
-### Phase 2: Enhanced Features
-- [ ] Subtitle support
-- [ ] Multiple audio tracks
-- [ ] Playlist management
-- [ ] Search and filtering
-- [ ] Settings interface
+### Building from Source
 
-### Phase 3: Advanced Features
-- [ ] Remote control support
-- [ ] Gamepad navigation
-- [ ] Metadata fetching (TMDB/TVDB)
-- [ ] Hardware acceleration
-- [ ] Network streaming
+```bash
+# Clone repository
+git clone <repository-url>
+cd VideoPlayer2
 
-### Phase 4: Polish & Distribution
-- [ ] Automated setup scripts
-- [ ] Binary downloads
-- [ ] Auto-updater
-- [ ] Packaging for distribution
+# Setup (downloads dependencies and binaries)
+npm run setup
 
-## License
+# Development
+npm run dev
 
-[Add your license here]
+# Build for distribution
+npm run build
 
-## Acknowledgments
+# Create portable bundles
+npm run pack:portable
 
-- MPV for excellent video playback
-- Electron team for the framework
-- React and TypeScript communities
-- SQLite for reliable data storage
+# Alternative: Manual packaging (if electron-builder fails)
+npm run pack:manual
+# This creates H-Player-Manual-X.X.X.zip with electron.exe placeholder
+```
+```
+
+### Project Structure
+
+```
+src/
+├── main/                 # Electron main process
+│   ├── database/         # SQLite with migrations
+│   ├── ipc/             # Secure IPC handlers
+│   ├── player/          # MPV/libVLC backends
+│   └── services/        # Drive scanner, media indexer
+├── preload/             # Context bridge
+├── renderer/            # React UI with Tailwind
+└── shared/              # TypeScript types & constants
+
+vendor/                  # Platform-specific binaries
+build/                   # Icons and branding assets
+scripts/                 # Build and setup scripts
+```
+
+### Technology Stack
+
+- **Electron 27+** - Cross-platform desktop framework
+- **React 18** - Component-based UI
+- **TypeScript** - Type safety
+- **TailwindCSS** - Utility-first styling
+- **SQLite** - Local database
+- **MPV** - High-performance playback
+- **Vite** - Fast development builds
+
+## 📋 System Requirements
+
+- **OS**: Windows 10+, macOS 10.15+, Ubuntu 18.04+ or equivalent
+- **RAM**: 4GB minimum, 8GB recommended
+- **Storage**: 500MB for app, plus space for media
+- **Display**: 1080p minimum, 4K supported
+- **Input**: Keyboard required, remote/gamepad optional
+
+## 🔒 Privacy & Security
+
+- **No internet connection required**
+- **No data collection or telemetry**
+- **All media playback is local**
+- **Secure IPC with context isolation**
+- **No node integration in renderer**
+- **Input validation on all IPC calls**
+
+## 📄 License
+
+[Add your license information]
+
+## 🙏 Acknowledgments
+
+- **MPV** - Exceptional video playback engine
+- **Electron** - Cross-platform desktop framework
+- **SQLite** - Reliable embedded database
+- **FFmpeg** - Multimedia processing foundation
+- **React & TypeScript** - Modern development experience

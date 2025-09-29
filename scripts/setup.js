@@ -151,12 +151,13 @@ async function rebuildNativeModules() {
  */
 async function downloadBinaries() {
   logStep('3/6', 'Downloading platform-appropriate binaries...');
-  
+
   // Ensure vendor directory exists
-  if (!fs.existsSync(VENDOR_DIR)) {
-    fs.mkdirSync(VENDOR_DIR, { recursive: true });
+  const vendorPlatformDir = path.join(VENDOR_DIR, os.platform(), os.arch());
+  if (!fs.existsSync(vendorPlatformDir)) {
+    fs.mkdirSync(vendorPlatformDir, { recursive: true });
   }
-  
+
   const manifest = {
     version: 1,
     platform: os.platform(),
@@ -164,32 +165,303 @@ async function downloadBinaries() {
     timestamp: Date.now(),
     binaries: {},
   };
-  
+
   try {
-    // For now, we'll create placeholder entries since actual downloads
-    // require specific logic for each platform and extraction
-    logWarning('Binary download not yet implemented - using placeholder manifest');
-    
-    manifest.binaries = {
-      mpv: {
-        available: false,
-        path: null,
-        version: null,
-      },
-      ffmpeg: {
-        available: false,
-        path: null,
-        version: null,
-      },
-    };
-    
+    // Download mpv
+    const mpvResult = await downloadMpvBinary(vendorPlatformDir);
+    manifest.binaries.mpv = mpvResult;
+
+    // Download ffmpeg
+    const ffmpegResult = await downloadFfmpegBinary(vendorPlatformDir);
+    manifest.binaries.ffmpeg = ffmpegResult;
+
     // Write manifest
     fs.writeFileSync(MANIFEST_FILE, JSON.stringify(manifest, null, 2));
     logSuccess('Binary manifest created');
-    
+
   } catch (error) {
     logError(`Failed to download binaries: ${error.message}`);
+    // Create manifest with unavailable binaries
+    manifest.binaries = {
+      mpv: { available: false, path: null, version: null, error: error.message },
+      ffmpeg: { available: false, path: null, version: null, error: error.message },
+    };
+    fs.writeFileSync(MANIFEST_FILE, JSON.stringify(manifest, null, 2));
+    logWarning('Binaries marked as unavailable - app will use system binaries if available');
+  }
+}
+
+/**
+ * Download mpv binary for current platform
+ */
+async function downloadMpvBinary(vendorDir) {
+  const platform = os.platform();
+  const arch = os.arch();
+
+  log('Downloading mpv binary...');
+
+  // Define download URLs for different platforms
+  const mpvUrls = {
+    'win32': {
+      'x64': 'https://github.com/shinchiro/mpv-winbuild-cmake/releases/download/20240128/mpv-x86_64-20240128-git-2059e9d.7z',
+      'ia32': 'https://github.com/shinchiro/mpv-winbuild-cmake/releases/download/20240128/mpv-i686-20240128-git-2059e9d.7z',
+    },
+    'darwin': {
+      'x64': 'https://github.com/mpv-player/mpv/releases/download/v0.37.0/mpv-v0.37.0.tar.gz',
+      'arm64': 'https://github.com/mpv-player/mpv/releases/download/v0.37.0/mpv-v0.37.0.tar.gz',
+    },
+    'linux': {
+      'x64': 'https://github.com/mpv-player/mpv/releases/download/v0.37.0/mpv-v0.37.0.tar.gz',
+    },
+  };
+
+  const url = mpvUrls[platform]?.[arch];
+  if (!url) {
+    throw new Error(`No mpv binary available for ${platform}/${arch}`);
+  }
+
+  const archivePath = path.join(vendorDir, 'mpv-archive.tmp');
+  const extractDir = path.join(vendorDir, 'mpv');
+
+  try {
+    // Download archive
+    await downloadFile(url, archivePath);
+
+    // Extract archive
+    await extractArchive(archivePath, extractDir);
+
+    // Find the mpv executable
+    const mpvPath = await findExecutable(extractDir, 'mpv');
+    if (!mpvPath) {
+      throw new Error('mpv executable not found in extracted archive');
+    }
+
+    // Verify executable
+    const version = await getMpvVersion(mpvPath);
+
+    // Clean up archive
+    fs.unlinkSync(archivePath);
+
+    logSuccess(`mpv ${version} downloaded and extracted`);
+    return {
+      available: true,
+      path: path.relative(VENDOR_DIR, mpvPath),
+      version: version,
+    };
+
+  } catch (error) {
+    // Clean up on failure
+    if (fs.existsSync(archivePath)) fs.unlinkSync(archivePath);
+    if (fs.existsSync(extractDir)) fs.rmSync(extractDir, { recursive: true });
     throw error;
+  }
+}
+
+/**
+ * Download ffmpeg binary for current platform
+ */
+async function downloadFfmpegBinary(vendorDir) {
+  const platform = os.platform();
+  const arch = os.arch();
+
+  log('Downloading ffmpeg binary...');
+
+  // Define download URLs for different platforms
+  const ffmpegUrls = {
+    'win32': {
+      'x64': 'https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip',
+      'ia32': 'https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip',
+    },
+    'darwin': {
+      'x64': 'https://evermeet.cx/ffmpeg/ffmpeg-6.1.1.zip',
+      'arm64': 'https://evermeet.cx/ffmpeg/ffmpeg-6.1.1.zip',
+    },
+    'linux': {
+      'x64': 'https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-linux64-gpl.tar.xz',
+    },
+  };
+
+  const url = ffmpegUrls[platform]?.[arch];
+  if (!url) {
+    throw new Error(`No ffmpeg binary available for ${platform}/${arch}`);
+  }
+
+  const archivePath = path.join(vendorDir, 'ffmpeg-archive.tmp');
+  const extractDir = path.join(vendorDir, 'ffmpeg');
+
+  try {
+    // Download archive
+    await downloadFile(url, archivePath);
+
+    // Extract archive
+    await extractArchive(archivePath, extractDir);
+
+    // Find the ffmpeg executable
+    const ffmpegPath = await findExecutable(extractDir, 'ffmpeg');
+    if (!ffmpegPath) {
+      throw new Error('ffmpeg executable not found in extracted archive');
+    }
+
+    // Verify executable
+    const version = await getFfmpegVersion(ffmpegPath);
+
+    // Clean up archive
+    fs.unlinkSync(archivePath);
+
+    logSuccess(`ffmpeg ${version} downloaded and extracted`);
+    return {
+      available: true,
+      path: path.relative(VENDOR_DIR, ffmpegPath),
+      version: version,
+    };
+
+  } catch (error) {
+    // Clean up on failure
+    if (fs.existsSync(archivePath)) fs.unlinkSync(archivePath);
+    if (fs.existsSync(extractDir)) fs.rmSync(extractDir, { recursive: true });
+    throw error;
+  }
+}
+
+/**
+ * Extract archive based on file extension
+ */
+async function extractArchive(archivePath, extractDir) {
+  const ext = path.extname(archivePath).toLowerCase();
+
+  if (ext === '.zip' || ext === '.7z') {
+    await extractZip(archivePath, extractDir);
+  } else if (ext === '.tar' || ext === '.gz' || archivePath.endsWith('.tar.gz') || archivePath.endsWith('.tar.xz')) {
+    await extractTar(archivePath, extractDir);
+  } else {
+    throw new Error(`Unsupported archive format: ${ext}`);
+  }
+}
+
+/**
+ * Extract ZIP archive
+ */
+async function extractZip(archivePath, extractDir) {
+  const yauzl = require('yauzl');
+
+  return new Promise((resolve, reject) => {
+    yauzl.open(archivePath, { lazyEntries: true }, (err, zipfile) => {
+      if (err) return reject(err);
+
+      zipfile.readEntry();
+      zipfile.on('entry', (entry) => {
+        if (/\/$/.test(entry.fileName)) {
+          // Directory
+          zipfile.readEntry();
+        } else {
+          // File
+          const filePath = path.join(extractDir, entry.fileName);
+          const dir = path.dirname(filePath);
+          fs.mkdirSync(dir, { recursive: true });
+
+          zipfile.openReadStream(entry, (err, readStream) => {
+            if (err) return reject(err);
+
+            const writeStream = fs.createWriteStream(filePath);
+            readStream.pipe(writeStream);
+            writeStream.on('close', () => {
+              zipfile.readEntry();
+            });
+            writeStream.on('error', reject);
+          });
+        }
+      });
+
+      zipfile.on('end', resolve);
+      zipfile.on('error', reject);
+    });
+  });
+}
+
+/**
+ * Extract TAR archive
+ */
+async function extractTar(archivePath, extractDir) {
+  const tar = require('tar');
+
+  return new Promise((resolve, reject) => {
+    fs.createReadStream(archivePath)
+      .pipe(tar.x({ cwd: extractDir, strip: 1 }))
+      .on('finish', resolve)
+      .on('error', reject);
+  });
+}
+
+/**
+ * Find executable in extracted directory
+ */
+async function findExecutable(dir, name) {
+  const files = fs.readdirSync(dir, { recursive: true });
+
+  for (const file of files) {
+    const fullPath = path.join(dir, file);
+    const stat = fs.statSync(fullPath);
+
+    if (stat.isFile()) {
+      const baseName = path.basename(file, path.extname(file));
+      if (baseName === name && (os.platform() === 'win32' ? file.endsWith('.exe') : stat.mode & 0o111)) {
+        return fullPath;
+      }
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Get mpv version
+ */
+async function getMpvVersion(mpvPath) {
+  try {
+    const { spawn } = require('child_process');
+    return new Promise((resolve) => {
+      const child = spawn(mpvPath, ['--version'], { stdio: ['ignore', 'pipe', 'ignore'] });
+      let output = '';
+
+      child.stdout.on('data', (data) => {
+        output += data.toString();
+      });
+
+      child.on('close', () => {
+        const match = output.match(/mpv (\d+\.\d+\.\d+)/);
+        resolve(match ? match[1] : 'unknown');
+      });
+
+      child.on('error', () => resolve('unknown'));
+    });
+  } catch {
+    return 'unknown';
+  }
+}
+
+/**
+ * Get ffmpeg version
+ */
+async function getFfmpegVersion(ffmpegPath) {
+  try {
+    const { spawn } = require('child_process');
+    return new Promise((resolve) => {
+      const child = spawn(ffmpegPath, ['-version'], { stdio: ['ignore', 'pipe', 'ignore'] });
+      let output = '';
+
+      child.stdout.on('data', (data) => {
+        output += data.toString();
+      });
+
+      child.on('close', () => {
+        const match = output.match(/ffmpeg version (\d+\.\d+(?:\.\d+)?)/);
+        resolve(match ? match[1] : 'unknown');
+      });
+
+      child.on('error', () => resolve('unknown'));
+    });
+  } catch {
+    return 'unknown';
   }
 }
 

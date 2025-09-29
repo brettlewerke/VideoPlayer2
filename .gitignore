@@ -88,6 +88,9 @@ thumbnails/
 *.db-wal
 temp/
 
+# Portable bundles
+dist-portable/
+
 # Test artifacts
 test-results/
 playwright-report/
