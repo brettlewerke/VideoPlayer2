@@ -8,6 +8,8 @@
 const sharp = require('sharp');
 const fs = require('fs');
 const path = require('path');
+const toIco = require('to-ico');
+const iconGen = require('icon-gen');
 
 const PROJECT_ROOT = path.dirname(__dirname);
 const ASSETS_DIR = path.join(PROJECT_ROOT, 'assets', 'brand');
@@ -78,28 +80,16 @@ async function generateWindowsIcon() {
   const icoPath = path.join(BUILD_DIR, 'icon.ico');
 
   try {
-    // Use multiple sizes for ICO (16x16, 32x32, 48x48, 256x256)
-    const icoSizes = [16, 32, 48, 256];
-    const icoBuffers = [];
-
-    for (const size of icoSizes) {
-      const pngPath = path.join(ICONS_DIR, `${size}x${size}.png`);
-      if (fs.existsSync(pngPath)) {
-        const buffer = fs.readFileSync(pngPath);
-        icoBuffers.push({ size, buffer });
+    // Use icon-gen to generate ICO from SVG
+    await iconGen(SVG_PATH, BUILD_DIR, {
+      report: false,
+      ico: {
+        name: 'icon',
+        sizes: [16, 24, 32, 48, 64, 128, 256]
       }
-    }
+    });
 
-    if (icoBuffers.length === 0) {
-      throw new Error('No PNG files found for ICO generation');
-    }
-
-    // For now, just copy the 256x256 as ICO (proper ICO generation would need additional library)
-    // This is a placeholder - in production you'd use a proper ICO library
-    const largestIcon = icoBuffers[icoBuffers.length - 1];
-    fs.copyFileSync(path.join(ICONS_DIR, `${largestIcon.size}x${largestIcon.size}.png`), icoPath);
-
-    logSuccess('Generated icon.ico (placeholder)');
+    logSuccess('Generated icon.ico');
     return icoPath;
   } catch (error) {
     logError(`Failed to generate icon.ico: ${error.message}`);
@@ -108,22 +98,23 @@ async function generateWindowsIcon() {
 }
 
 /**
- * Generate macOS ICNS file (placeholder)
+ * Generate macOS ICNS file
  */
 async function generateMacIcon() {
   const icnsPath = path.join(BUILD_DIR, 'icon.icns');
 
   try {
-    // For now, just copy the 512x512 PNG as ICNS placeholder
-    // Proper ICNS generation would require additional tools
-    const sourcePng = path.join(ICONS_DIR, '512x512.png');
-    if (fs.existsSync(sourcePng)) {
-      fs.copyFileSync(sourcePng, icnsPath);
-      logSuccess('Generated icon.icns (placeholder)');
-      return icnsPath;
-    } else {
-      throw new Error('512x512.png not found for ICNS generation');
-    }
+    // Use icon-gen to generate ICNS from SVG
+    await iconGen(SVG_PATH, BUILD_DIR, {
+      report: false,
+      icns: {
+        name: 'icon',
+        sizes: [16, 32, 64, 128, 256, 512, 1024]
+      }
+    });
+
+    logSuccess('Generated icon.icns');
+    return icnsPath;
   } catch (error) {
     logError(`Failed to generate icon.icns: ${error.message}`);
     throw error;

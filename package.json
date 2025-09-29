@@ -1,6 +1,6 @@
 {
   "name": "h-player",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "H Player – local desktop video player for Movies & TV Shows on plugged-in drives (no network services)",
   "main": "dist/main/main/main.js",
   "scripts": {
@@ -52,12 +52,14 @@
     "eslint": "^8.54.0",
     "eslint-plugin-react": "^7.33.2",
     "eslint-plugin-react-hooks": "^4.6.0",
+    "icon-gen": "^5.0.0",
     "jest": "^29.7.0",
     "playwright": "^1.40.0",
     "postcss": "^8.4.31",
     "sharp": "^0.34.4",
     "tailwindcss": "^3.3.5",
     "tar": "^6.2.0",
+    "to-ico": "^1.1.5",
     "ts-jest": "^29.1.1",
     "typescript": "^5.2.2",
     "vite": "^4.5.0",
@@ -126,8 +128,7 @@
             "ia32"
           ]
         }
-      ],
-      "sign": false
+      ]
     },
     "nsis": {
       "oneClick": false,
@@ -135,7 +136,16 @@
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
       "shortcutName": "H Player",
-      "deleteAppDataOnUninstall": false
+      "deleteAppDataOnUninstall": false,
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico",
+      "installerHeaderIcon": "build/icon.ico",
+      "installerSidebar": "build/icons/256x256.png",
+      "uninstallerSidebar": "build/icons/256x256.png",
+      "displayLanguageSelector": false,
+      "language": "1033",
+      "include": null,
+      "script": null
     },
     "linux": {
       "category": "AudioVideo",

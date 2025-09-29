@@ -3,6 +3,10 @@ const path = require('path');
 const archiver = require('archiver');
 const { execSync } = require('child_process');
 
+// Read version from package.json
+const packageJson = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8'));
+const version = packageJson.version;
+
 console.log('\n============================================================');
 console.log('H Player Manual Packaging (No electron-builder)');
 console.log('============================================================\n');
@@ -105,10 +109,46 @@ if exist "electron.exe" (
   pause
 )`;
 
+// Create an uninstaller script
+const uninstallerContent = `@echo off
+echo Uninstalling H Player...
+echo.
+
+REM Remove desktop shortcut
+if exist "%USERPROFILE%\\Desktop\\H Player.lnk" (
+  del "%USERPROFILE%\\Desktop\\H Player.lnk"
+  echo Removed desktop shortcut
+)
+
+REM Remove start menu shortcuts
+if exist "%APPDATA%\\Microsoft\\Windows\\Start Menu\\Programs\\H Player" (
+  rmdir /s /q "%APPDATA%\\Microsoft\\Windows\\Start Menu\\Programs\\H Player"
+  echo Removed start menu shortcuts
+)
+
+REM Ask user if they want to remove the application directory
+echo.
+echo This will remove the H Player application directory.
+set /p choice="Do you want to remove the application files? (y/n): "
+if /i "%choice%"=="y" (
+  for %%I in ("%~dp0.") do set "currentDir=%%~fI"
+  echo Removing application directory: %currentDir%
+  cd ..
+  rmdir /s /q "%currentDir%"
+  echo Application uninstalled successfully!
+) else (
+  echo Application shortcuts removed. Application files remain in: %~dp0
+)
+
+echo.
+pause
+`;
+
 fs.writeFileSync(path.join(appDir, 'Run-H-Player.bat'), launcherContent);
+fs.writeFileSync(path.join(appDir, 'Uninstall-H-Player.bat'), uninstallerContent);
 
 // Create ZIP archive
-const zipPath = path.join(__dirname, '..', 'H-Player-Manual-1.0.0.zip');
+const zipPath = path.join(__dirname, '..', `H-Player-Manual-${version}.zip`);
 const output = fs.createWriteStream(zipPath);
 const archive = archiver('zip', { zlib: { level: 9 } });
 
@@ -121,7 +161,8 @@ output.on('close', () => {
   console.log('\nTo use this package:');
   console.log('1. Extract the ZIP file');
   console.log('2. Place electron.exe in the extracted directory');
-  console.log('3. Run Run-H-Player.bat');
+  console.log('3. Run Run-H-Player.bat to start the application');
+  console.log('4. Run Uninstall-H-Player.bat to uninstall when needed');
 });
 
 archive.on('error', (err) => {

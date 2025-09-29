@@ -74,7 +74,7 @@ class VideoPlayerApp {
     });
 
     // Load the renderer
-    const isDevelopment = true; // process.env.NODE_ENV === 'development';
+    const isDevelopment = process.env.NODE_ENV === 'development';
     if (isDevelopment) {
       // Dynamically discover the running Vite dev server port
       const devUrl = await this.findViteDevServer();
