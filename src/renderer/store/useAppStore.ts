@@ -3,7 +3,7 @@
  */
 
 import { create } from 'zustand';
-import { devtools } from 'zustand/middleware';
+import { devtools, persist } from 'zustand/middleware';
 import type { 
   Movie, 
   Show, 
@@ -21,6 +21,7 @@ interface AppState {
   isLoading: boolean;
   isSidebarOpen: boolean;
   searchQuery: string;
+  activeMenu: 'movies' | 'shows' | 'continue' | 'recent';
   
   // Media Library
   movies: Movie[];
@@ -63,6 +64,7 @@ interface AppActions {
   setLoading: (loading: boolean) => void;
   toggleSidebar: () => void;
   setSearchQuery: (query: string) => void;
+  setActiveMenu: (menu: AppState['activeMenu']) => void;
   
   // Media Library Actions
   setMovies: (movies: Movie[]) => void;
@@ -116,6 +118,7 @@ const initialState: AppState = {
   isLoading: false,
   isSidebarOpen: false,
   searchQuery: '',
+  activeMenu: 'movies',
   
   // Media Library
   movies: [],
@@ -153,15 +156,17 @@ const initialState: AppState = {
 };
 
 export const useAppStore = create<AppStore>()(
-  devtools(
-    (set, get) => ({
+  persist(
+    devtools(
+      (set, get) => ({
       ...initialState,
       
       // UI Actions
       setCurrentView: (view) => set({ currentView: view }),
       setLoading: (loading) => set({ isLoading: loading }),
       toggleSidebar: () => set((state) => ({ isSidebarOpen: !state.isSidebarOpen })),
-      setSearchQuery: (query) => set({ searchQuery: query }),
+  setSearchQuery: (query) => set({ searchQuery: query }),
+  setActiveMenu: (menu) => set({ activeMenu: menu }),
       
       // Media Library Actions
       setMovies: (movies) => set({ movies }),
@@ -281,7 +286,9 @@ export const useAppStore = create<AppStore>()(
       
       // Utility Actions
       reset: () => set(initialState),
-    }),
-    { name: 'videoplayer-store' }
+      }),
+      { name: 'hplayer-devtools' }
+    ),
+    { name: 'hplayer-store', partialize: (state) => ({ activeMenu: state.activeMenu }) }
   )
 );

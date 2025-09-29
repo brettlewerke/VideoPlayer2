@@ -4,7 +4,7 @@
 
 import React from 'react';
 import { useAppStore } from '../store/useAppStore.js';
-import { useNavigation } from '../hooks/useNavigation.js';
+// import { useNavigation } from '../hooks/useNavigation.js';
 import { MediaGrid } from '../components/MediaGrid.js';
 import { HeroSection } from '../components/HeroSection.js';
 
@@ -15,15 +15,61 @@ export function HomePage() {
     movies, 
     shows, 
     isScanning,
-    scanProgress 
+    scanProgress,
+    activeMenu,
+    drives
   } = useAppStore();
 
   const featuredMovie = movies[0]; // Use first movie as featured
 
+  const missingMovies = drives.length > 0 && movies.length === 0;
+  const missingShows = drives.length > 0 && shows.length === 0;
+  const noDrive = drives.length === 0;
+
+  const showDriveNotFound = !isScanning && (noDrive || (missingMovies && missingShows));
+
+  // Selected collection items
+  let contentSection: React.ReactNode = null;
+  if (activeMenu === 'movies') {
+    contentSection = movies.length > 0 ? (
+      <section>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-2xl font-bold text-green-100">Movies</h2>
+          <button className="text-green-400 hover:text-green-300 transition-colors">View All →</button>
+        </div>
+        <MediaGrid items={movies.slice(0, 12)} />
+      </section>
+    ) : null;
+  } else if (activeMenu === 'shows') {
+    contentSection = shows.length > 0 ? (
+      <section>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-2xl font-bold text-green-100">TV Shows</h2>
+          <button className="text-green-400 hover:text-green-300 transition-colors">View All →</button>
+        </div>
+        <MediaGrid items={shows.slice(0, 12)} />
+      </section>
+    ) : null;
+  } else if (activeMenu === 'continue') {
+    contentSection = continueWatching.length > 0 ? (
+      <section>
+        <h2 className="text-2xl font-bold mb-4 text-green-100">Continue Watching</h2>
+        <MediaGrid items={continueWatching} />
+      </section>
+    ) : <div className="text-green-300/70">Nothing in progress yet.</div>;
+  } else if (activeMenu === 'recent') {
+    contentSection = recentlyAdded.length > 0 ? (
+      <section>
+        <h2 className="text-2xl font-bold mb-4 text-green-100">Recently Added</h2>
+        <MediaGrid items={recentlyAdded} />
+      </section>
+    ) : <div className="text-green-300/70">No recent additions.</div>;
+  }
+
   return (
     <div className="h-full overflow-y-auto">
-      {/* Hero section */}
-      {featuredMovie && <HeroSection movie={featuredMovie} />}
+      {/* Hero section (only for movies tab for now) */}
+      {activeMenu === 'movies' && featuredMovie && <HeroSection movie={featuredMovie} />}
 
       {/* Scan progress */}
       {isScanning && scanProgress && (
@@ -49,73 +95,33 @@ export function HomePage() {
         </div>
       )}
 
-      {/* Content sections */}
       <div className="px-8 pb-8 space-y-8">
-        {/* Continue Watching */}
-        {continueWatching.length > 0 && (
-          <section>
-            <h2 className="text-2xl font-bold mb-4 text-green-100">Continue Watching</h2>
-            <MediaGrid items={continueWatching} />
-          </section>
-        )}
-
-        {/* Recently Added */}
-        {recentlyAdded.length > 0 && (
-          <section>
-            <h2 className="text-2xl font-bold mb-4 text-green-100">Recently Added</h2>
-            <MediaGrid items={recentlyAdded} />
-          </section>
-        )}
-
-        {/* Movies */}
-        {movies.length > 0 && (
-          <section>
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-2xl font-bold text-green-100">Movies</h2>
-              <button className="text-green-400 hover:text-green-300 transition-colors">
-                View All →
-              </button>
-            </div>
-            <MediaGrid items={movies.slice(0, 10)} />
-          </section>
-        )}
-
-        {/* TV Shows */}
-        {shows.length > 0 && (
-          <section>
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-2xl font-bold text-green-100">TV Shows</h2>
-              <button className="text-green-400 hover:text-green-300 transition-colors">
-                View All →
-              </button>
-            </div>
-            <MediaGrid items={shows.slice(0, 10)} />
-          </section>
-        )}
-
-        {/* Empty state */}
-        {movies.length === 0 && shows.length === 0 && !isScanning && (
-          <div className="text-center py-16">
-            <div className="text-6xl mb-4">🎬</div>
-            <h3 className="text-2xl font-bold mb-2 text-green-100">No Media Found</h3>
-            <p className="text-green-300/70 mb-6 max-w-md mx-auto">
-              Start by scanning your drives for Movies and TV Shows folders, or add a media folder manually.
-            </p>
-            <div className="space-y-3">
-              <button 
-                onClick={() => window.electronAPI.library.scanMedia()}
-                className="bg-gradient-to-r from-green-600 to-green-500 hover:from-green-500 hover:to-green-400 
-                  text-black font-medium py-3 px-6 rounded-lg transition-all duration-200 
-                  focus:outline-none focus:ring-2 focus:ring-green-500/50 shadow-lg shadow-green-500/20"
-              >
-                Scan for Media
-              </button>
-              <div className="text-sm text-green-400/60">
-                or press Ctrl+R to scan drives
+        {showDriveNotFound ? (
+          <div className="text-center py-24 max-w-3xl mx-auto">
+            <div className="mb-6">
+              <div className="mx-auto w-28 h-28 rounded-2xl flex items-center justify-center bg-surface-2 shadow-brand-glow">
+                <span className="text-4xl font-bold text-brand">H</span>
               </div>
             </div>
+            <h1 className="text-4xl font-extrabold mb-4 text-text-primary">Drive not found</h1>
+            <p className="text-text-secondary mb-6 leading-relaxed">
+              This desktop app catalogs Movies and TV Shows from a plugged-in drive. At the root of the drive, create two folders named <span className="text-brand font-semibold">Movies</span> and <span className="text-brand font-semibold">TV Shows</span>. Once attached, H Player will scan them locally and display your library—no network required.
+            </p>
+            <div className="mb-4 text-sm text-text-muted">
+              Inspected mount points: {drives.length === 0 ? 'none detected yet' : drives.map(d=>d.path).join(', ')}
+            </div>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <button
+                onClick={() => window.electronAPI.library.scanMedia()}
+                className="px-6 py-3 rounded-lg bg-brand hover:bg-brand-hover text-text-inverted font-semibold shadow-brand-glow focus-visible:outline-none focus-visible:shadow-focus-brand transition"
+              >Rescan</button>
+              <button
+                onClick={() => window.electronAPI.app.openSettings?.()}
+                className="px-6 py-3 rounded-lg bg-surface-2 hover:bg-surface-3 border border-surface-border text-text-primary font-medium focus-visible:outline-none focus-visible:shadow-focus-brand transition"
+              >Settings</button>
+            </div>
           </div>
-        )}
+        ) : contentSection}
       </div>
     </div>
   );
