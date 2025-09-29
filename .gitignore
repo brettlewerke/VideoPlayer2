@@ -87,8 +87,16 @@ thumbnails/
 *.db-shm
 *.db-wal
 temp/
+logs/
 
-# Portable bundles
+# Development artifacts
+*.tmp
+*.temp
+*.cache
+*.bak
+*.swp
+*.swo
+*~
 dist-portable/
 
 # Manual packaging outputs
