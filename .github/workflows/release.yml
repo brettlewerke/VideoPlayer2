@@ -1,0 +1,82 @@
+name: Release
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm run test
+
+      - name: Build application
+        run: npm run build
+
+      - name: Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npm run release
+
+      - name: Build distribution packages
+        run: |
+          npm run pack:manual
+          # Install NSIS for Windows builds
+          sudo apt-get update
+          sudo apt-get install -y nsis
+          makensis installer.nsi
+
+      - name: Create GitHub Release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: Release ${{ github.ref }}
+          body: |
+            ## Changes
+            See [CHANGELOG.md](CHANGELOG.md) for details.
+
+            ## Downloads
+            - **Windows Installer**: H-Player-Setup-${{ github.ref }}.exe
+            - **Portable Package**: H-Player-Manual-${{ github.ref }}.zip
+          draft: false
+          prerelease: false
+
+      - name: Upload Windows Installer
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./H-Player-Setup-${{ github.ref }}.exe
+          asset_name: H-Player-Setup-${{ github.ref }}.exe
+          asset_content_type: application/octet-stream
+
+      - name: Upload Portable Package
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./H-Player-Manual-${{ github.ref }}.zip
+          asset_name: H-Player-Manual-${{ github.ref }}.zip
+          asset_content_type: application/zip

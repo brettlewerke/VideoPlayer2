@@ -197,7 +197,45 @@ scripts/                 # Build and setup scripts
 - **MPV** - High-performance playback
 - **Vite** - Fast development builds
 
-## 📋 System Requirements
+## � Releases & Versioning
+
+H Player uses [semantic versioning](https://semver.org/) and automated releases.
+
+### Automatic Version Bumping
+
+Each merge to `main` automatically:
+- Analyzes commit messages using [Conventional Commits](https://conventionalcommits.org/)
+- Bumps version number (patch/minor/major)
+- Generates changelog
+- Creates GitHub release with distribution packages
+
+### Easy Commit Helper
+
+Use the built-in commit helper for properly formatted commits:
+
+```bash
+# Interactive commit helper
+npm run commit feat "add new feature description"
+npm run commit fix "resolve bug description"
+npm run commit docs "update documentation"
+
+# Or use the script directly
+node scripts/commit.js feat "add dark mode toggle"
+```
+
+### Manual Release Commands
+
+```bash
+# Automatic release (based on commits)
+npm run release
+
+# Force specific version bump
+npm run release:patch    # 1.0.0 → 1.0.1
+npm run release:minor    # 1.0.0 → 1.1.0
+npm run release:major    # 1.0.0 → 2.0.0
+```
+
+## �📋 System Requirements
 
 - **OS**: Windows 10+, macOS 10.15+, Ubuntu 18.04+ or equivalent
 - **RAM**: 4GB minimum, 8GB recommended
