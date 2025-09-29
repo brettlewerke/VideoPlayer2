@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=H Player
+Comment=Local desktop media player for Movies & TV Shows
+Exec=sh -c '"$(dirname %k)/run-h-player.sh"'
+Icon=h-player
+Categories=AudioVideo;Player;
+Terminal=false

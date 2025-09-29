@@ -4,6 +4,7 @@
 
 import { app, BrowserWindow, Menu, globalShortcut, nativeTheme, dialog } from 'electron';
 import { join } from 'path';
+import { platform } from 'os';
 import { existsSync } from 'fs';
 import { DatabaseManager } from './database/database.js';
 import { DriveManager } from './services/drive-manager.js';
@@ -67,6 +68,8 @@ class VideoPlayerApp {
         symbolColor: '#ffffff',
       },
       show: false, // Don't show until ready
+      title: 'H Player',
+      backgroundColor: '#050706'
     });
 
     // Load the renderer
@@ -111,8 +114,22 @@ class VideoPlayerApp {
   }
 
   private getAppIcon(): string | undefined {
-    const iconPath = join(__dirname, '../assets/icon.png');
-    return existsSync(iconPath) ? iconPath : undefined;
+    // Resolve platform specific icons packaged by electron-builder
+    const root = join(__dirname, '..', '..', '..'); // adjust if needed depending on asar packaging
+    const buildDir = join(root, 'build');
+    let candidate: string | undefined;
+    switch (platform()) {
+      case 'win32':
+        candidate = join(buildDir, 'icon.ico');
+        break;
+      case 'darwin':
+        candidate = join(buildDir, 'icon.icns');
+        break;
+      default:
+        candidate = join(buildDir, 'icons', '512x512.png');
+        break;
+    }
+    return candidate && existsSync(candidate) ? candidate : undefined;
   }
 
   private async loadSettings(): Promise<void> {
