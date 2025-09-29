@@ -68,11 +68,13 @@ const rendererSrc = path.join(__dirname, '..', 'dist', 'renderer');
 const rendererDest = path.join(appDir, 'resources', 'app');
 copyDir(rendererSrc, rendererDest);
 
-// Copy vendor binaries
+// Copy vendor binaries with correct structure
 const vendorSrc = path.join(__dirname, '..', 'vendor');
 const vendorDest = path.join(appDir, 'vendor');
 if (fs.existsSync(vendorSrc)) {
-  copyDir(vendorSrc, vendorDest);
+  // Create the expected mpv subdirectory structure
+  const mpvVendorDest = path.join(vendorDest, 'mpv');
+  copyDir(vendorSrc, mpvVendorDest);
 }
 
 // Copy FFmpeg DLLs to main directory for MPV compatibility
