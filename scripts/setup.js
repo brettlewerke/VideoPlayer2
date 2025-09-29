@@ -203,8 +203,8 @@ async function downloadMpvBinary(vendorDir) {
   // Define download URLs for different platforms
   const mpvUrls = {
     'win32': {
-      'x64': 'https://github.com/shinchiro/mpv-winbuild-cmake/releases/download/20240128/mpv-x86_64-20240128-git-2059e9d.7z',
-      'ia32': 'https://github.com/shinchiro/mpv-winbuild-cmake/releases/download/20240128/mpv-i686-20240128-git-2059e9d.7z',
+      'x64': 'https://github.com/shinchiro/mpv-winbuild-cmake/releases/download/20250929/mpv-dev-x86_64-20250929-git-7037ff4.7z',
+      'ia32': 'https://github.com/shinchiro/mpv-winbuild-cmake/releases/download/20250929/mpv-dev-i686-20250929-git-7037ff4.7z',
     },
     'darwin': {
       'x64': 'https://github.com/mpv-player/mpv/releases/download/v0.37.0/mpv-v0.37.0.tar.gz',
