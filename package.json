@@ -1,6 +1,6 @@
 {
   "name": "h-player",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "H Player – local desktop video player for Movies & TV Shows on plugged-in drives (no network services)",
   "main": "dist/main/main/main.js",
   "scripts": {
@@ -22,7 +22,11 @@
     "lint": "eslint src --ext .ts,.tsx",
     "lint:fix": "eslint src --ext .ts,.tsx --fix",
     "type-check": "tsc --noEmit",
-    "smoke-test": "node scripts/smoke-test.js"
+    "smoke-test": "node scripts/smoke-test.js",
+    "release": "standard-version",
+    "release:minor": "standard-version --release-as minor",
+    "release:major": "standard-version --release-as major",
+    "release:patch": "standard-version --release-as patch"
   },
   "keywords": [
     "electron",
@@ -57,6 +61,7 @@
     "playwright": "^1.40.0",
     "postcss": "^8.4.31",
     "sharp": "^0.34.4",
+    "standard-version": "^9.5.0",
     "tailwindcss": "^3.3.5",
     "tar": "^6.2.0",
     "to-ico": "^1.1.5",
