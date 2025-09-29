@@ -1,0 +1,122 @@
+{
+  "name": "videoplayer2",
+  "version": "1.0.0",
+  "description": "Cross-platform desktop media player for local video libraries with a Netflix-style 10-foot interface",
+  "main": "dist/main/main.js",
+  "scripts": {
+    "setup": "node scripts/setup.js",
+    "dev": "concurrently \"npm run dev:renderer\" \"npm run dev:main\"",
+    "dev:renderer": "vite",
+    "dev:main": "tsc -p src/main/tsconfig.json && electron dist/main/main.js",
+    "build": "npm run build:renderer && npm run build:main",
+    "build:renderer": "vite build",
+    "build:main": "tsc -p src/main/tsconfig.json",
+    "electron": "electron .",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder",
+    "dist:all": "electron-builder -mwl",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:e2e": "playwright test",
+    "lint": "eslint src --ext .ts,.tsx",
+    "lint:fix": "eslint src --ext .ts,.tsx --fix",
+    "type-check": "tsc --noEmit",
+    "smoke-test": "node scripts/smoke-test.js"
+  },
+  "keywords": [
+    "electron",
+    "react",
+    "media-player",
+    "video",
+    "library",
+    "cross-platform"
+  ],
+  "author": "VideoPlayer2",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.8",
+    "@types/jest": "^29.5.8",
+    "@types/node": "^20.9.0",
+    "@types/react": "^18.2.37",
+    "@types/react-dom": "^18.2.15",
+    "@typescript-eslint/eslint-plugin": "^6.11.0",
+    "@typescript-eslint/parser": "^6.11.0",
+    "@vitejs/plugin-react": "^4.1.1",
+    "autoprefixer": "^10.4.16",
+    "concurrently": "^8.2.2",
+    "electron": "^27.1.0",
+    "electron-builder": "^24.6.4",
+    "electron-rebuild": "^3.2.9",
+    "eslint": "^8.54.0",
+    "eslint-plugin-react": "^7.33.2",
+    "eslint-plugin-react-hooks": "^4.6.0",
+    "jest": "^29.7.0",
+    "playwright": "^1.40.0",
+    "postcss": "^8.4.31",
+    "tailwindcss": "^3.3.5",
+    "ts-jest": "^29.1.1",
+    "typescript": "^5.2.2",
+    "vite": "^4.5.0"
+  },
+  "dependencies": {
+    "better-sqlite3": "^9.1.1",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "zustand": "^4.4.6"
+  },
+  "build": {
+    "appId": "com.videoplayer2.app",
+    "productName": "VideoPlayer2",
+    "directories": {
+      "output": "dist-packages"
+    },
+    "files": [
+      "dist/**/*",
+      "vendor/**/*",
+      "assets/**/*",
+      "package.json"
+    ],
+    "mac": {
+      "category": "public.app-category.entertainment",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ]
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64",
+            "ia32"
+          ]
+        }
+      ]
+    },
+    "linux": {
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "deb",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    }
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
