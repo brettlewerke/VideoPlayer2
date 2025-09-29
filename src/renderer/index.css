@@ -6,6 +6,29 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Semantic color variables (green & near-black theme) */
+:root {
+  --color-brand: #19c463; /* base saturated green */
+  --color-brand-hover: #21d270;
+  --color-brand-ring: rgba(25,196,99,0.55);
+
+  --color-surface-0: #050706; /* deepest background */
+  --color-surface-1: #0a0d0c; /* raised panel */
+  --color-surface-2: #101513; /* higher elevation */
+  --color-surface-3: #18201d; /* overlays */
+  --color-surface-border: #1f2a25;
+
+  --color-text-primary: #f0fdfa;
+  --color-text-secondary: #b2c7bf;
+  --color-text-muted: #6b7d76;
+  --color-text-inverted: #04130b;
+  --color-focus-ring: rgba(25,196,99,0.65);
+}
+
+html.dark {
+  color-scheme: dark;
+}
+
 /* Custom scrollbar for webkit browsers */
 ::-webkit-scrollbar {
   width: 8px;
@@ -34,8 +57,9 @@
 
 /* Focus outline for keyboard navigation */
 .focus-visible {
-  outline: 2px solid rgba(59, 130, 246, 0.5);
-  outline-offset: 2px;
+  outline: 3px solid var(--color-focus-ring);
+  outline-offset: 3px;
+  border-radius: 4px;
 }
 
 /* Custom utility classes */
@@ -73,9 +97,42 @@
 
 /* Selection styles */
 ::selection {
-  background-color: rgba(59, 130, 246, 0.3);
-  color: white;
+  background-color: rgba(25, 196, 99, 0.35);
+  color: var(--color-text-primary);
 }
+
+body, #root {
+  background: linear-gradient(135deg, var(--color-surface-0), var(--color-surface-1));
+  color: var(--color-text-primary);
+}
+
+/* Utility: brand focus ring */
+.ring-brand {
+  box-shadow: 0 0 0 3px var(--color-focus-ring);
+}
+
+/* Elevated surfaces */
+.surface-panel {
+  background: var(--color-surface-1);
+  border: 1px solid var(--color-surface-border);
+}
+
+.surface-overlay {
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-surface-border);
+}
+
+/* Scrollbar recolor for theme */
+::-webkit-scrollbar-track {
+  background: var(--color-surface-1);
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(25,196,99,0.35);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(25,196,99,0.55);
+}
+* { scrollbar-color: rgba(25,196,99,0.5) var(--color-surface-1); }
 
 /* Base styles */
 html, body, #root {

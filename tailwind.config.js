@@ -1,33 +1,39 @@
 /** @type {import('tailwindcss').Config} */
 module.exports = {
+  darkMode: 'class',
   content: ['./src/renderer/**/*.{js,ts,jsx,tsx}'],
   theme: {
     extend: {
       colors: {
-        primary: {
-          50: '#eff6ff',
-          100: '#dbeafe',
-          200: '#bfdbfe',
-          300: '#93c5fd',
-          400: '#60a5fa',
-          500: '#3b82f6',
-          600: '#2563eb',
-          700: '#1d4ed8',
-          800: '#1e40af',
-          900: '#1e3a8a',
+        // Semantic tokens – use in components rather than raw hex values
+        brand: {
+          DEFAULT: 'var(--color-brand)',
+          hover: 'var(--color-brand-hover)',
+          ring: 'var(--color-brand-ring)',
         },
-        accent: {
-          50: '#fdf4ff',
-          100: '#fae8ff',
-          200: '#f5d0fe',
-          300: '#f0abfc',
-          400: '#e879f9',
-          500: '#d946ef',
-          600: '#c026d3',
-          700: '#a21caf',
-          800: '#86198f',
-          900: '#701a75',
+        surface: {
+          0: 'var(--color-surface-0)', // base near-black
+          1: 'var(--color-surface-1)', // raised panels
+          2: 'var(--color-surface-2)', // overlays / modals
+          3: 'var(--color-surface-3)',
+          border: 'var(--color-surface-border)',
         },
+        text: {
+          primary: 'var(--color-text-primary)',
+          secondary: 'var(--color-text-secondary)',
+          muted: 'var(--color-text-muted)',
+          inverted: 'var(--color-text-inverted)',
+        },
+        focus: {
+          ring: 'var(--color-focus-ring)',
+        },
+        danger: {
+          DEFAULT: '#dc2626'
+        },
+      },
+      boxShadow: {
+        'focus-brand': '0 0 0 3px var(--color-focus-ring)',
+        'brand-glow': '0 0 0 1px var(--color-brand), 0 0 12px -2px var(--color-brand)',
       },
       spacing: {
         '18': '4.5rem',
@@ -37,14 +43,19 @@ module.exports = {
         '128': '32rem',
       },
       fontSize: {
+        // Ten-foot UI ramps (slightly larger)
         '2xs': ['0.625rem', { lineHeight: '0.75rem' }],
-        '3xl': ['1.875rem', { lineHeight: '2.25rem' }],
-        '4xl': ['2.25rem', { lineHeight: '2.5rem' }],
-        '5xl': ['3rem', { lineHeight: '1' }],
-        '6xl': ['3.75rem', { lineHeight: '1' }],
-        '7xl': ['4.5rem', { lineHeight: '1' }],
-        '8xl': ['6rem', { lineHeight: '1' }],
-        '9xl': ['8rem', { lineHeight: '1' }],
+        'base': ['1rem', { lineHeight: '1.4rem' }],
+        'lg': ['1.125rem', { lineHeight: '1.5rem' }],
+        'xl': ['1.35rem', { lineHeight: '1.75rem' }],
+        '2xl': ['1.65rem', { lineHeight: '2rem' }],
+        '3xl': ['2.1rem', { lineHeight: '2.4rem' }],
+        '4xl': ['2.5rem', { lineHeight: '2.7rem' }],
+        '5xl': ['3.25rem', { lineHeight: '1' }],
+        '6xl': ['4rem', { lineHeight: '1' }],
+        '7xl': ['4.75rem', { lineHeight: '1' }],
+        '8xl': ['6.25rem', { lineHeight: '1' }],
+        '9xl': ['8.25rem', { lineHeight: '1' }],
       },
       aspectRatio: {
         'poster': '2/3',
