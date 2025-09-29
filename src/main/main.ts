@@ -6,6 +6,7 @@ import { app, BrowserWindow, Menu, globalShortcut, nativeTheme, dialog } from 'e
 import { join } from 'path';
 import { platform } from 'os';
 import { existsSync } from 'fs';
+import { request } from 'http';
 import { DatabaseManager } from './database/database.js';
 import { DriveManager } from './services/drive-manager.js';
 import { MediaScanner } from './services/media-scanner.js';
@@ -75,7 +76,7 @@ class VideoPlayerApp {
     // Load the renderer
     const isDevelopment = true; // process.env.NODE_ENV === 'development';
     if (isDevelopment) {
-      // Dynamically discover the running Vite dev server port instead of hardcoding.
+      // Dynamically discover the running Vite dev server port
       const devUrl = await this.findViteDevServer();
       await this.mainWindow.loadURL(devUrl);
       this.mainWindow.webContents.openDevTools();
@@ -138,39 +139,107 @@ class VideoPlayerApp {
    */
   private async findViteDevServer(): Promise<string> {
     const explicit = process.env.VITE_DEV_PORT ? [Number(process.env.VITE_DEV_PORT)] : [];
-    const candidates = [...explicit, ...Array.from({ length: 16 }, (_, i) => 3000 + i)];
-    const tried: number[] = [];
-    const start = Date.now();
-    const maxWaitMs = 8000; // total patience window
-    const pollDelayMs = 300;
-
-    while (Date.now() - start < maxWaitMs) {
-      for (const port of candidates) {
-        if (tried.includes(port)) continue;
-        tried.push(port);
-        try {
-          const controller = new AbortController();
-            const timeout = setTimeout(() => controller.abort(), 500);
-          const res = await fetch(`http://localhost:${port}/`, { signal: controller.signal });
-          clearTimeout(timeout);
-          if (res.ok) {
-            const textSnippet = (await res.text()).slice(0, 250).toLowerCase();
-            if (textSnippet.includes('vite') || textSnippet.includes('<!doctype html')) {
-              console.log(`[dev] Using Vite dev server at http://localhost:${port}`);
-              return `http://localhost:${port}`;
-            }
-          }
-        } catch (err) {
-          // Ignore and continue polling
+    const candidates = [...explicit, ...Array.from({ length: 20 }, (_, i) => 3000 + i)];
+    
+    console.log(`[dev] Searching for Vite dev server on ports: ${candidates.join(', ')}`);
+    
+    // First, try all ports once
+    for (const port of candidates) {
+      try {
+        console.log(`[dev] Testing port ${port}...`);
+        const isVite = await this.testPort(port);
+        if (isVite) {
+          console.log(`[dev] ✓ Found Vite dev server at http://localhost:${port}`);
+          return `http://localhost:${port}`;
         }
+      } catch (err) {
+        console.log(`[dev] Port ${port} test failed: ${err}`);
       }
-      // If not found yet, reset tried so we can probe again (server might appear later)
-      tried.length = 0;
-      await new Promise(r => setTimeout(r, pollDelayMs));
     }
-    const msg = `Unable to locate Vite dev server after ${(Date.now() - start)}ms on candidate ports: ${candidates.join(', ')}`;
-    console.error(msg);
+    
+    // If nothing found, wait a bit and try again (Vite might still be starting)
+    console.log(`[dev] No Vite server found on first pass, waiting and retrying...`);
+    await new Promise(r => setTimeout(r, 1000));
+    
+    for (const port of candidates) {
+      try {
+        const isVite = await this.testPort(port);
+        if (isVite) {
+          console.log(`[dev] ✓ Found Vite dev server at http://localhost:${port} (retry)`);
+          return `http://localhost:${port}`;
+        }
+      } catch (err) {
+        // Silent retry
+      }
+    }
+    
+    const msg = `Unable to locate Vite dev server on candidate ports: ${candidates.join(', ')}`;
+    console.error(`[dev] ${msg}`);
     throw new Error(msg);
+  }
+
+  /**
+   * Test if a port is responding with what looks like a Vite dev server
+   */
+  private testPort(port: number): Promise<boolean> {
+    return new Promise((resolve) => {
+      const req = request({
+        hostname: '127.0.0.1', // Use IPv4 explicitly instead of 'localhost'
+        port: port,
+        path: '/',
+        method: 'GET',
+        timeout: 1000,
+        family: 4 // Force IPv4
+      }, (res) => {
+        console.log(`[dev] Port ${port} returned status ${res.statusCode}`);
+        
+        // Accept successful responses and some dev server specific codes
+        if (res.statusCode && (
+          (res.statusCode >= 200 && res.statusCode < 300) || 
+          res.statusCode === 426 || // Upgrade Required - common with Vite dev server
+          res.statusCode === 304    // Not Modified
+        )) {
+          let data = '';
+          res.setEncoding('utf8');
+          res.on('data', (chunk) => {
+            data += chunk;
+            // Stop reading once we have enough to check
+            if (data.length > 500) {
+              res.destroy();
+            }
+          });
+          res.on('end', () => {
+            const lowerData = data.toLowerCase();
+            // Look for Vite-specific markers or typical HTML structure
+            const isVite = lowerData.includes('vite') || 
+                          lowerData.includes('<!doctype html') ||
+                          lowerData.includes('<script type="module"') ||
+                          lowerData.includes('@vite/client') ||
+                          res.statusCode === 426; // 426 is often Vite dev server
+            console.log(`[dev] Port ${port} response check: ${isVite ? 'VITE' : 'OTHER'} (${data.slice(0, 100)}...)`);
+            resolve(isVite);
+          });
+          res.on('error', (err) => {
+            console.log(`[dev] Port ${port} response error: ${err.message}`);
+            resolve(false);
+          });
+        } else {
+          // Non-success status - reject this port
+          resolve(false);
+        }
+      });
+      
+      req.on('error', (err) => {
+        console.log(`[dev] Port ${port} connection failed: ${err.message}`);
+        resolve(false);
+      });
+      req.on('timeout', () => {
+        console.log(`[dev] Port ${port} timeout`);
+        req.destroy();
+        resolve(false);
+      });
+      req.end();
+    });
   }
 
   private async loadSettings(): Promise<void> {
