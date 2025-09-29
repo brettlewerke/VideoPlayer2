@@ -1,5 +1,5 @@
-; H Player Installer Script
-; This script creates an installer for H Player with uninstall support
+; H Player Production Installer
+; Creates a professional Windows installer from manual packaging
 
 !include "MUI2.nsh"
 !include "FileFunc.nsh"
@@ -15,16 +15,16 @@ RequestExecutionLevel admin
 
 ; Modern UI Configuration
 !define MUI_ABORTWARNING
-!define MUI_ICON "..\build\icon.ico"
-!define MUI_UNICON "..\build\icon.ico"
+!define MUI_ICON "build\icon.ico"
+!define MUI_UNICON "build\icon.ico"
 !define MUI_HEADERIMAGE
-!define MUI_HEADERIMAGE_BITMAP "..\build\icons\256x256.bmp"
-!define MUI_WELCOMEFINISHPAGE_BITMAP "..\build\icons\256x256.bmp"
-!define MUI_UNWELCOMEFINISHPAGE_BITMAP "..\build\icons\256x256.bmp"
+!define MUI_HEADERIMAGE_BITMAP "build\icons\256x256.bmp"
+!define MUI_WELCOMEFINISHPAGE_BITMAP "build\icons\256x256.bmp"
+!define MUI_UNWELCOMEFINISHPAGE_BITMAP "build\icons\256x256.bmp"
 
 ; Pages
 !insertmacro MUI_PAGE_WELCOME
-!insertmacro MUI_PAGE_LICENSE "..\LICENSE"
+!insertmacro MUI_PAGE_LICENSE "LICENSE"
 !insertmacro MUI_PAGE_DIRECTORY
 !insertmacro MUI_PAGE_INSTFILES
 !insertmacro MUI_PAGE_FINISH
@@ -41,6 +41,7 @@ RequestExecutionLevel admin
 VIProductVersion "1.1.0.0"
 VIAddVersionKey "ProductName" "H Player"
 VIAddVersionKey "CompanyName" "H Player Project"
+VIAddVersionKey "LegalCopyright" "Copyright (c) 2024 H Player Project"
 VIAddVersionKey "FileVersion" "1.1.0.0"
 VIAddVersionKey "ProductVersion" "1.1.0.0"
 VIAddVersionKey "FileDescription" "H Player - Local Desktop Video Player"
@@ -51,19 +52,25 @@ Section "H Player" SecApp
 
   SetOutPath "$INSTDIR"
 
-  ; Copy application files
+  ; Copy application files from manual packaging
   DetailPrint "Installing H Player..."
-  File /r "..\dist-manual\H Player\*.*"
+  File /r "dist-manual\H Player\*.*"
 
-  ; Copy electron.exe (assuming it's in the same directory as the installer)
-  File "..\node_modules\electron\dist\electron.exe"
+  ; Copy electron.exe from node_modules
+  File "node_modules\electron\dist\electron.exe"
+
+  ; Rename electron.exe to H Player.exe for better branding
+  Rename "$INSTDIR\electron.exe" "$INSTDIR\H Player.exe"
+
+  ; Create uninstaller
+  WriteUninstaller "$INSTDIR\Uninstall.exe"
 
   ; Create desktop shortcut
-  CreateShortCut "$DESKTOP\H Player.lnk" "$INSTDIR\electron.exe" '"$INSTDIR\resources\app\main\main.js"' "$INSTDIR\resources\app\build\icon.ico"
+  CreateShortCut "$DESKTOP\H Player.lnk" "$INSTDIR\H Player.exe" "" "$INSTDIR\resources\app\build\icon.ico"
 
   ; Create start menu entries
   CreateDirectory "$SMPROGRAMS\H Player"
-  CreateShortCut "$SMPROGRAMS\H Player\H Player.lnk" "$INSTDIR\electron.exe" '"$INSTDIR\resources\app\main\main.js"' "$INSTDIR\resources\app\build\icon.ico"
+  CreateShortCut "$SMPROGRAMS\H Player\H Player.lnk" "$INSTDIR\H Player.exe" "" "$INSTDIR\resources\app\build\icon.ico"
   CreateShortCut "$SMPROGRAMS\H Player\Uninstall.lnk" "$INSTDIR\Uninstall.exe"
 
   ; Registry entries for Add/Remove Programs
@@ -74,9 +81,11 @@ Section "H Player" SecApp
   WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\H Player" "DisplayIcon" "$INSTDIR\resources\app\build\icon.ico"
   WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\H Player" "Publisher" "H Player Project"
   WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\H Player" "DisplayVersion" "1.1.0"
+  ${GetSize} "$INSTDIR" "/S=0K" $0 $1 $2
+  IntFmt $0 "0x%08X" $0
+  WriteRegDWORD HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\H Player" "EstimatedSize" "$0"
   WriteRegDWORD HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\H Player" "NoModify" 1
   WriteRegDWORD HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\H Player" "NoRepair" 1
-  WriteRegDWORD HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\H Player" "EstimatedSize" 164000
 
   ; Store installation folder
   WriteRegStr HKCU "Software\H Player" "" $INSTDIR
@@ -86,15 +95,29 @@ SectionEnd
 ; Uninstaller Section
 Section "Uninstall"
 
+  ; Stop any running H Player processes
+  DetailPrint "Stopping H Player processes..."
+  nsExec::ExecToLog 'taskkill /f /im "H Player.exe" /t'
+  nsExec::ExecToLog 'taskkill /f /im "electron.exe" /fi "WINDOWTITLE eq H Player" /t'
+
   ; Remove files
+  DetailPrint "Removing application files..."
   Delete "$INSTDIR\Uninstall.exe"
   RMDir /r "$INSTDIR"
 
   ; Remove shortcuts
+  DetailPrint "Removing shortcuts..."
   Delete "$DESKTOP\H Player.lnk"
   RMDir /r "$SMPROGRAMS\H Player"
 
+  ; Remove user data (optional - ask user)
+  MessageBox MB_YESNO "Remove user data and settings?" IDNO skipUserData
+  DetailPrint "Removing user data..."
+  RMDir /r "$APPDATA\H Player"
+  skipUserData:
+
   ; Remove registry entries
+  DetailPrint "Cleaning up registry..."
   DeleteRegKey HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\H Player"
   DeleteRegKey HKCU "Software\H Player"
 

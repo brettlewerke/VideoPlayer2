@@ -111,37 +111,206 @@ if exist "electron.exe" (
 
 // Create an uninstaller script
 const uninstallerContent = `@echo off
-echo Uninstalling H Player...
+echo ============================================
+echo    H Player Uninstaller v1.1.0
+echo ============================================
+echo.
+echo This will completely remove H Player and all associated files.
 echo.
 
-REM Remove desktop shortcut
+REM Stop any running H Player processes
+echo Stopping any running H Player processes...
+taskkill /f /im "electron.exe" /fi "WINDOWTITLE eq H Player" >nul 2>&1
+taskkill /f /im "H Player.exe" >nul 2>&1
+echo Done.
+echo.
+
+REM Remove desktop shortcuts
+echo Removing desktop shortcuts...
 if exist "%USERPROFILE%\\Desktop\\H Player.lnk" (
-  del "%USERPROFILE%\\Desktop\\H Player.lnk"
-  echo Removed desktop shortcut
+  del "%USERPROFILE%\\Desktop\\H Player.lnk" 2>nul
+  echo ✓ Removed desktop shortcut
+) else (
+  echo - No desktop shortcut found
 )
 
 REM Remove start menu shortcuts
+echo Removing start menu shortcuts...
 if exist "%APPDATA%\\Microsoft\\Windows\\Start Menu\\Programs\\H Player" (
-  rmdir /s /q "%APPDATA%\\Microsoft\\Windows\\Start Menu\\Programs\\H Player"
-  echo Removed start menu shortcuts
-)
-
-REM Ask user if they want to remove the application directory
-echo.
-echo This will remove the H Player application directory.
-set /p choice="Do you want to remove the application files? (y/n): "
-if /i "%choice%"=="y" (
-  for %%I in ("%~dp0.") do set "currentDir=%%~fI"
-  echo Removing application directory: %currentDir%
-  cd ..
-  rmdir /s /q "%currentDir%"
-  echo Application uninstalled successfully!
+  rmdir /s /q "%APPDATA%\\Microsoft\\Windows\\Start Menu\\Programs\\H Player" 2>nul
+  echo ✓ Removed start menu shortcuts
 ) else (
-  echo Application shortcuts removed. Application files remain in: %~dp0
+  echo - No start menu shortcuts found
+)
+
+REM Remove quick launch shortcuts
+echo Removing quick launch shortcuts...
+if exist "%APPDATA%\\Microsoft\\Internet Explorer\\Quick Launch\\H Player.lnk" (
+  del "%APPDATA%\\Microsoft\\Internet Explorer\\Quick Launch\\H Player.lnk" 2>nul
+  echo ✓ Removed quick launch shortcut
+) else (
+  echo - No quick launch shortcut found
+)
+
+REM Remove taskbar pinned shortcuts (if any)
+echo Checking for taskbar pins...
+reg query "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Taskband" /v Favorites >nul 2>&1
+if %errorlevel% equ 0 (
+  echo - Taskbar pins may need to be manually removed
 )
 
 echo.
-pause
+echo ============================================
+echo    Data Removal Options
+echo ============================================
+echo.
+echo H Player stores data in the following locations:
+echo 1. Application directory (program files)
+echo 2. User data directory (AppData)
+echo 3. Registry entries (settings)
+echo.
+
+:menu
+echo Choose what to remove:
+echo [1] Remove everything (complete uninstall)
+echo [2] Keep user data, remove application
+echo [3] Keep application, remove user data only
+echo [4] Cancel uninstall
+echo.
+set /p choice="Enter your choice (1-4): "
+
+if "%choice%"=="1" goto remove_all
+if "%choice%"=="2" goto remove_app_only
+if "%choice%"=="3" goto remove_data_only
+if "%choice%"=="4" goto cancel
+echo Invalid choice. Please try again.
+goto menu
+
+:remove_all
+echo.
+echo ============================================
+echo    COMPLETE UNINSTALL
+echo ============================================
+echo Removing application directory...
+for %%I in ("%~dp0.") do set "currentDir=%%~fI"
+set "appDir=%currentDir%"
+cd ..
+echo Removing: %appDir%
+rmdir /s /q "%appDir%" 2>nul
+if exist "%appDir%" (
+  echo ⚠ Could not remove application directory. It may be in use.
+  echo   Please close all H Player windows and try again.
+) else (
+  echo ✓ Application directory removed
+)
+
+echo Removing user data directory...
+set "userDataDir=%APPDATA%\\H Player"
+if exist "%userDataDir%" (
+  echo Removing: %userDataDir%
+  rmdir /s /q "%userDataDir%" 2>nul
+  if exist "%userDataDir%" (
+    echo ⚠ Could not remove user data directory
+  ) else (
+    echo ✓ User data directory removed
+  )
+) else (
+  echo - No user data directory found
+)
+
+echo Removing registry entries...
+reg delete "HKCU\\Software\\H Player" /f >nul 2>&1
+if %errorlevel% equ 0 (
+  echo ✓ Registry entries removed
+) else (
+  echo - No registry entries found
+)
+
+echo Removing temporary files...
+set "tempDir=%TEMP%\\H Player"
+if exist "%tempDir%" (
+  rmdir /s /q "%tempDir%" 2>nul
+  echo ✓ Temporary files removed
+) else (
+  echo - No temporary files found
+)
+
+goto finish
+
+:remove_app_only
+echo.
+echo ============================================
+echo    APPLICATION REMOVAL ONLY
+echo ============================================
+echo Removing application directory...
+for %%I in ("%~dp0.") do set "currentDir=%%~fI"
+set "appDir=%currentDir%"
+cd ..
+echo Removing: %appDir%
+rmdir /s /q "%appDir%" 2>nul
+if exist "%appDir%" (
+  echo ⚠ Could not remove application directory. It may be in use.
+  echo   Please close all H Player windows and try again.
+) else (
+  echo ✓ Application directory removed
+  echo ✓ User data preserved in: %APPDATA%\\H Player
+)
+goto finish
+
+:remove_data_only
+echo.
+echo ============================================
+echo    DATA REMOVAL ONLY
+echo ============================================
+echo Removing user data directory...
+set "userDataDir=%APPDATA%\\H Player"
+if exist "%userDataDir%" (
+  echo Removing: %userDataDir%
+  echo WARNING: This will delete your media library and settings!
+  set /p confirm="Are you sure? (yes/no): "
+  if /i "%confirm%"=="yes" (
+    rmdir /s /q "%userDataDir%" 2>nul
+    if exist "%userDataDir%" (
+      echo ⚠ Could not remove user data directory
+    ) else (
+      echo ✓ User data directory removed
+    )
+  ) else (
+    echo - Data removal cancelled
+  )
+) else (
+  echo - No user data directory found
+)
+
+echo Removing registry entries...
+reg delete "HKCU\\Software\\H Player" /f >nul 2>&1
+if %errorlevel% equ 0 (
+  echo ✓ Registry entries removed
+) else (
+  echo - No registry entries found
+)
+goto finish
+
+:cancel
+echo.
+echo Uninstall cancelled. No files were removed.
+goto end
+
+:finish
+echo.
+echo ============================================
+echo    UNINSTALL COMPLETE
+echo ============================================
+echo H Player has been successfully uninstalled!
+echo.
+echo If you have any issues or want to reinstall,
+echo download the latest version from the project page.
+echo.
+
+:end
+echo.
+echo Press any key to exit...
+pause >nul
 `;
 
 fs.writeFileSync(path.join(appDir, 'Run-H-Player.bat'), launcherContent);
