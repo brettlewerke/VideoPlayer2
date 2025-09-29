@@ -57,6 +57,7 @@ export const AppNavigation: React.FC<AppNavigationProps> = ({ orientation = 'aut
     <nav
       ref={containerRef}
       aria-label="Primary"
+      role="tablist"
       className={[
         'select-none',
         vertical
@@ -76,7 +77,7 @@ export const AppNavigation: React.FC<AppNavigationProps> = ({ orientation = 'aut
             <button
               key={item.key}
               role="tab"
-              aria-selected={selected}
+              aria-selected={selected ? 'true' : 'false'}
               tabIndex={0}
               onClick={() => setActive(item.key)}
               onKeyDown={onKeyDown}

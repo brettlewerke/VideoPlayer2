@@ -108,7 +108,7 @@ export function HomePage() {
               This desktop app catalogs Movies and TV Shows from a plugged-in drive. At the root of the drive, create two folders named <span className="text-brand font-semibold">Movies</span> and <span className="text-brand font-semibold">TV Shows</span>. Once attached, H Player will scan them locally and display your library—no network required.
             </p>
             <div className="mb-4 text-sm text-text-muted">
-              Inspected mount points: {drives.length === 0 ? 'none detected yet' : drives.map(d=>d.path).join(', ')}
+              Inspected mount points: {drives.length === 0 ? 'none detected yet' : drives.map(d=>d.mountPath).join(', ')}
             </div>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <button
@@ -116,7 +116,7 @@ export function HomePage() {
                 className="px-6 py-3 rounded-lg bg-brand hover:bg-brand-hover text-text-inverted font-semibold shadow-brand-glow focus-visible:outline-none focus-visible:shadow-focus-brand transition"
               >Rescan</button>
               <button
-                onClick={() => window.electronAPI.app.openSettings?.()}
+                onClick={() => useAppStore.getState().setCurrentView('settings')}
                 className="px-6 py-3 rounded-lg bg-surface-2 hover:bg-surface-3 border border-surface-border text-text-primary font-medium focus-visible:outline-none focus-visible:shadow-focus-brand transition"
               >Settings</button>
             </div>

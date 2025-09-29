@@ -73,11 +73,11 @@ class VideoPlayerApp {
     });
 
     // Load the renderer
-    // Force development mode for now
     const isDevelopment = true; // process.env.NODE_ENV === 'development';
     if (isDevelopment) {
-      // Development mode - load from Vite dev server
-      await this.mainWindow.loadURL('http://localhost:3006');
+      // Dynamically discover the running Vite dev server port instead of hardcoding.
+      const devUrl = await this.findViteDevServer();
+      await this.mainWindow.loadURL(devUrl);
       this.mainWindow.webContents.openDevTools();
     } else {
       // Production mode - load from built files
@@ -130,6 +130,47 @@ class VideoPlayerApp {
         break;
     }
     return candidate && existsSync(candidate) ? candidate : undefined;
+  }
+
+  /**
+   * Attempt to find the Vite dev server by probing a set of candidate ports.
+   * Returns the first responsive base URL. Throws if none are found.
+   */
+  private async findViteDevServer(): Promise<string> {
+    const explicit = process.env.VITE_DEV_PORT ? [Number(process.env.VITE_DEV_PORT)] : [];
+    const candidates = [...explicit, ...Array.from({ length: 16 }, (_, i) => 3000 + i)];
+    const tried: number[] = [];
+    const start = Date.now();
+    const maxWaitMs = 8000; // total patience window
+    const pollDelayMs = 300;
+
+    while (Date.now() - start < maxWaitMs) {
+      for (const port of candidates) {
+        if (tried.includes(port)) continue;
+        tried.push(port);
+        try {
+          const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 500);
+          const res = await fetch(`http://localhost:${port}/`, { signal: controller.signal });
+          clearTimeout(timeout);
+          if (res.ok) {
+            const textSnippet = (await res.text()).slice(0, 250).toLowerCase();
+            if (textSnippet.includes('vite') || textSnippet.includes('<!doctype html')) {
+              console.log(`[dev] Using Vite dev server at http://localhost:${port}`);
+              return `http://localhost:${port}`;
+            }
+          }
+        } catch (err) {
+          // Ignore and continue polling
+        }
+      }
+      // If not found yet, reset tried so we can probe again (server might appear later)
+      tried.length = 0;
+      await new Promise(r => setTimeout(r, pollDelayMs));
+    }
+    const msg = `Unable to locate Vite dev server after ${(Date.now() - start)}ms on candidate ports: ${candidates.join(', ')}`;
+    console.error(msg);
+    throw new Error(msg);
   }
 
   private async loadSettings(): Promise<void> {

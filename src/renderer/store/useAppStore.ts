@@ -249,18 +249,13 @@ export const useAppStore = create<AppStore>()(
           if (movie) {
             setCurrentMovie(movie);
             await window.electronAPI.player.load({
-              mediaId: movie.id,
               path: movie.videoFile.path,
-              title: movie.title,
-              type: 'movie',
+              // resumePosition can be added here when progress integrated
             });
           } else if (episode) {
             setCurrentEpisode(episode);
             await window.electronAPI.player.load({
-              mediaId: episode.id,
               path: episode.videoFile.path,
-              title: episode.title,
-              type: 'episode',
             });
           }
           
