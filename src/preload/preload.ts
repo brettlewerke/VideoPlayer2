@@ -4,15 +4,17 @@
 
 import { contextBridge, ipcRenderer } from 'electron';
 import { IPC_CHANNELS } from '../shared/ipc.js';
-import type { 
-  Movie, 
-  Show, 
-  Season, 
-  Episode, 
-  Drive, 
-  PlaybackProgress, 
+import type {
+  Movie,
+  Show,
+  Season,
+  Episode,
+  Drive,
+  PlaybackProgress,
   ScanProgress,
-  LoadMediaRequest 
+  LoadMediaRequest,
+  DependencyCheckResult,
+  RepairResult
 } from '../shared/types.js';
 
 // Define the API that will be exposed to the renderer process
@@ -76,6 +78,14 @@ interface ElectronAPI {
     openExternal: (url: string) => void;
     getVersion: () => Promise<string>;
     getPlatform: () => Promise<string>;
+  };
+
+  // Dependency repair (Windows)
+  repair: {
+    checkDependencies: () => Promise<DependencyCheckResult>;
+    fixFfmpeg: () => Promise<RepairResult>;
+    switchToLibVLC: () => Promise<RepairResult>;
+    getManualInstructions: () => Promise<string>;
   };
 
   // Event listeners
@@ -147,6 +157,14 @@ const electronAPI: ElectronAPI = {
     getPlatform: () => ipcRenderer.invoke('app:get-platform'),
   },
 
+  // Dependency repair (Windows)
+  repair: {
+    checkDependencies: () => ipcRenderer.invoke(IPC_CHANNELS.REPAIR_CHECK_DEPENDENCIES),
+    fixFfmpeg: () => ipcRenderer.invoke(IPC_CHANNELS.REPAIR_FIX_FFMPEG),
+    switchToLibVLC: () => ipcRenderer.invoke(IPC_CHANNELS.REPAIR_SWITCH_BACKEND),
+    getManualInstructions: () => ipcRenderer.invoke(IPC_CHANNELS.REPAIR_GET_MANUAL_INSTRUCTIONS),
+  },
+
   // Event listeners with safety checks
   on: (channel: string, listener: (...args: any[]) => void) => {
     const validChannels = [
@@ -158,6 +176,7 @@ const electronAPI: ElectronAPI = {
       'window-focus',
       'global-shortcut',
       'menu-action',
+      'repair:dependency-check-result',
     ];
 
     if (validChannels.includes(channel)) {
@@ -181,6 +200,7 @@ const electronAPI: ElectronAPI = {
       'window-focus',
       'global-shortcut',
       'menu-action',
+      'repair:dependency-check-result',
     ];
 
     if (validChannels.includes(channel)) {

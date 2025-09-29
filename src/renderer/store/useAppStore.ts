@@ -12,12 +12,13 @@ import type {
   Drive, 
   PlaybackProgress,
   PlayerStatus,
-  ScanProgress
+  ScanProgress,
+  RepairResult
 } from '../../shared/types.js';
 
 interface AppState {
   // UI State
-  currentView: 'home' | 'movies' | 'shows' | 'search' | 'player' | 'settings';
+  currentView: 'home' | 'movies' | 'shows' | 'search' | 'player' | 'settings' | 'repair';
   isLoading: boolean;
   isSidebarOpen: boolean;
   searchQuery: string;
@@ -48,6 +49,11 @@ interface AppState {
   // Drive and Scanning
   drives: Drive[];
   scanProgress: ScanProgress | null;
+
+  // Repair state
+  dependencyCheckResult: any | null;
+  isFixing: boolean;
+  isSwitchingBackend: boolean;
   isScanning: boolean;
   
   // Settings
@@ -99,13 +105,22 @@ interface AppActions {
   setSubtitleEnabled: (enabled: boolean) => void;
   setSelectedAudioTrack: (track: string | null) => void;
   setSelectedSubtitleTrack: (track: string | null) => void;
-  
+
+  // Repair Actions
+  setDependencyCheckResult: (result: any) => void;
+  setIsFixing: (fixing: boolean) => void;
+  setIsSwitchingBackend: (switching: boolean) => void;
+  showRepairScreen: () => void;
+  fixFfmpeg: () => Promise<RepairResult>;
+  switchToLibVLC: () => Promise<RepairResult>;
+  getManualInstructions: () => Promise<string>;
+
   // Async Actions
   loadLibrary: () => Promise<void>;
   searchMedia: (query: string) => Promise<void>;
   playMedia: (movie: Movie | null, episode: Episode | null) => Promise<void>;
   scanDrives: () => Promise<void>;
-  
+
   // Utility Actions
   reset: () => void;
 }
@@ -146,7 +161,12 @@ const initialState: AppState = {
   drives: [],
   scanProgress: null,
   isScanning: false,
-  
+
+  // Repair state
+  dependencyCheckResult: null,
+  isFixing: false,
+  isSwitchingBackend: false,
+
   // Settings
   playerBackend: 'mpv',
   autoplay: true,
@@ -201,7 +221,44 @@ export const useAppStore = create<AppStore>()(
       setSubtitleEnabled: (enabled) => set({ subtitleEnabled: enabled }),
       setSelectedAudioTrack: (track) => set({ selectedAudioTrack: track }),
       setSelectedSubtitleTrack: (track) => set({ selectedSubtitleTrack: track }),
-      
+
+      // Repair Actions
+      setDependencyCheckResult: (result) => set({ dependencyCheckResult: result }),
+      setIsFixing: (fixing) => set({ isFixing: fixing }),
+      setIsSwitchingBackend: (switching) => set({ isSwitchingBackend: switching }),
+      showRepairScreen: () => set({ currentView: 'repair' }),
+      fixFfmpeg: async () => {
+        const { setIsFixing } = get();
+        try {
+          setIsFixing(true);
+          const result = await window.electronAPI.repair.fixFfmpeg();
+          if (result.success) {
+            // Success - the main process should restart the app
+            console.log('FFmpeg fix successful, app should restart');
+          } else {
+            console.error('FFmpeg fix failed:', result.message);
+          }
+          return result;
+        } finally {
+          setIsFixing(false);
+        }
+      },
+      switchToLibVLC: async () => {
+        const { setIsSwitchingBackend } = get();
+        try {
+          setIsSwitchingBackend(true);
+          const result = await window.electronAPI.repair.switchToLibVLC();
+          if (result.success) {
+            // Success - switch back to home view
+            set({ currentView: 'home' });
+          }
+          return result;
+        } finally {
+          setIsSwitchingBackend(false);
+        }
+      },
+      getManualInstructions: () => window.electronAPI.repair.getManualInstructions(),
+
       // Async Actions
       loadLibrary: async () => {
         const { setLoading, setMovies, setShows, setContinueWatching, setRecentlyAdded } = get();

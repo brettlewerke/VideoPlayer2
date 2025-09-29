@@ -5,17 +5,21 @@
 import { ipcMain, BrowserWindow } from 'electron';
 import { DatabaseManager } from '../database/database.js';
 import { PlayerFactory } from '../player/player-factory.js';
+import { DependencyChecker } from '../services/dependency-checker.js';
 import { IPlayer } from '../../shared/player.js';
 import { IPC_CHANNELS, createIpcResponse, validatePath, validateVolume, validatePosition, validateTrackId } from '../../shared/ipc.js';
-import type { LoadMediaRequest, PlaybackProgress } from '../../shared/types.js';
+import type { LoadMediaRequest, PlaybackProgress, DependencyCheckResult, RepairResult } from '../../shared/types.js';
 
 export class IpcHandler {
   private player: IPlayer | null = null;
+  private dependencyChecker: DependencyChecker;
 
   constructor(
     private database: DatabaseManager,
     private playerFactory: PlayerFactory
-  ) {}
+  ) {
+    this.dependencyChecker = new DependencyChecker();
+  }
 
   setupHandlers(): void {
     // Player control handlers
@@ -54,6 +58,12 @@ export class IpcHandler {
     ipcMain.handle(IPC_CHANNELS.APP_QUIT, this.handleAppQuit.bind(this));
     ipcMain.handle(IPC_CHANNELS.APP_MINIMIZE, this.handleAppMinimize.bind(this));
     ipcMain.handle(IPC_CHANNELS.APP_TOGGLE_FULLSCREEN, this.handleToggleFullscreen.bind(this));
+
+    // Repair handlers (Windows)
+    ipcMain.handle(IPC_CHANNELS.REPAIR_CHECK_DEPENDENCIES, this.handleCheckDependencies.bind(this));
+    ipcMain.handle(IPC_CHANNELS.REPAIR_FIX_FFMPEG, this.handleFixFfmpeg.bind(this));
+    ipcMain.handle(IPC_CHANNELS.REPAIR_SWITCH_BACKEND, this.handleSwitchBackend.bind(this));
+    ipcMain.handle(IPC_CHANNELS.REPAIR_GET_MANUAL_INSTRUCTIONS, this.handleGetManualInstructions.bind(this));
 
     console.log('IPC handlers set up successfully');
   }
@@ -419,4 +429,141 @@ export class IpcHandler {
       return createIpcResponse(event.frameId.toString(), undefined, error instanceof Error ? error.message : 'Unknown error');
     }
   }
+
+  // Repair handlers
+  private async handleCheckDependencies(event: Electron.IpcMainInvokeEvent): Promise<DependencyCheckResult> {
+    try {
+      const result = await this.dependencyChecker.checkDependencies();
+      return result;
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error during dependency check'
+      };
+    }
+  }
+
+  private async handleFixFfmpeg(event: Electron.IpcMainInvokeEvent): Promise<RepairResult> {
+    try {
+      const { spawn } = require('child_process');
+      const path = require('path');
+
+      // Get the repair helper script path
+      const repairHelperPath = path.join(process.resourcesPath, 'scripts', 'repair-helper.js');
+
+      return new Promise((resolve) => {
+        const child = spawn('node', [repairHelperPath, 'repair'], {
+          stdio: ['inherit', 'pipe', 'pipe'],
+          cwd: process.cwd()
+        });
+
+        let stdout = '';
+        let stderr = '';
+
+        child.stdout.on('data', (data: Buffer) => {
+          stdout += data.toString();
+        });
+
+        child.stderr.on('data', (data: Buffer) => {
+          stderr += data.toString();
+        });
+
+        child.on('close', (code: number) => {
+          if (code === 0) {
+            resolve({
+              success: true,
+              message: 'FFmpeg DLLs successfully installed. The application will restart.',
+              requiresRestart: true
+            });
+          } else {
+            resolve({
+              success: false,
+              message: `Repair failed: ${stderr || stdout}`,
+              requiresRestart: false
+            });
+          }
+        });
+
+        child.on('error', (error: Error) => {
+          resolve({
+            success: false,
+            message: `Failed to run repair script: ${error.message}`,
+            requiresRestart: false
+          });
+        });
+      });
+    } catch (error) {
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : 'Unknown error during FFmpeg repair',
+        requiresRestart: false
+      };
+    }
+  }
+
+  private async handleSwitchBackend(event: Electron.IpcMainInvokeEvent): Promise<RepairResult> {
+    try {
+      // Check if libVLC is available
+      const isLibVlcAvailable = await this.dependencyChecker.isLibVlcAvailable();
+      if (!isLibVlcAvailable) {
+        return {
+          success: false,
+          message: 'libVLC backend is not available on this system'
+        };
+      }
+
+      // Switch to libVLC backend
+      this.playerFactory.setBackend('libvlc');
+
+      // Update settings
+      await this.database.setSetting('playerBackend', 'libvlc');
+
+      return {
+        success: true,
+        message: 'Successfully switched to libVLC backend',
+        requiresRestart: true
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : 'Unknown error during backend switch'
+      };
+    }
+  }
+
+  private async handleGetManualInstructions(event: Electron.IpcMainInvokeEvent): Promise<string> {
+    // Return manual instructions as a string
+    return `
+# Manual FFmpeg DLL Installation Instructions
+
+## Step 1: Identify Your MPV Version
+Run this command in the directory containing mpv.exe:
+\`\`\`
+mpv.exe --version
+\`\`\`
+Note the version number and architecture (32-bit vs 64-bit).
+
+## Step 2: Download Compatible FFmpeg DLLs
+Visit https://www.gyan.dev/ffmpeg/builds/ and download the "ffmpeg-release-essentials" build that matches your MPV architecture.
+
+## Step 3: Extract DLLs
+Extract the downloaded ZIP file and copy these DLLs to the same directory as mpv.exe:
+- ffmpeg.dll
+- avcodec-*.dll
+- avformat-*.dll
+- avutil-*.dll
+- avfilter-*.dll
+- swresample-*.dll
+- swscale-*.dll
+
+## Step 4: Verify Installation
+Run mpv.exe --version again. If it succeeds without errors, restart H Player.
+
+## Troubleshooting
+- Ensure all DLLs are from the same FFmpeg version
+- Match 32-bit vs 64-bit architecture exactly
+- Use Dependency Walker (depends.exe) to check for missing dependencies
+`;
+  }
+
 }

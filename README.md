@@ -115,6 +115,24 @@ Any Drive/
 - Try switching to libVLC backend if available
 - Verify video file is not corrupted
 
+### Windows: "ffmpeg.dll was not found" error
+If you see this error on Windows, H Player will automatically show a repair screen with three options:
+
+**Option 1: Automatic Fix (Recommended)**
+- Click "Fix now" to automatically download and install the missing FFmpeg DLLs
+- The app will restart automatically after successful repair
+
+**Option 2: Switch to libVLC**
+- Click "Switch to libVLC" to use VLC's media libraries instead
+- No additional downloads required, works immediately
+
+**Option 3: Manual Installation**
+- Click "Manual fix instructions" for step-by-step guidance
+- Download FFmpeg DLLs from https://www.gyan.dev/ffmpeg/builds/
+- Extract and copy DLLs to the MPV directory
+
+This issue occurs because MPV requires FFmpeg DLLs that aren't always bundled together.
+
 ### App won't start
 - **Windows**: Try running as Administrator
 - **macOS**: Check System Preferences > Security & Privacy for unsigned app warning

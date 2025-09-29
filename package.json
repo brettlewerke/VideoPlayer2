@@ -87,6 +87,7 @@
       "dist/**/*",
       "vendor/**/*",
       "assets/**/*",
+      "scripts/**/*",
       "Run-H-Player.ps1",
       "Run-H-Player.command",
       "run-h-player.sh",

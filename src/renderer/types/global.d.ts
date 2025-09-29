@@ -9,7 +9,9 @@ import type {
   Episode, 
   Drive, 
   PlaybackProgress, 
-  LoadMediaRequest 
+  LoadMediaRequest,
+  DependencyCheckResult,
+  RepairResult
 } from '../../shared/types.js';
 
 // Extend the global Window interface with our ElectronAPI
@@ -75,6 +77,14 @@ declare global {
         openExternal: (url: string) => void;
         getVersion: () => Promise<string>;
         getPlatform: () => Promise<string>;
+      };
+
+      // Dependency repair (Windows)
+      repair: {
+        checkDependencies: () => Promise<DependencyCheckResult>;
+        fixFfmpeg: () => Promise<RepairResult>;
+        switchToLibVLC: () => Promise<RepairResult>;
+        getManualInstructions: () => Promise<string>;
       };
 
       // Event listeners

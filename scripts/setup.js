@@ -171,9 +171,8 @@ async function downloadBinaries() {
     const mpvResult = await downloadMpvBinary(vendorPlatformDir);
     manifest.binaries.mpv = mpvResult;
 
-    // Download ffmpeg
-    const ffmpegResult = await downloadFfmpegBinary(vendorPlatformDir);
-    manifest.binaries.ffmpeg = ffmpegResult;
+    // FFmpeg is now handled within downloadMpvBinary if needed
+    manifest.binaries.ffmpeg = mpvResult.needsFfmpeg ? mpvResult.ffmpegDownloaded : { available: true, systemProvided: true };
 
     // Write manifest
     fs.writeFileSync(MANIFEST_FILE, JSON.stringify(manifest, null, 2));
@@ -184,7 +183,7 @@ async function downloadBinaries() {
     // Create manifest with unavailable binaries
     manifest.binaries = {
       mpv: { available: false, path: null, version: null, error: error.message },
-      ffmpeg: { available: false, path: null, version: null, error: error.message },
+      ffmpeg: { available: false, error: 'MPV download failed' },
     };
     fs.writeFileSync(MANIFEST_FILE, JSON.stringify(manifest, null, 2));
     logWarning('Binaries marked as unavailable - app will use system binaries if available');
@@ -239,15 +238,29 @@ async function downloadMpvBinary(vendorDir) {
     // Verify executable
     const version = await getMpvVersion(mpvPath);
 
+    // Check if FFmpeg is bundled or needs to be downloaded separately
+    const needsFfmpeg = await checkMpvNeedsFfmpeg(mpvPath, extractDir);
+
     // Clean up archive
     fs.unlinkSync(archivePath);
 
     logSuccess(`mpv ${version} downloaded and extracted`);
-    return {
+
+    const result = {
       available: true,
       path: path.relative(VENDOR_DIR, mpvPath),
       version: version,
+      needsFfmpeg: needsFfmpeg,
     };
+
+    // If FFmpeg is needed, download it
+    if (needsFfmpeg) {
+      log('MPV needs FFmpeg, downloading...');
+      const ffmpegResult = await downloadFfmpegForMpv(vendorDir, version);
+      result.ffmpegDownloaded = ffmpegResult;
+    }
+
+    return result;
 
   } catch (error) {
     // Clean up on failure
@@ -258,8 +271,159 @@ async function downloadMpvBinary(vendorDir) {
 }
 
 /**
- * Download ffmpeg binary for current platform
+ * Check if MPV needs FFmpeg (i.e., if FFmpeg DLLs are not bundled)
  */
+async function checkMpvNeedsFfmpeg(mpvPath, mpvExtractDir) {
+  const platform = os.platform();
+
+  if (platform === 'win32') {
+    // On Windows, check if ffmpeg.dll exists in the MPV directory
+    const mpvDir = path.dirname(mpvPath);
+    const ffmpegDlls = [
+      'ffmpeg.dll',
+      'avcodec-*.dll',
+      'avformat-*.dll',
+      'avutil-*.dll'
+    ];
+
+    for (const pattern of ffmpegDlls) {
+      const matches = await findFilesByPattern(mpvDir, pattern);
+      if (matches.length === 0) {
+        return true; // FFmpeg DLL missing
+      }
+    }
+    return false; // FFmpeg DLLs found
+  } else {
+    // On Unix-like systems, FFmpeg is usually available system-wide
+    // or bundled with MPV. For now, assume it's available.
+    return false;
+  }
+}
+
+/**
+ * Download FFmpeg specifically for the given MPV version
+ */
+async function downloadFfmpegForMpv(vendorDir, mpvVersion) {
+  const platform = os.platform();
+  const arch = os.arch();
+
+  log('Downloading FFmpeg for MPV compatibility...');
+
+  // For Windows, download a compatible FFmpeg build
+  if (platform === 'win32') {
+    const ffmpegUrls = {
+      'x64': 'https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip',
+      'ia32': 'https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip',
+    };
+
+    const url = ffmpegUrls[arch];
+    if (!url) {
+      throw new Error(`No FFmpeg binary available for Windows ${arch}`);
+    }
+
+    const archivePath = path.join(vendorDir, 'ffmpeg-for-mpv-archive.tmp');
+    const extractDir = path.join(vendorDir, 'ffmpeg-temp');
+
+    try {
+      // Download archive
+      await downloadFile(url, archivePath);
+
+      // Extract archive
+      await extractArchive(archivePath, extractDir);
+
+      // Find FFmpeg DLLs
+      const ffmpegDlls = await findFfmpegDlls(extractDir);
+      if (ffmpegDlls.length === 0) {
+        throw new Error('No FFmpeg DLLs found in downloaded archive');
+      }
+
+      // Copy DLLs to MPV directory
+      const mpvDir = path.join(vendorDir, 'mpv');
+      await copyFfmpegDlls(ffmpegDlls, mpvDir);
+
+      // Clean up
+      fs.unlinkSync(archivePath);
+      if (fs.existsSync(extractDir)) {
+        fs.rmSync(extractDir, { recursive: true });
+      }
+
+      logSuccess('FFmpeg DLLs copied to MPV directory');
+      return {
+        available: true,
+        dlls: ffmpegDlls.map(dll => path.relative(VENDOR_DIR, dll)),
+      };
+
+    } catch (error) {
+      // Clean up on failure
+      if (fs.existsSync(archivePath)) fs.unlinkSync(archivePath);
+      if (fs.existsSync(extractDir)) fs.rmSync(extractDir, { recursive: true });
+      throw error;
+    }
+  }
+
+  // For other platforms, assume FFmpeg is available system-wide
+  return { available: true, systemProvided: true };
+}
+
+/**
+ * Find FFmpeg DLLs in extracted directory
+ */
+async function findFfmpegDlls(dir) {
+  const dlls = [];
+  const patterns = [
+    'ffmpeg.dll',
+    'avcodec-*.dll',
+    'avformat-*.dll',
+    'avutil-*.dll',
+    'avfilter-*.dll',
+    'avdevice-*.dll',
+    'swresample-*.dll',
+    'swscale-*.dll'
+  ];
+
+  for (const pattern of patterns) {
+    const matches = await findFilesByPattern(dir, pattern);
+    dlls.push(...matches);
+  }
+
+  return [...new Set(dlls)]; // Remove duplicates
+}
+
+/**
+ * Copy FFmpeg DLLs to target directory
+ */
+async function copyFfmpegDlls(dllPaths, targetDir) {
+  for (const dllPath of dllPaths) {
+    const fileName = path.basename(dllPath);
+    const targetPath = path.join(targetDir, fileName);
+    fs.copyFileSync(dllPath, targetPath);
+  }
+}
+
+/**
+ * Find files matching a pattern (supports wildcards)
+ */
+async function findFilesByPattern(dir, pattern) {
+  const files = [];
+  const regex = new RegExp(pattern.replace(/\*/g, '.*'));
+
+  function scanDir(currentDir) {
+    const items = fs.readdirSync(currentDir);
+    for (const item of items) {
+      const fullPath = path.join(currentDir, item);
+      const stat = fs.statSync(fullPath);
+
+      if (stat.isDirectory()) {
+        scanDir(fullPath);
+      } else if (regex.test(item)) {
+        files.push(fullPath);
+      }
+    }
+  }
+
+  scanDir(dir);
+  return files;
+}
 async function downloadFfmpegBinary(vendorDir) {
   const platform = os.platform();
   const arch = os.arch();
