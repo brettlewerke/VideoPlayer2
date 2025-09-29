@@ -1,6 +1,6 @@
 {
   "name": "h-player",
-  "version": "1.2.0",
+  "version": "3.0.0",
   "description": "H Player – local desktop video player for Movies & TV Shows on plugged-in drives (no network services)",
   "main": "dist/main/main/main.js",
   "scripts": {
