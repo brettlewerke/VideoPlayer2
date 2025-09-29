@@ -91,6 +91,11 @@ temp/
 # Portable bundles
 dist-portable/
 
+# Manual packaging outputs
+H-Player-Manual-*.zip
+H-Player-Test/
+dist-manual/
+
 # Test artifacts
 test-results/
 playwright-report/
@@ -99,3 +104,10 @@ test-results.xml
 # Code signing certificates
 *.p12
 *.pem
+
+# Executable files
+*.exe
+*.dmg
+*.pkg
+*.appimage
+*.deb
