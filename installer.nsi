@@ -62,6 +62,17 @@ Section "H Player" SecApp
   ; Rename electron.exe to H Player.exe for better branding
   Rename "$INSTDIR\electron.exe" "$INSTDIR\H Player.exe"
 
+  ; Copy FFmpeg DLLs to main directory for MPV compatibility
+  DetailPrint "Installing FFmpeg libraries..."
+  File "dist-manual\H Player\vendor\win32-x64\avcodec-62.dll"
+  File "dist-manual\H Player\vendor\win32-x64\avdevice-62.dll"
+  File "dist-manual\H Player\vendor\win32-x64\avfilter-11.dll"
+  File "dist-manual\H Player\vendor\win32-x64\avformat-62.dll"
+  File "dist-manual\H Player\vendor\win32-x64\avutil-60.dll"
+  File "dist-manual\H Player\vendor\win32-x64\swresample-6.dll"
+  File "dist-manual\H Player\vendor\win32-x64\swscale-9.dll"
+  File "dist-manual\H Player\vendor\win32-x64\d3dcompiler_43.dll"
+
   ; Create uninstaller
   WriteUninstaller "$INSTDIR\Uninstall.exe"
 

@@ -75,6 +75,26 @@ if (fs.existsSync(vendorSrc)) {
   copyDir(vendorSrc, vendorDest);
 }
 
+// Copy FFmpeg DLLs to main directory for MPV compatibility
+console.log('Copying FFmpeg libraries to main directory...');
+const dlls = [
+  'avcodec-62.dll',
+  'avdevice-62.dll', 
+  'avfilter-11.dll',
+  'avformat-62.dll',
+  'avutil-60.dll',
+  'swresample-6.dll',
+  'swscale-9.dll',
+  'd3dcompiler_43.dll'
+];
+
+for (const dll of dlls) {
+  const dllPath = path.join(vendorSrc, 'win32-x64', dll);
+  if (fs.existsSync(dllPath)) {
+    fs.copyFileSync(dllPath, path.join(appDir, dll));
+  }
+}
+
 // Copy assets
 const assetsSrc = path.join(__dirname, '..', 'assets');
 const assetsDest = path.join(appDir, 'assets');
