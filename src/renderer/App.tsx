@@ -46,9 +46,9 @@ export function App() {
   };
 
   return (
-    <div className="h-screen bg-slate-900 text-white overflow-hidden">
-      {/* Background gradient */}
-      <div className="absolute inset-0 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900" />
+    <div className="h-screen bg-gradient-to-br from-black via-gray-900 to-green-900 text-white overflow-hidden">
+      {/* Background accent */}
+      <div className="absolute inset-0 bg-gradient-to-br from-green-900/20 via-black to-green-800/10" />
       
       {/* Main layout */}
       <div className="relative z-10 flex h-full">

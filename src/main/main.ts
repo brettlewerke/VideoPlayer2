@@ -74,7 +74,7 @@ class VideoPlayerApp {
     const isDevelopment = true; // process.env.NODE_ENV === 'development';
     if (isDevelopment) {
       // Development mode - load from Vite dev server
-      await this.mainWindow.loadURL('http://localhost:3003');
+      await this.mainWindow.loadURL('http://localhost:3004');
       this.mainWindow.webContents.openDevTools();
     } else {
       // Production mode - load from built files
