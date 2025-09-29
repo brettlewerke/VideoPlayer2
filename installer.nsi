@@ -52,26 +52,16 @@ Section "H Player" SecApp
 
   SetOutPath "$INSTDIR"
 
-  ; Copy application files from manual packaging
+  ; Copy application files from manual packaging (includes FFmpeg DLLs)
   DetailPrint "Installing H Player..."
   File /r "dist-manual\H Player\*.*"
 
-  ; Copy electron.exe from node_modules
+  ; Copy electron.exe from node_modules to main directory
+  DetailPrint "Installing Electron runtime..."
   File "node_modules\electron\dist\electron.exe"
 
   ; Rename electron.exe to H Player.exe for better branding
   Rename "$INSTDIR\electron.exe" "$INSTDIR\H Player.exe"
-
-  ; Copy FFmpeg DLLs to main directory for MPV compatibility
-  DetailPrint "Installing FFmpeg libraries..."
-  File "dist-manual\H Player\vendor\win32-x64\avcodec-62.dll"
-  File "dist-manual\H Player\vendor\win32-x64\avdevice-62.dll"
-  File "dist-manual\H Player\vendor\win32-x64\avfilter-11.dll"
-  File "dist-manual\H Player\vendor\win32-x64\avformat-62.dll"
-  File "dist-manual\H Player\vendor\win32-x64\avutil-60.dll"
-  File "dist-manual\H Player\vendor\win32-x64\swresample-6.dll"
-  File "dist-manual\H Player\vendor\win32-x64\swscale-9.dll"
-  File "dist-manual\H Player\vendor\win32-x64\d3dcompiler_43.dll"
 
   ; Create uninstaller
   WriteUninstaller "$INSTDIR\Uninstall.exe"
@@ -91,7 +81,7 @@ Section "H Player" SecApp
   WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\H Player" "InstallLocation" "$INSTDIR"
   WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\H Player" "DisplayIcon" "$INSTDIR\resources\app\build\icon.ico"
   WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\H Player" "Publisher" "H Player Project"
-  WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\H Player" "DisplayVersion" "1.1.0"
+  WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\H Player" "DisplayVersion" "1.2.0"
   ${GetSize} "$INSTDIR" "/S=0K" $0 $1 $2
   IntFmt $0 "0x%08X" $0
   WriteRegDWORD HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\H Player" "EstimatedSize" "$0"
