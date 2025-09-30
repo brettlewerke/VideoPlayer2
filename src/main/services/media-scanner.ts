@@ -130,17 +130,16 @@ export class MediaScanner extends EventEmitter {
     };
 
     try {
-      const allFiles = this.getAllFiles(drive.mountPath);
-      
+      // Initialize progress tracking
       this.currentScanProgress = {
         driveId: drive.id,
         driveName: drive.label,
-        totalFiles: allFiles.length,
+        totalFiles: 0,
         processedFiles: 0,
         isComplete: false,
       };
 
-      // Look for Movies and TV Shows folders
+      // Look for Movies and TV Shows folders at ROOT LEVEL ONLY
       const rootEntries = this.getDirectoryEntries(drive.mountPath);
       
       for (const entry of rootEntries) {
@@ -152,11 +151,11 @@ export class MediaScanner extends EventEmitter {
 
         if (isMoviesFolder(entry)) {
           console.log(`Found Movies folder: ${entryPath}`);
-          const movies = await this.scanMoviesFolder(entryPath, drive, allFiles);
+          const movies = await this.scanMoviesFolder(entryPath, drive);
           result.movies.push(...movies);
         } else if (isTVShowsFolder(entry)) {
           console.log(`Found TV Shows folder: ${entryPath}`);
-          const scanResult = await this.scanTVShowsFolder(entryPath, drive, allFiles);
+          const scanResult = await this.scanTVShowsFolder(entryPath, drive);
           result.shows.push(...scanResult.shows);
           result.seasons.push(...scanResult.seasons);
           result.episodes.push(...scanResult.episodes);
@@ -177,7 +176,7 @@ export class MediaScanner extends EventEmitter {
     return result;
   }
 
-  private async scanMoviesFolder(moviesPath: string, drive: Drive, allFiles: string[]): Promise<Movie[]> {
+  private async scanMoviesFolder(moviesPath: string, drive: Drive): Promise<Movie[]> {
     const movies: Movie[] = [];
     
     try {
@@ -191,7 +190,7 @@ export class MediaScanner extends EventEmitter {
         }
 
         try {
-          const movie = await this.scanMovieFolder(folderPath, folderName, drive, allFiles);
+          const movie = await this.scanMovieFolder(folderPath, folderName, drive);
           if (movie) {
             movies.push(movie);
           }
@@ -209,10 +208,10 @@ export class MediaScanner extends EventEmitter {
   private async scanMovieFolder(
     folderPath: string, 
     folderName: string, 
-    drive: Drive, 
-    allFiles: string[]
+    drive: Drive
   ): Promise<Movie | null> {
-    const filesInFolder = allFiles.filter(file => dirname(file) === folderPath);
+    // Get files directly from this folder only
+    const filesInFolder = this.getFilesInDirectory(folderPath);
     const videoFiles = filesInFolder.filter(isVideoFile);
     
     if (videoFiles.length === 0) {
@@ -226,7 +225,7 @@ export class MediaScanner extends EventEmitter {
     }
 
     const { title, year } = parseMovieTitle(folderName);
-    const artwork = findArtworkFiles(folderPath, allFiles);
+    const artwork = findArtworkFiles(folderPath, filesInFolder);
     
     try {
       const stats = statSync(primaryVideoPath);
@@ -261,8 +260,7 @@ export class MediaScanner extends EventEmitter {
 
   private async scanTVShowsFolder(
     tvShowsPath: string, 
-    drive: Drive, 
-    allFiles: string[]
+    drive: Drive
   ): Promise<{ shows: Show[]; seasons: Season[]; episodes: Episode[] }> {
     const shows: Show[] = [];
     const seasons: Season[] = [];
@@ -279,7 +277,7 @@ export class MediaScanner extends EventEmitter {
         }
 
         try {
-          const scanResult = await this.scanShowFolder(showFolderPath, showFolderName, drive, allFiles);
+          const scanResult = await this.scanShowFolder(showFolderPath, showFolderName, drive);
           if (scanResult.show) {
             shows.push(scanResult.show);
             seasons.push(...scanResult.seasons);
@@ -299,13 +297,14 @@ export class MediaScanner extends EventEmitter {
   private async scanShowFolder(
     showFolderPath: string,
     showFolderName: string,
-    drive: Drive,
-    allFiles: string[]
+    drive: Drive
   ): Promise<{ show: Show | null; seasons: Season[]; episodes: Episode[] }> {
     const seasons: Season[] = [];
     const episodes: Episode[] = [];
     
-    const artwork = findArtworkFiles(showFolderPath, allFiles);
+    // Get files from show folder for artwork
+    const showFiles = this.getFilesInDirectory(showFolderPath);
+    const artwork = findArtworkFiles(showFolderPath, showFiles);
     
     const show: Show = {
       id: generateMediaId(drive.id, showFolderPath, 0, Date.now()),
@@ -347,8 +346,7 @@ export class MediaScanner extends EventEmitter {
         seasonFolder.name,
         seasonFolder.number,
         show,
-        drive,
-        allFiles
+        drive
       );
       
       if (seasonResult.season) {
@@ -376,8 +374,7 @@ export class MediaScanner extends EventEmitter {
         1,
         defaultSeason,
         show,
-        drive,
-        allFiles
+        drive
       );
 
       if (seasonEpisodes.length > 0) {
@@ -395,10 +392,10 @@ export class MediaScanner extends EventEmitter {
     seasonName: string,
     seasonNumber: number,
     show: Show,
-    drive: Drive,
-    allFiles: string[]
+    drive: Drive
   ): Promise<{ season: Season | null; episodes: Episode[] }> {
-    const artwork = findArtworkFiles(seasonPath, allFiles);
+    const seasonFiles = this.getFilesInDirectory(seasonPath);
+    const artwork = findArtworkFiles(seasonPath, seasonFiles);
     
     const season: Season = {
       id: generateMediaId(drive.id, seasonPath, 0, Date.now()),
@@ -417,8 +414,7 @@ export class MediaScanner extends EventEmitter {
       seasonNumber,
       season,
       show,
-      drive,
-      allFiles
+      drive
     );
 
     season.episodeCount = episodes.length;
@@ -431,11 +427,10 @@ export class MediaScanner extends EventEmitter {
     seasonNumber: number,
     season: Season,
     show: Show,
-    drive: Drive,
-    allFiles: string[]
+    drive: Drive
   ): Promise<Episode[]> {
     const episodes: Episode[] = [];
-    const filesInFolder = allFiles.filter(file => dirname(file) === folderPath);
+    const filesInFolder = this.getFilesInDirectory(folderPath);
     const videoFiles = filesInFolder.filter(isVideoFile);
     
     for (const videoFile of videoFiles) {
@@ -570,6 +565,31 @@ export class MediaScanner extends EventEmitter {
       console.warn(`Cannot read directory ${dirPath}:`, error);
       return [];
     }
+  }
+
+  /**
+   * Get all files (not directories) in a specific directory (non-recursive)
+   * This is much faster than getAllFiles() which recursively scans everything
+   */
+  private getFilesInDirectory(dirPath: string): string[] {
+    const files: string[] = [];
+    try {
+      const entries = readdirSync(dirPath);
+      for (const entry of entries) {
+        const fullPath = join(dirPath, entry);
+        try {
+          const stats = statSync(fullPath);
+          if (stats.isFile()) {
+            files.push(fullPath);
+          }
+        } catch (error) {
+          // Skip files we can't read
+        }
+      }
+    } catch (error) {
+      console.warn(`Cannot read directory ${dirPath}:`, error);
+    }
+    return files;
   }
 
   private isDirectory(path: string): boolean {
