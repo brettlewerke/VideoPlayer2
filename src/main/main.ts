@@ -494,8 +494,9 @@ class VideoPlayerApp {
       // Cleanup IPC handlers
       this.ipcHandler.cleanup();
       
-      // Close database
-      this.database.close();
+      // Close and delete database to force fresh scan on next startup
+      // This ensures new movies/shows are detected when drives are reconnected
+      this.database.closeAndDelete();
       
       console.log('Application cleanup completed');
     } catch (error) {

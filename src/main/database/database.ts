@@ -5,7 +5,7 @@
 import Database from 'better-sqlite3';
 import { app } from 'electron';
 import { join } from 'path';
-import { existsSync, mkdirSync } from 'fs';
+import { existsSync, mkdirSync, unlinkSync } from 'fs';
 import { SCHEMA_V1, MIGRATIONS, generateSchemaSQL } from './schema.js';
 import { DATABASE } from '../../shared/constants.js';
 import type { 
@@ -133,6 +133,42 @@ export class DatabaseManager {
     if (this.db) {
       this.db.close();
       this.db = null;
+    }
+  }
+
+  /**
+   * Close and delete the database file
+   * This forces a fresh scan on next startup
+   */
+  closeAndDelete(): void {
+    // Close the database connection first
+    this.close();
+    
+    // Delete the database files
+    try {
+      // Delete main database file
+      if (existsSync(this.dbPath)) {
+        unlinkSync(this.dbPath);
+        console.log('Deleted database file:', this.dbPath);
+      }
+      
+      // Delete WAL files if they exist
+      const walPath = `${this.dbPath}-wal`;
+      const shmPath = `${this.dbPath}-shm`;
+      
+      if (existsSync(walPath)) {
+        unlinkSync(walPath);
+        console.log('Deleted WAL file');
+      }
+      
+      if (existsSync(shmPath)) {
+        unlinkSync(shmPath);
+        console.log('Deleted SHM file');
+      }
+      
+      console.log('Database cleanup completed - fresh scan will occur on next startup');
+    } catch (error) {
+      console.error('Error deleting database files:', error);
     }
   }
 
