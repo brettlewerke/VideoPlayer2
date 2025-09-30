@@ -171,15 +171,8 @@ export class PlayerFactory {
       return libvlcFactory.createPlayer();
     }
     
-    // Fallback to mock
-    const mockFactory = this.factories.get('mock');
-    if (mockFactory && mockFactory.isAvailable()) {
-      console.warn('No real player backend available, falling back to mock player');
-      console.log('Player backend: mock');
-      return mockFactory.createPlayer();
-    }
-    
-    throw new Error('No player backend available');
+    // No external player available - throw error to force HTML5 video
+    throw new Error('No external video player available. Use HTML5 video element instead.');
   }
 
   /**

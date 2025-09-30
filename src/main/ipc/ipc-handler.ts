@@ -100,29 +100,47 @@ export class IpcHandler {
         throw new Error('Unsupported file format');
       }
 
-      // Create new player instance for each playback
-      if (this.player) {
-        console.log('[IPC] Cleaning up existing player');
-        await this.player.cleanup();
-      }
-      
-      console.log('[IPC] Creating new player instance');
-      this.player = this.playerFactory.createPlayer();
-      
       // Find media ID for progress tracking
       console.log('[IPC] Looking up media in database:', payload.path);
       const media = await this.database.getMediaByPath(payload.path);
       this.currentMediaId = media?.id || null;
       this.currentMediaType = media?.type || null;
       console.log('[IPC] Media lookup result:', media);
-      
-      console.log('[IPC] Setting up player events');
-      this.setupPlayerEvents();
 
-      console.log('[IPC] Loading media into player');
-      await this.player.loadMedia(payload.path, { start: payload.start });
-      console.log('[IPC] Player started successfully');
-      return createIpcResponse(event.frameId.toString(), undefined);
+      try {
+        // Try to create external player first
+        if (this.player) {
+          console.log('[IPC] Cleaning up existing player');
+          await this.player.cleanup();
+        }
+        
+        console.log('[IPC] Creating new player instance');
+        this.player = this.playerFactory.createPlayer();
+        
+        console.log('[IPC] Setting up player events');
+        this.setupPlayerEvents();
+
+        console.log('[IPC] Loading media into player');
+        await this.player.loadMedia(payload.path, { start: payload.start });
+        console.log('[IPC] Player started successfully');
+        
+        return createIpcResponse(event.frameId.toString(), { useExternalPlayer: true });
+      } catch (playerError) {
+        // External player not available, fall back to HTML5 video
+        const errorMessage = playerError instanceof Error ? playerError.message : 'Unknown player error';
+        console.log('[IPC] External player not available, using HTML5 video:', errorMessage);
+        
+        // Send the video path to renderer for HTML5 playback
+        const videoData = {
+          useExternalPlayer: false,
+          videoPath: payload.path,
+          startTime: payload.start || 0,
+          mediaId: this.currentMediaId,
+          mediaType: this.currentMediaType
+        };
+        
+        return createIpcResponse(event.frameId.toString(), videoData);
+      }
     } catch (error) {
       console.error('[IPC] Player start failed:', error);
       return createIpcResponse(event.frameId.toString(), undefined, error instanceof Error ? error.message : 'Unknown error');
