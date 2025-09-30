@@ -36,15 +36,30 @@ export function HomePage() {
   // Selected collection items
   let contentSection: React.ReactNode = null;
   if (activeMenu === 'movies') {
-    contentSection = movies.length > 0 ? (
-      <section>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-2xl font-bold text-green-100">Movies</h2>
-          <button className="text-green-400 hover:text-green-300 transition-colors">View All →</button>
-        </div>
-        <MediaGrid items={movies.slice(0, 12)} />
-      </section>
-    ) : null;
+    // Movies view: Show both movies AND TV shows
+    contentSection = (
+      <>
+        {movies.length > 0 && (
+          <section>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-2xl font-bold text-green-100">Movies</h2>
+              <button className="text-green-400 hover:text-green-300 transition-colors">View All →</button>
+            </div>
+            <MediaGrid items={movies.slice(0, 12)} />
+          </section>
+        )}
+        
+        {shows.length > 0 && (
+          <section>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-2xl font-bold text-green-100">TV Shows</h2>
+              <button className="text-green-400 hover:text-green-300 transition-colors">View All →</button>
+            </div>
+            <MediaGrid items={shows.slice(0, 12)} />
+          </section>
+        )}
+      </>
+    );
   } else if (activeMenu === 'shows') {
     contentSection = shows.length > 0 ? (
       <section>
