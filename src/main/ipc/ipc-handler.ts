@@ -9,10 +9,13 @@ import { DriveManager } from '../services/drive-manager.js';
 import { MediaScanner } from '../services/media-scanner.js';
 import { IPlayer } from '../../shared/player.js';
 import { IPC_CHANNELS, createIpcResponse, validatePath, validateVolume, validatePosition, validateTrackId } from '../../shared/ipc.js';
-import type { LoadMediaRequest, PlaybackProgress } from '../../shared/types.js';
+import type { PlaybackProgress } from '../../shared/types.js';
+import { isPlayablePath } from '../../common/media/extensions.js';
 
 export class IpcHandler {
   private player: IPlayer | null = null;
+  private currentMediaId: string | null = null;
+  private currentMediaType: 'movie' | 'episode' | null = null;
 
   constructor(
     private database: DatabaseManager,
@@ -23,7 +26,7 @@ export class IpcHandler {
 
   setupHandlers(): void {
     // Player control handlers
-    ipcMain.handle(IPC_CHANNELS.PLAYER_LOAD, this.handlePlayerLoad.bind(this));
+    ipcMain.handle(IPC_CHANNELS.PLAYER_START, this.handlePlayerStart.bind(this));
     ipcMain.handle(IPC_CHANNELS.PLAYER_PLAY, this.handlePlayerPlay.bind(this));
     ipcMain.handle(IPC_CHANNELS.PLAYER_PAUSE, this.handlePlayerPause.bind(this));
     ipcMain.handle(IPC_CHANNELS.PLAYER_STOP, this.handlePlayerStop.bind(this));
@@ -43,6 +46,8 @@ export class IpcHandler {
     ipcMain.handle(IPC_CHANNELS.LIBRARY_GET_CONTINUE_WATCHING, this.handleGetContinueWatching.bind(this));
     ipcMain.handle(IPC_CHANNELS.LIBRARY_GET_RECENTLY_ADDED, this.handleGetRecentlyAdded.bind(this));
     ipcMain.handle(IPC_CHANNELS.LIBRARY_SEARCH, this.handleLibrarySearch.bind(this));
+    ipcMain.handle(IPC_CHANNELS.LIBRARY_GET_PROGRESS, this.handleGetProgress.bind(this));
+    ipcMain.handle(IPC_CHANNELS.LIBRARY_SET_PROGRESS, this.handleSetProgress.bind(this));
     ipcMain.handle(IPC_CHANNELS.LIBRARY_GET_PROGRESS, this.handleGetProgress.bind(this));
     ipcMain.handle(IPC_CHANNELS.LIBRARY_SET_PROGRESS, this.handleSetProgress.bind(this));
 
@@ -65,7 +70,7 @@ export class IpcHandler {
 
   cleanup(): void {
     if (this.player) {
-      this.player.destroy();
+      this.player.cleanup();
       this.player = null;
     }
     
@@ -83,18 +88,30 @@ export class IpcHandler {
   }
 
   // Player handlers
-  private async handlePlayerLoad(event: Electron.IpcMainInvokeEvent, request: LoadMediaRequest) {
+  private async handlePlayerStart(event: Electron.IpcMainInvokeEvent, payload: { path: string; start?: number }) {
     try {
-      if (!validatePath(request.path)) {
+      if (!validatePath(payload.path)) {
         throw new Error('Invalid file path');
       }
 
-      if (!this.player) {
-        this.player = this.playerFactory.createPlayer();
-        this.setupPlayerEvents();
+      if (!isPlayablePath(payload.path)) {
+        throw new Error('Unsupported file format');
       }
 
-      await this.player.loadMedia(request);
+      // Create new player instance for each playback
+      if (this.player) {
+        await this.player.cleanup();
+      }
+      this.player = this.playerFactory.createPlayer();
+      
+      // Find media ID for progress tracking
+      const media = await this.database.getMediaByPath(payload.path);
+      this.currentMediaId = media?.id || null;
+      this.currentMediaType = media?.type || null;
+      
+      this.setupPlayerEvents();
+
+      await this.player.loadMedia(payload.path, { start: payload.start });
       return createIpcResponse(event.frameId.toString(), undefined);
     } catch (error) {
       return createIpcResponse(event.frameId.toString(), undefined, error instanceof Error ? error.message : 'Unknown error');
@@ -250,21 +267,59 @@ export class IpcHandler {
   private setupPlayerEvents(): void {
     if (!this.player) return;
 
-    this.player.on('statusChanged', (status) => {
+    let lastProgressSave = 0;
+    let lastStatus: any = null;
+
+    this.player.on('statusChanged', async (status) => {
       this.sendToRenderer(IPC_CHANNELS.PLAYER_STATUS_CHANGED, status);
+      lastStatus = status;
+      
+      // Save progress every 5-10 seconds if playing
+      const now = Date.now();
+      if (status.state === 'playing' && this.currentMediaId && this.currentMediaType && now - lastProgressSave > 5000) {
+        await this.saveProgress(status);
+        lastProgressSave = now;
+      }
     });
 
     this.player.on('tracksChanged', (tracks) => {
       this.sendToRenderer(IPC_CHANNELS.PLAYER_TRACKS_CHANGED, tracks);
     });
 
-    this.player.on('ended', () => {
+    this.player.on('ended', async () => {
       this.sendToRenderer(IPC_CHANNELS.PLAYER_ENDED);
+      // Mark as completed
+      if (this.currentMediaId && this.currentMediaType && lastStatus) {
+        await this.saveProgress(lastStatus, true);
+      }
     });
 
     this.player.on('error', (error) => {
       this.sendToRenderer(IPC_CHANNELS.PLAYER_ERROR, error.message);
     });
+  }
+
+  private async saveProgress(status: any, isCompleted = false): Promise<void> {
+    if (!this.currentMediaId || !this.currentMediaType) return;
+
+    try {
+      const progress: PlaybackProgress = {
+        id: `${this.currentMediaType}_${this.currentMediaId}`,
+        mediaId: this.currentMediaId,
+        mediaType: this.currentMediaType,
+        position: status.position || 0,
+        duration: status.duration || 0,
+        percentage: status.duration > 0 ? (status.position / status.duration) : 0,
+        isCompleted,
+        lastWatched: new Date(),
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      await this.database.setProgress(progress);
+    } catch (error) {
+      console.error('Failed to save progress:', error);
+    }
   }
 
   // Library handlers

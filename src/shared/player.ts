@@ -4,13 +4,13 @@
  */
 
 import { EventEmitter } from 'events';
-import { PlayerStatus, MediaTracks, LoadMediaRequest } from './types.js';
+import { PlayerStatus, MediaTracks } from './types.js';
 
 export interface IPlayer extends EventEmitter {
   /**
    * Load a media file for playback
    */
-  loadMedia(request: LoadMediaRequest): Promise<void>;
+  loadMedia(absPath: string, options?: { start?: number }): Promise<void>;
 
   /**
    * Start or resume playback
@@ -63,9 +63,9 @@ export interface IPlayer extends EventEmitter {
   getTracks(): MediaTracks;
 
   /**
-   * Destroy player instance and cleanup resources
+   * Clean up resources
    */
-  destroy(): Promise<void>;
+  cleanup(): Promise<void>;
 
   /**
    * Check if backend is available

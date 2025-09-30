@@ -8,6 +8,7 @@
     "dev": "concurrently \"npm run dev:renderer\" \"npm run dev:main\"",
     "dev:renderer": "vite",
     "dev:main": "tsc -p src/main/tsconfig.json && electron dist/main/main/main.js",
+    "dev:play": "node scripts/dev-play.js",
     "build:renderer": "vite build",
     "build:main": "tsc -p src/main/tsconfig.json",
     "package": "electron-builder",

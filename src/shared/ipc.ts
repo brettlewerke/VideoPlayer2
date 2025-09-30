@@ -6,6 +6,7 @@
 export const IPC_CHANNELS = {
   // Media player controls
   PLAYER_LOAD: 'player:load',
+  PLAYER_START: 'player:start',
   PLAYER_PLAY: 'player:play',
   PLAYER_PAUSE: 'player:pause',
   PLAYER_STOP: 'player:stop',

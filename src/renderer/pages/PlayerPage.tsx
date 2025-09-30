@@ -9,6 +9,7 @@ export function PlayerPage() {
   const { 
     playerStatus, 
     isPlaying, 
+    isPlayerLoading,
     isMuted, 
     volume, 
     position, 
@@ -25,29 +26,29 @@ export function PlayerPage() {
         case 'Space':
           e.preventDefault();
           if (isPlaying) {
-            window.electronAPI.player.pause();
+            (window as any).HPlayerAPI.player.pause();
           } else {
-            window.electronAPI.player.play();
+            (window as any).HPlayerAPI.player.play();
           }
           break;
         case 'KeyM':
-          window.electronAPI.player.setMuted(!isMuted);
+          (window as any).HPlayerAPI.player.setMuted(!isMuted);
           break;
         case 'ArrowLeft':
           e.preventDefault();
-          window.electronAPI.player.seek(Math.max(0, position - 10));
+          (window as any).HPlayerAPI.player.seek(Math.max(0, position - 10));
           break;
         case 'ArrowRight':
           e.preventDefault();
-          window.electronAPI.player.seek(position + 10);
+          (window as any).HPlayerAPI.player.seek(position + 10);
           break;
         case 'ArrowUp':
           e.preventDefault();
-          window.electronAPI.player.setVolume(Math.min(100, volume + 5));
+          (window as any).HPlayerAPI.player.setVolume(Math.min(100, volume + 5));
           break;
         case 'ArrowDown':
           e.preventDefault();
-          window.electronAPI.player.setVolume(Math.max(0, volume - 5));
+          (window as any).HPlayerAPI.player.setVolume(Math.max(0, volume - 5));
           break;
       }
     };
@@ -89,6 +90,17 @@ export function PlayerPage() {
 
   return (
     <div className="h-full bg-black relative group">
+      {/* Loading Overlay */}
+      {isPlayerLoading && (
+        <div className="absolute inset-0 bg-black/80 flex items-center justify-center z-50">
+          <div className="text-center text-white">
+            <div className="animate-spin text-4xl mb-4">⏳</div>
+            <h3 className="text-xl font-semibold">Starting playback...</h3>
+            <p className="text-slate-400 mt-2">Please wait while we load your video</p>
+          </div>
+        </div>
+      )}
+      
       {/* Video Player Area */}
       <div className="h-full flex items-center justify-center">
         <div className="text-center text-white">
@@ -122,7 +134,7 @@ export function PlayerPage() {
           <div className="flex items-center space-x-4">
             {/* Play/Pause */}
             <button
-              onClick={() => isPlaying ? window.electronAPI.player.pause() : window.electronAPI.player.play()}
+              onClick={() => isPlaying ? (window as any).HPlayerAPI.player.pause() : (window as any).HPlayerAPI.player.play()}
               className="text-white hover:text-blue-400 transition-colors text-2xl
                 focus:outline-none focus:ring-2 focus:ring-blue-500/50 rounded"
             >
@@ -132,7 +144,7 @@ export function PlayerPage() {
             {/* Volume */}
             <div className="flex items-center space-x-2">
               <button
-                onClick={() => window.electronAPI.player.setMuted(!isMuted)}
+                onClick={() => (window as any).HPlayerAPI.player.setMuted(!isMuted)}
                 className="text-white hover:text-blue-400 transition-colors
                   focus:outline-none focus:ring-2 focus:ring-blue-500/50 rounded"
               >

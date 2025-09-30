@@ -4,7 +4,7 @@
 
 import { EventEmitter } from 'events';
 import { IPlayer, PlayerBackendConfig } from '../../shared/player.js';
-import { PlayerStatus, PlayerState, MediaTracks, LoadMediaRequest } from '../../shared/types.js';
+import { PlayerStatus, PlayerState, MediaTracks } from '../../shared/types.js';
 
 export class MockPlayer extends EventEmitter implements IPlayer {
   private currentStatus: PlayerStatus;
@@ -24,11 +24,11 @@ export class MockPlayer extends EventEmitter implements IPlayer {
     };
   }
 
-  async loadMedia(request: LoadMediaRequest): Promise<void> {
+  async loadMedia(absPath: string, options?: { start?: number }): Promise<void> {
     try {
-      this.currentMedia = request.path;
+      this.currentMedia = absPath;
       this.currentStatus.state = 'loading';
-      this.currentStatus.position = request.resumePosition || 0;
+      this.currentStatus.position = options?.start || 0;
       this.currentStatus.duration = 3600; // Mock 1 hour duration
       
       // Simulate mock tracks
@@ -47,11 +47,28 @@ export class MockPlayer extends EventEmitter implements IPlayer {
       
       // Simulate loading delay
       setTimeout(() => {
-        this.currentStatus.state = 'paused';
+        this.currentStatus.state = 'playing';
         this.emit('statusChanged', this.currentStatus);
-        this.emit('tracksChanged', this.currentStatus.tracks);
-      }, 100);
-      
+        
+        // Start mock playback timer
+        this.playbackTimer = setInterval(() => {
+          if (this.currentStatus.state === 'playing') {
+            this.currentStatus.position += 1;
+            if (this.currentStatus.position >= this.currentStatus.duration) {
+              this.currentStatus.position = this.currentStatus.duration;
+              this.currentStatus.state = 'idle';
+              this.emit('ended');
+              this.emit('statusChanged', this.currentStatus);
+              if (this.playbackTimer) {
+                clearInterval(this.playbackTimer);
+                this.playbackTimer = null;
+              }
+            } else {
+              this.emit('statusChanged', this.currentStatus);
+            }
+          }
+        }, 1000);
+      }, 500);
     } catch (error) {
       this.emit('error', new Error(`Failed to load media: ${error}`));
     }
@@ -150,5 +167,12 @@ export class MockPlayer extends EventEmitter implements IPlayer {
       clearInterval(this.playbackTimer);
       this.playbackTimer = null;
     }
+  }
+
+  async cleanup(): Promise<void> {
+    this.stopPlaybackTimer();
+    this.currentMedia = null;
+    this.currentStatus.state = 'idle';
+    this.currentStatus.position = 0;
   }
 }

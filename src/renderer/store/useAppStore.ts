@@ -43,6 +43,7 @@ interface AppState {
   // Player State
   playerStatus: PlayerStatus | null;
   isPlaying: boolean;
+  isPlayerLoading: boolean;
   isMuted: boolean;
   volume: number;
   position: number;
@@ -86,6 +87,7 @@ interface AppActions {
   // Player Actions
   setPlayerStatus: (status: PlayerStatus | null) => void;
   setIsPlaying: (playing: boolean) => void;
+  setIsPlayerLoading: (loading: boolean) => void;
   setIsMuted: (muted: boolean) => void;
   setVolume: (volume: number) => void;
   setPosition: (position: number) => void;
@@ -142,6 +144,7 @@ const initialState: AppState = {
   // Player State
   playerStatus: null,
   isPlaying: false,
+  isPlayerLoading: false,
   isMuted: false,
   volume: 100,
   position: 0,
@@ -190,6 +193,7 @@ export const useAppStore = create<AppStore>()(
       // Player Actions
       setPlayerStatus: (status) => set({ playerStatus: status }),
       setIsPlaying: (playing) => set({ isPlaying: playing }),
+      setIsPlayerLoading: (loading) => set({ isPlayerLoading: loading }),
       setIsMuted: (muted) => set({ isMuted: muted }),
       setVolume: (volume) => set({ volume }),
       setPosition: (position) => set({ position }),
@@ -291,7 +295,7 @@ export const useAppStore = create<AppStore>()(
       },
       
       playMedia: async (movie, episode) => {
-        const { setCurrentMovie, setCurrentEpisode, setCurrentView } = get();
+        const { setCurrentMovie, setCurrentEpisode, setCurrentView, setIsPlayerLoading } = get();
         const api = getAPI();
         
         if (!api) {
@@ -300,23 +304,31 @@ export const useAppStore = create<AppStore>()(
         }
         
         try {
+          setIsPlayerLoading(true);
+          
+          let path: string;
+          let progress: any = null;
+          
           if (movie) {
             setCurrentMovie(movie);
-            await api.player.load({
-              path: movie.videoFile.path,
-              // resumePosition can be added here when progress integrated
-            });
+            path = movie.videoFile.path;
+            // Get existing progress
+            progress = await api.progress.get(movie.id);
           } else if (episode) {
             setCurrentEpisode(episode);
-            await api.player.load({
-              path: episode.videoFile.path,
-            });
+            path = episode.videoFile.path;
+            // Get existing progress
+            progress = await api.progress.get(episode.id);
+          } else {
+            throw new Error('No media provided');
           }
           
           setCurrentView('player');
-          await api.player.play();
+          await api.player.start(path, progress ? { start: progress.position } : undefined);
         } catch (error) {
           console.error('Failed to play media:', error);
+        } finally {
+          setIsPlayerLoading(false);
         }
       },
       
