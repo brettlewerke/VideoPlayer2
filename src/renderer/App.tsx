@@ -55,6 +55,24 @@ export function App() {
     }
   }, [bridgeReady, loadLibrary]);
 
+  // Listen for media updates from file watcher
+  useEffect(() => {
+    const api = (window as any).HPlayerAPI;
+    if (!api || !bridgeReady) return;
+
+    const handleMediaUpdate = ({ driveId, type }: { driveId: string; type: string }) => {
+      console.log(`[App] Media updated on drive ${driveId} (${type}), refreshing library...`);
+      loadLibrary();
+    };
+
+    // Listen for media update events from file watcher
+    api.on?.('media:updated', handleMediaUpdate);
+
+    return () => {
+      api.off?.('media:updated', handleMediaUpdate);
+    };
+  }, [bridgeReady, loadLibrary]);
+
   // Listen for read-only drive warnings
   useEffect(() => {
     const api = (window as any).HPlayerAPI;

@@ -5,7 +5,8 @@
   "main": "dist/main/main/main.js",
   "scripts": {
     "setup": "node scripts/setup.js",
-    "dev": "concurrently \"npm run dev:renderer\" \"npm run dev:main\"",
+    "rebuild": "electron-rebuild -f -w better-sqlite3",
+    "dev": "npm run rebuild && concurrently \"npm run dev:renderer\" \"npm run dev:main\"",
     "dev:renderer": "vite",
     "dev:main": "tsc -p src/main/tsconfig.json && electron dist/main/main/main.js",
     "dev:play": "node scripts/dev-play.js",

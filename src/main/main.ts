@@ -10,6 +10,7 @@ import { request } from 'http';
 import { DatabaseManager } from './database/database.js';
 import { DriveManager } from './services/drive-manager.js';
 import { MediaScanner } from './services/media-scanner.js';
+import { FileWatcher } from './services/file-watcher.js';
 import { PlayerFactory } from './player/player-factory.js';
 import { IpcHandler } from './ipc/ipc-handler.js';
 import { DEFAULT_SETTINGS } from '../shared/constants.js';
@@ -21,12 +22,14 @@ class VideoPlayerApp {
   private ipcHandler: IpcHandler;
   private driveManager: DriveManager;
   private mediaScanner: MediaScanner;
+  private fileWatcher: FileWatcher;
 
   constructor() {
     this.database = new DatabaseManager();
     this.playerFactory = new PlayerFactory();
     this.driveManager = new DriveManager(this.database);
     this.mediaScanner = new MediaScanner(this.database);
+    this.fileWatcher = new FileWatcher();
     this.ipcHandler = new IpcHandler(this.database, this.playerFactory, this.driveManager, this.mediaScanner);
   }
 
@@ -49,6 +52,20 @@ class VideoPlayerApp {
     
     // Start drive monitoring
     this.driveManager.startMonitoring();
+    
+    // Start file system watching
+    await this.startFileWatching();
+    
+    // Listen to drive events to update file watcher
+    this.driveManager.on('driveConnected', (drive) => {
+      console.log(`[Main] Drive connected: ${drive.label}, updating file watcher`);
+      this.fileWatcher.addDrive(drive);
+    });
+
+    this.driveManager.on('driveDisconnected', (drive) => {
+      console.log(`[Main] Drive disconnected: ${drive.label}, updating file watcher`);
+      this.fileWatcher.removeDrive(drive.id);
+    });
     
     console.log('Hoser Video application initialized successfully');
   }
@@ -374,6 +391,48 @@ class VideoPlayerApp {
     }
   }
 
+  /**
+   * Start file system watching for automatic media library updates
+   */
+  private async startFileWatching(): Promise<void> {
+    try {
+      // Get all connected drives
+      const drives = await this.database.getDrives();
+      const connectedDrives = drives.filter(d => d.isConnected);
+
+      // Start watching
+      this.fileWatcher.startWatching(connectedDrives);
+
+      // Listen for rescan requests from file watcher
+      this.fileWatcher.on('rescan-needed', async ({ driveId, type }) => {
+        console.log(`[FileWatcher] Rescan triggered for drive ${driveId} (${type})`);
+        
+        try {
+          // Find the drive
+          const drive = await this.database.getDrives().then(drives => 
+            drives.find(d => d.id === driveId)
+          );
+
+          if (drive && drive.isConnected) {
+            console.log(`[FileWatcher] Starting rescan of drive: ${drive.label}`);
+            await this.mediaScanner.scanDrive(drive);
+            
+            // Notify renderer to refresh the media list
+            this.ipcHandler.sendToRenderer('media:updated', { driveId, type });
+            console.log(`[FileWatcher] Rescan completed for drive: ${drive.label}`);
+          }
+        } catch (error) {
+          console.error(`[FileWatcher] Rescan failed:`, error);
+        }
+      });
+
+      console.log('[FileWatcher] File system monitoring started');
+    } catch (error) {
+      console.error('[FileWatcher] Failed to start file watching:', error);
+      // Non-fatal - app can continue without file watching
+    }
+  }
+
   private createMenu(): void {
     const template: Electron.MenuItemConstructorOptions[] = [
       {
@@ -573,15 +632,17 @@ class VideoPlayerApp {
 
   async cleanup(): Promise<void> {
     try {
+      // Stop file watcher
+      this.fileWatcher.stopAll();
+      
       // Stop monitoring
       this.driveManager.stopMonitoring();
       
       // Cleanup IPC handlers
       this.ipcHandler.cleanup();
       
-      // Close and delete database to force fresh scan on next startup
-      // This ensures new movies/shows are detected when drives are reconnected
-      this.database.closeAndDelete();
+      // Close database (don't delete - we want to keep the data now with file watching)
+      // The file watcher will keep the database updated
       
       console.log('Application cleanup completed');
     } catch (error) {
