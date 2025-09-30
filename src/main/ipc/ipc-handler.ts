@@ -48,8 +48,6 @@ export class IpcHandler {
     ipcMain.handle(IPC_CHANNELS.LIBRARY_SEARCH, this.handleLibrarySearch.bind(this));
     ipcMain.handle(IPC_CHANNELS.LIBRARY_GET_PROGRESS, this.handleGetProgress.bind(this));
     ipcMain.handle(IPC_CHANNELS.LIBRARY_SET_PROGRESS, this.handleSetProgress.bind(this));
-    ipcMain.handle(IPC_CHANNELS.LIBRARY_GET_PROGRESS, this.handleGetProgress.bind(this));
-    ipcMain.handle(IPC_CHANNELS.LIBRARY_SET_PROGRESS, this.handleSetProgress.bind(this));
 
     // Drive handlers
     ipcMain.handle(IPC_CHANNELS.DRIVES_GET_ALL, this.handleGetDrives.bind(this));

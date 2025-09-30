@@ -125,15 +125,16 @@ export class DatabaseManager {
 
   /**
    * Extract drive path from a file path
-   * Windows: C:\ from C:\path\to\file
+   * Windows: C:\ from C:\path\to\file or C:/path/to/file
    * macOS/Linux: /Volumes/DriveName from /Volumes/DriveName/path/to/file
    */
   private getDrivePathFromFilePath(filePath: string): string {
     if (process.platform === 'win32') {
       // Windows: Extract drive letter (e.g., "C:\")
-      const match = filePath.match(/^([A-Z]:\\)/i);
+      // Handle both backslashes and forward slashes
+      const match = filePath.match(/^([A-Z]:)[\\\/]/i);
       if (match) {
-        return match[1];
+        return match[1] + '\\'; // Always return with backslash
       }
     } else if (process.platform === 'darwin') {
       // macOS: /Volumes/DriveName or / for root
@@ -259,6 +260,7 @@ export class DatabaseManager {
         show_id TEXT NOT NULL,
         season_number INTEGER NOT NULL,
         title TEXT,
+        path TEXT,
         poster_path TEXT,
         episode_count INTEGER DEFAULT 0,
         created_at INTEGER NOT NULL,
@@ -271,8 +273,10 @@ export class DatabaseManager {
         id TEXT PRIMARY KEY,
         show_id TEXT NOT NULL,
         season_id TEXT NOT NULL,
+        season_number INTEGER NOT NULL,
         episode_number INTEGER NOT NULL,
         title TEXT,
+        path TEXT NOT NULL,
         video_file_path TEXT NOT NULL,
         video_file_size INTEGER,
         video_file_modified INTEGER,
