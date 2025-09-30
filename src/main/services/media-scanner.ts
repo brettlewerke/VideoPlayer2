@@ -253,8 +253,11 @@ export class MediaScanner extends EventEmitter {
         extension: extname(primaryVideoPath),
       };
 
+      // Movie ID should be based on the folder only, not the video file
+      // This ensures the same movie entry is updated when files change
+      const folderStats = statSync(folderPath);
       const movie: Movie = {
-        id: generateMediaId(drive.id, folderPath, stats.size, stats.mtimeMs),
+        id: generateMediaId(drive.id, folderPath, 0, folderStats.mtimeMs),
         title,
         year,
         path: normalizePath(folderPath),

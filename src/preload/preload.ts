@@ -193,6 +193,8 @@ const hplayerAPI = {
       'drive-removed',
       'drive-changed',
       'drive-readonly',
+      'media:updated',
+      'app:fullscreen-changed',
       'window-focus',
       'global-shortcut',
       'menu-action',
