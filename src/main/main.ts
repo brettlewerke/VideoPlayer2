@@ -5,7 +5,7 @@
 import { app, BrowserWindow, Menu, globalShortcut, nativeTheme, dialog } from 'electron';
 import { join } from 'path';
 import { platform } from 'os';
-import { existsSync } from 'fs';
+import { existsSync, mkdirSync, readdirSync, copyFileSync, statSync } from 'fs';
 import { request } from 'http';
 import { DatabaseManager } from './database/database.js';
 import { DriveManager } from './services/drive-manager.js';
@@ -31,6 +31,9 @@ class VideoPlayerApp {
   }
 
   async initialize(): Promise<void> {
+    // Migrate user data from old app name (h-player) to new (hoser-video)
+    await this.migrateUserData();
+    
     // Initialize database
     await this.database.initialize();
     
@@ -47,7 +50,61 @@ class VideoPlayerApp {
     // Start drive monitoring
     this.driveManager.startMonitoring();
     
-    console.log('VideoPlayer application initialized successfully');
+    console.log('Hoser Video application initialized successfully');
+  }
+
+  /**
+   * Migrate user data from old app name (h-player) to new (hoser-video)
+   * This is a one-time migration that preserves database, settings, and cache
+   */
+  private async migrateUserData(): Promise<void> {
+    try {
+      const appDataRoot = app.getPath('appData');
+      const oldDataDir = join(appDataRoot, 'h-player');
+      const newDataDir = app.getPath('userData'); // Will be 'hoser-video'
+      
+      // Check if old directory exists and new one doesn't (first run after rename)
+      if (existsSync(oldDataDir) && !existsSync(newDataDir)) {
+        console.log('[Migration] Migrating user data from h-player to hoser-video...');
+        
+        // Create new directory
+        mkdirSync(newDataDir, { recursive: true });
+        
+        // Recursively copy all files and directories
+        this.copyDirectory(oldDataDir, newDataDir);
+        
+        console.log('[Migration] User data migration completed successfully');
+      } else if (existsSync(newDataDir)) {
+        // Already migrated or fresh install
+        console.log('[Migration] User data directory already exists, no migration needed');
+      } else {
+        // Fresh install
+        console.log('[Migration] Fresh installation, no migration needed');
+      }
+    } catch (error) {
+      console.error('[Migration] Failed to migrate user data:', error);
+      // Don't throw - allow app to continue with fresh data
+    }
+  }
+
+  /**
+   * Recursively copy directory contents
+   */
+  private copyDirectory(source: string, destination: string): void {
+    const entries = readdirSync(source, { withFileTypes: true });
+    
+    for (const entry of entries) {
+      const sourcePath = join(source, entry.name);
+      const destPath = join(destination, entry.name);
+      
+      if (entry.isDirectory()) {
+        mkdirSync(destPath, { recursive: true });
+        this.copyDirectory(sourcePath, destPath);
+      } else {
+        copyFileSync(sourcePath, destPath);
+        console.log(`[Migration] Copied: ${entry.name}`);
+      }
+    }
   }
 
   async createMainWindow(): Promise<void> {
@@ -80,7 +137,7 @@ class VideoPlayerApp {
         symbolColor: '#ffffff',
       },
       show: false, // Don't show until ready
-      title: 'H Player',
+      title: 'Hoser Video',
       backgroundColor: '#050706'
     });
 
@@ -422,7 +479,7 @@ class VideoPlayerApp {
         label: 'Help',
         submenu: [
           {
-            label: 'About VideoPlayer2',
+            label: 'About Hoser Video',
             click: () => {
               this.showAboutDialog();
             },
@@ -507,9 +564,9 @@ class VideoPlayerApp {
 
     dialog.showMessageBox(this.mainWindow, {
       type: 'info',
-      title: 'About VideoPlayer2',
-      message: 'VideoPlayer2',
-      detail: `Version: ${app.getVersion()}\\nElectron: ${process.versions.electron}\\nNode: ${process.versions.node}\\n\\nA cross-platform desktop media player for local video libraries.`,
+      title: 'About Hoser Video',
+      message: 'Hoser Video',
+      detail: `Version: ${app.getVersion()}\nElectron: ${process.versions.electron}\nNode: ${process.versions.node}\n\nA cross-platform desktop media player for local video libraries.`,
       buttons: ['OK'],
     });
   }
@@ -543,9 +600,9 @@ app.whenReady().then(async () => {
     await videoPlayerApp.initialize();
     await videoPlayerApp.createMainWindow();
     
-    console.log('VideoPlayer2 started successfully');
+    console.log('Hoser Video started successfully');
   } catch (error) {
-    console.error('Failed to start VideoPlayer2:', error);
+    console.error('Failed to start Hoser Video:', error);
     app.quit();
   }
 });

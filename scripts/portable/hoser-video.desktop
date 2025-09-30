@@ -1,8 +1,8 @@
 [Desktop Entry]
 Type=Application
-Name=H Player
+Name=Hoser Video
 Comment=Local desktop media player for Movies & TV Shows
-Exec=sh -c '"$(dirname %k)/run-h-player.sh"'
-Icon=h-player
+Exec=sh -c '"$(dirname %k)/run-hoser-video.sh"'
+Icon=hoser-video
 Categories=AudioVideo;Player;
 Terminal=false

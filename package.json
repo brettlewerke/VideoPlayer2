@@ -1,7 +1,7 @@
 {
-  "name": "h-player",
+  "name": "hoser-video",
   "version": "1.2.0",
-  "description": "H Player – local desktop video player for Movies & TV Shows on plugged-in drives (no network services)",
+  "description": "Hoser Video – local desktop video player for Movies & TV Shows on plugged-in drives (no network services)",
   "main": "dist/main/main/main.js",
   "scripts": {
     "setup": "node scripts/setup.js",
@@ -37,7 +37,7 @@
     "library",
     "cross-platform"
   ],
-  "author": "H Player Project",
+  "author": "Hoser Video Project",
   "license": "MIT",
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.8",
@@ -78,8 +78,8 @@
     "zustand": "^4.4.6"
   },
   "build": {
-    "appId": "com.hplayer.desktop",
-    "productName": "H Player",
+    "appId": "com.example.hoservideo",
+    "productName": "Hoser Video",
     "directories": {
       "output": "dist-packages"
     },
@@ -87,10 +87,10 @@
       "dist/**/*",
       "vendor/**/*",
       "assets/**/*",
-      "Run-H-Player.ps1",
-      "Run-H-Player.command",
-      "run-h-player.sh",
-      "scripts/portable/h-player.desktop",
+      "Run-Hoser-Video.ps1",
+      "Run-Hoser-Video.command",
+      "run-hoser-video.sh",
+      "scripts/portable/hoser-video.desktop",
       "package.json"
     ],
     "extraResources": [
@@ -112,7 +112,7 @@
     "mac": {
       "category": "public.app-category.entertainment",
       "icon": "build/icon.icns",
-      "artifactName": "H-Player-${version}-${arch}.${ext}",
+      "artifactName": "Hoser-Video-${version}-${arch}.${ext}",
       "target": [
         {
           "target": "dmg",
@@ -125,7 +125,7 @@
     },
     "win": {
       "icon": "build/icon.ico",
-      "artifactName": "H-Player-Setup-${version}.${ext}",
+      "artifactName": "Hoser-Video-Setup-${version}.${ext}",
       "target": [
         {
           "target": "nsis",
@@ -141,7 +141,7 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "H Player",
+      "shortcutName": "Hoser Video",
       "deleteAppDataOnUninstall": true,
       "installerIcon": "build/icon.ico",
       "uninstallerIcon": "build/icon.ico",
@@ -156,7 +156,7 @@
     "linux": {
       "category": "AudioVideo",
       "icon": "build/icons",
-      "artifactName": "h-player-${version}-${arch}.${ext}",
+      "artifactName": "hoser-video-${version}-${arch}.${ext}",
       "target": [
         {
           "target": "AppImage",
@@ -173,10 +173,10 @@
       ],
       "desktop": {
         "entry": {
-          "Name": "H Player",
+          "Name": "Hoser Video",
           "Comment": "Local desktop media player for Movies & TV Shows",
           "Categories": "AudioVideo;Player;",
-          "StartupWMClass": "H Player"
+          "StartupWMClass": "Hoser Video"
         }
       }
     }

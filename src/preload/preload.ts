@@ -197,10 +197,12 @@ const hplayerAPI = {
   },
 };
 
+// Expose the API under both old and new names for backward compatibility
 contextBridge.exposeInMainWorld('HPlayerAPI', hplayerAPI);
+contextBridge.exposeInMainWorld('HoserVideoAPI', hplayerAPI);
 
 if (IS_DEV) {
-  console.log('[Preload] bridge ready');
+  console.log('[Preload] bridge ready (HPlayerAPI + HoserVideoAPI)');
   contextBridge.exposeInMainWorld('DEBUG', {
     ipcChannels: IPC_CHANNELS,
     nodeVersion: process.versions.node,
