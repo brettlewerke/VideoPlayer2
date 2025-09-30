@@ -27,21 +27,45 @@ export function PlayerPage() {
 
   const currentMedia = currentMovie || currentEpisode;
 
+  console.log('[PlayerPage] Render:', { 
+    currentMedia: currentMedia?.title, 
+    useExternalPlayer, 
+    videoPath,
+    isPlayerLoading 
+  });
+
   // HTML5 video ref
   const videoRef = React.useRef<HTMLVideoElement>(null);
 
   // Handle HTML5 video events
   React.useEffect(() => {
     const video = videoRef.current;
-    if (!video || useExternalPlayer || !videoPath) return;
+    if (!video || useExternalPlayer || !videoPath) {
+      console.log('[PlayerPage] Skipping HTML5 setup:', { video: !!video, useExternalPlayer, videoPath });
+      return;
+    }
 
-    const handlePlay = () => setIsPlaying(true);
-    const handlePause = () => setIsPlaying(false);
+    console.log('[PlayerPage] Setting up HTML5 video:', videoPath);
+
+    const handlePlay = () => {
+      console.log('[PlayerPage] HTML5 video playing');
+      setIsPlaying(true);
+    };
+    const handlePause = () => {
+      console.log('[PlayerPage] HTML5 video paused');
+      setIsPlaying(false);
+    };
     const handleTimeUpdate = () => setPosition(video.currentTime);
-    const handleDurationChange = () => setDuration(video.duration);
+    const handleDurationChange = () => {
+      console.log('[PlayerPage] HTML5 duration changed:', video.duration);
+      setDuration(video.duration);
+    };
     const handleVolumeChange = () => {
       setVolume(video.volume * 100);
       setIsMuted(video.muted);
+    };
+    const handleError = (e: Event) => {
+      console.error('[PlayerPage] HTML5 video error:', (e.target as HTMLVideoElement).error);
     };
 
     video.addEventListener('play', handlePlay);
@@ -49,6 +73,10 @@ export function PlayerPage() {
     video.addEventListener('timeupdate', handleTimeUpdate);
     video.addEventListener('durationchange', handleDurationChange);
     video.addEventListener('volumechange', handleVolumeChange);
+    video.addEventListener('error', handleError);
+
+    // Auto-play
+    video.play().catch(err => console.error('[PlayerPage] Auto-play failed:', err));
 
     return () => {
       video.removeEventListener('play', handlePlay);
@@ -56,6 +84,7 @@ export function PlayerPage() {
       video.removeEventListener('timeupdate', handleTimeUpdate);
       video.removeEventListener('durationchange', handleDurationChange);
       video.removeEventListener('volumechange', handleVolumeChange);
+      video.removeEventListener('error', handleError);
     };
   }, [useExternalPlayer, videoPath, setIsPlaying, setPosition, setDuration, setVolume, setIsMuted]);
 

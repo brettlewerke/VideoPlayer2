@@ -12,13 +12,13 @@ import {
   ARTWORK_FILENAMES,
   IGNORE_PATTERNS 
 } from './constants.js';
+import { isPlayablePath } from '../common/media/extensions.js';
 
 /**
- * Check if a file has a video extension
+ * Check if a file has a video extension (uses centralized playable extensions)
  */
 export function isVideoFile(filename: string): boolean {
-  const ext = path.extname(filename).toLowerCase();
-  return VIDEO_EXTENSIONS.includes(ext as any);
+  return isPlayablePath(filename);
 }
 
 /**

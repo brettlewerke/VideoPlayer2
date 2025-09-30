@@ -27,27 +27,95 @@ export function MovieDetailPage() {
   const loadProgress = async () => {
     if (!currentMovie) return;
     try {
+      console.log('[MovieDetail] Loading progress for movie:', currentMovie.id);
       const prog = await (window as any).HPlayerAPI.progress.get(currentMovie.id);
+      console.log('[MovieDetail] Progress loaded:', prog);
       setProgress(prog);
     } catch (error) {
-      console.error('Failed to load progress:', error);
+      console.error('[MovieDetail] Failed to load progress:', error);
       setProgress(null);
     }
   };
 
   const handleResume = async () => {
     if (!currentMovie) return;
-    await playMedia(currentMovie, null);
+    const api = (window as any).HPlayerAPI;
+    
+    try {
+      console.log('[MovieDetail] handleResume called');
+      console.log('[MovieDetail] Current movie:', currentMovie.title, currentMovie.id);
+      
+      // Get existing progress
+      const prog = await api.progress.get(currentMovie.id);
+      console.log('[MovieDetail] Resume - Current progress:', prog);
+      
+      // Change view FIRST
+      setCurrentView('player');
+      
+      // Call player.start and handle the response properly
+      const path = currentMovie.videoFile.path;
+      const startOptions = prog && prog.position > 0 ? { start: prog.position } : { start: 0 };
+      console.log('[MovieDetail] Calling player.start with:', { path, startOptions });
+      
+      const result = await api.player.start(path, startOptions);
+      console.log('[MovieDetail] Player.start result:', result);
+      
+      // Handle HTML5 fallback
+      if (result?.data) {
+        const { useExternalPlayer, videoPath, startTime } = result.data;
+        console.log('[MovieDetail] Setting player state:', { useExternalPlayer, videoPath, startTime });
+        
+        const store = useAppStore.getState();
+        store.setUseExternalPlayer(useExternalPlayer);
+        
+        if (!useExternalPlayer && videoPath) {
+          store.setVideoPath(videoPath);
+          if (startTime) {
+            store.setPosition(startTime);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('[MovieDetail] Failed to resume:', error);
+    }
   };
 
   const handleRestart = async () => {
     if (!currentMovie) return;
-    // Clear progress first, then play
+    const api = (window as any).HPlayerAPI;
+    
     try {
-      await (window as any).HPlayerAPI.progress.delete(currentMovie.id);
-      await playMedia(currentMovie, null);
+      console.log('[MovieDetail] handleRestart called');
+      
+      // Clear progress first
+      await api.progress.delete(currentMovie.id);
+      console.log('[MovieDetail] Progress deleted');
+      
+      // Change view
+      setCurrentView('player');
+      
+      // Start playback from beginning
+      const path = currentMovie.videoFile.path;
+      console.log('[MovieDetail] Starting from beginning:', path);
+      
+      const result = await api.player.start(path, { start: 0 });
+      console.log('[MovieDetail] Player.start result:', result);
+      
+      // Handle HTML5 fallback
+      if (result?.data) {
+        const { useExternalPlayer, videoPath, startTime } = result.data;
+        console.log('[MovieDetail] Setting player state:', { useExternalPlayer, videoPath, startTime });
+        
+        const store = useAppStore.getState();
+        store.setUseExternalPlayer(useExternalPlayer);
+        
+        if (!useExternalPlayer && videoPath) {
+          store.setVideoPath(videoPath);
+          store.setPosition(0); // Always start from 0 for restart
+        }
+      }
     } catch (error) {
-      console.error('Failed to restart:', error);
+      console.error('[MovieDetail] Failed to restart:', error);
     }
   };
 
@@ -109,7 +177,14 @@ export function MovieDetailPage() {
   }
 
   const hasProgress = progress && progress.position > 0;
-  const progressPercentage = progress ? Math.round(progress.percentage) : 0;
+  const progressPercentage = progress && progress.duration > 0 ? Math.round((progress.position / progress.duration) * 100) : 0;
+
+  console.log('[MovieDetail] Render state:', { 
+    hasProgress, 
+    progressPercentage, 
+    position: progress?.position, 
+    duration: progress?.duration 
+  });
 
   return (
     <div className="h-full overflow-y-auto bg-gradient-to-br from-black via-slate-900 to-black">

@@ -125,6 +125,10 @@ const hplayerAPI = {
 
   player: {
     start: (path: string, options?: { start?: number }) => ipcRenderer.invoke(IPC_CHANNELS.PLAYER_START, { path, ...options }).catch(() => {}),
+    restart: async (path: string) => {
+      // Restart means start from 0 seconds
+      return ipcRenderer.invoke(IPC_CHANNELS.PLAYER_START, { path, start: 0 }).catch(() => {});
+    },
     play: () => ipcRenderer.invoke(IPC_CHANNELS.PLAYER_PLAY).catch(() => {}),
     pause: () => ipcRenderer.invoke(IPC_CHANNELS.PLAYER_PAUSE).catch(() => {}),
     stop: () => ipcRenderer.invoke(IPC_CHANNELS.PLAYER_STOP).catch(() => {}),
@@ -188,6 +192,7 @@ const hplayerAPI = {
       'drive-added',
       'drive-removed',
       'drive-changed',
+      'drive-readonly',
       'window-focus',
       'global-shortcut',
       'menu-action',
@@ -210,6 +215,7 @@ const hplayerAPI = {
       'drive-added',
       'drive-removed',
       'drive-changed',
+      'drive-readonly',
       'window-focus',
       'global-shortcut',
       'menu-action',

@@ -37,40 +37,61 @@ export class MpvPlayer extends EventEmitter implements IPlayer {
 
   async loadMedia(absPath: string, options?: { start?: number }): Promise<void> {
     try {
+      // Validate file path
+      if (!absPath || !existsSync(absPath)) {
+        throw new Error(`File not found: ${absPath}`);
+      }
+
       // Kill existing process if any
       await this.cleanup();
+      
+      // Extract directory for sidecar subtitle auto-loading
+      const mediaDir = join(absPath, '..');
       
       const args = [
         '--no-terminal',
         '--idle=no',
-        '--force-window=no',
+        '--force-window=yes',
         '--pause=no',
         `--input-ipc-server=${this.socketPath}`,
         '--hwdec=auto-safe',
-        '--msg-level=all=v'
+        '--msg-level=all=v',
+        '--sub-auto=fuzzy', // Auto-load sidecar subtitles
+        '--audio-file-auto=fuzzy', // Auto-load sidecar audio tracks
       ];
       
       if (options?.start && options.start > 0) {
         args.push(`--start=${options.start}`);
       }
       
-      // Add the file path as the last argument
+      // Add the file path as the last argument (absolute path, no file:// protocol)
       args.push(absPath);
       
-      console.log(`Starting MPV: ${this.config.executablePath} ${args.join(' ')}`);
+      console.log(`[MPV] Starting playback: ${absPath}`);
+      console.log(`[MPV] Working directory: ${mediaDir}`);
+      console.log(`[MPV] Args: ${args.join(' ')}`);
       
       this.process = spawn(this.config.executablePath!, args, {
         stdio: ['ignore', 'pipe', 'pipe'],
         detached: false,
+        cwd: mediaDir, // Set working directory to media folder for sidecar file auto-load
+      });
+      
+      this.process.stdout?.on('data', (data) => {
+        console.log(`[MPV stdout] ${data.toString().trim()}`);
+      });
+      
+      this.process.stderr?.on('data', (data) => {
+        console.error(`[MPV stderr] ${data.toString().trim()}`);
       });
       
       this.process.on('error', (error) => {
-        console.error('MPV process error:', error);
+        console.error('[MPV] Process error:', error);
         this.emit('error', new Error(`Failed to start MPV: ${error.message}`));
       });
       
       this.process.on('exit', (code, signal) => {
-        console.log(`MPV process exited with code ${code}, signal ${signal}`);
+        console.log(`[MPV] Process exited with code ${code}, signal ${signal}`);
         this.isReady = false;
         this.emit('ended');
       });
@@ -82,11 +103,13 @@ export class MpvPlayer extends EventEmitter implements IPlayer {
       this.isReady = true;
       this.currentStatus.state = 'playing';
       this.emit('statusChanged', this.currentStatus);
+      this.emit('stateChanged', 'playing');
       
       // Start polling for progress
       this.startProgressPolling();
     } catch (error) {
       this.emit('error', new Error(`Failed to load media: ${error}`));
+      throw error;
     }
   }
 

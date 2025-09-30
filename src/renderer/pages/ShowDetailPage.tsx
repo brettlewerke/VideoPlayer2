@@ -73,15 +73,31 @@ export function ShowDetailPage() {
   };
 
   const handlePlayEpisode = async (episode: Episode, restart = false) => {
-    if (restart) {
-      try {
-        await (window as any).HPlayerAPI.progress.delete(episode.id);
-      } catch (error) {
-        console.error('Failed to clear progress:', error);
+    const api = (window as any).HPlayerAPI;
+    const { setCurrentView, setCurrentEpisode } = useAppStore.getState();
+    
+    try {
+      if (restart) {
+        // Clear progress when restarting
+        await api.progress.delete(episode.id);
       }
+      
+      setCurrentEpisode(episode);
+      setCurrentView('player');
+      
+      const path = episode.videoFile.path;
+      
+      if (restart) {
+        // Start from beginning
+        await api.player.start(path, { start: 0 });
+      } else {
+        // Resume from saved position
+        const prog = await api.progress.get(episode.id);
+        await api.player.start(path, prog ? { start: prog.position } : undefined);
+      }
+    } catch (error) {
+      console.error('Failed to play episode:', error);
     }
-    setCurrentEpisode(episode);
-    await playMedia(null, episode);
   };
 
   const handleDeleteClick = (type: 'show' | 'season' | 'episode', id: string, title: string) => {

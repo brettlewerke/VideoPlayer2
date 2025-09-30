@@ -2,30 +2,11 @@
  * Application constants and configuration
  */
 
-// Supported video file extensions (case-insensitive)
-// Comprehensive list of video and audio formats
-export const VIDEO_EXTENSIONS = [
-  // Common video formats
-  '.mp4', '.m4v', '.mkv', '.avi', '.mov', '.wmv', '.flv', '.webm',
-  
-  // MPEG formats
-  '.mpg', '.mpeg', '.m2v', '.m4p', '.m4b',
-  
-  // Transport streams
-  '.ts', '.mts', '.m2ts', '.mxf',
-  
-  // Modern codecs
-  '.hevc', '.h264', '.h265',
-  
-  // Other video formats
-  '.3gp', '.3g2', '.asf', '.divx', '.f4v', '.ogv', '.ogm', '.vob', '.rm', '.rmvb',
-  
-  // Audio formats (for music library support)
-  '.mp3', '.m4a', '.aac', '.flac', '.wav', '.wma', '.ogg', '.opus', '.ape', '.alac',
-  
-  // Playlist/metadata
-  '.m3u', '.m3u8', '.pls',
-] as const;
+// Import from centralized media extensions module
+import { VIDEO_EXTENSIONS as PLAYABLE_EXTENSIONS_ARRAY } from '../common/media/extensions.js';
+
+// Re-export for backwards compatibility
+export const VIDEO_EXTENSIONS = PLAYABLE_EXTENSIONS_ARRAY;
 
 // Supported subtitle file extensions (case-insensitive)
 export const SUBTITLE_EXTENSIONS = [
