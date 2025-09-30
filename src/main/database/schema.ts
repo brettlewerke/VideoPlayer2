@@ -144,7 +144,7 @@ export const SCHEMA_V1: DatabaseSchema = {
       ],
       constraints: [
         'UNIQUE(media_id)',
-        'CHECK(media_type IN ("movie", "episode"))',
+        'CHECK(media_type IN (\'movie\', \'episode\'))',
         'CHECK(percentage >= 0 AND percentage <= 1)',
       ],
     },
@@ -156,7 +156,7 @@ export const SCHEMA_V1: DatabaseSchema = {
         { name: 'type', type: 'TEXT', nullable: false },
         { name: 'updated_at', type: 'INTEGER', nullable: false },
       ],
-      constraints: ['CHECK(type IN ("string", "number", "boolean", "json"))'],
+      constraints: ["CHECK(type IN ('string', 'number', 'boolean', 'json'))"],
     },
     {
       name: 'schema_migrations',
@@ -199,7 +199,7 @@ export const SCHEMA_V1: DatabaseSchema = {
  */
 export function generateCreateTableSQL(table: TableDefinition): string {
   const columns = table.columns.map(col => {
-    let sql = `${col.name} ${col.type}`;
+    let sql = `"${col.name}" ${col.type}`;
     
     if (col.primaryKey) {
       sql += ' PRIMARY KEY';
@@ -229,7 +229,7 @@ export function generateCreateTableSQL(table: TableDefinition): string {
     allConstraints.push(...table.constraints);
   }
   
-  return `CREATE TABLE ${table.name} (\n  ${allConstraints.join(',\n  ')}\n)`;
+  return `CREATE TABLE "${table.name}" (\n  ${allConstraints.join(',\n  ')}\n)`;
 }
 
 /**
@@ -237,8 +237,8 @@ export function generateCreateTableSQL(table: TableDefinition): string {
  */
 export function generateCreateIndexSQL(index: IndexDefinition): string {
   const uniqueClause = index.unique ? 'UNIQUE ' : '';
-  const columns = index.columns.join(', ');
-  return `CREATE ${uniqueClause}INDEX ${index.name} ON ${index.table} (${columns})`;
+  const columns = index.columns.map(c => `"${c}"`).join(', ');
+  return `CREATE ${uniqueClause}INDEX "${index.name}" ON "${index.table}" (${columns})`;
 }
 
 /**
