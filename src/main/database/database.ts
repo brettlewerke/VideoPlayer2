@@ -911,6 +911,11 @@ export class DatabaseManager {
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           `);
           
+          // Convert lastWatched to timestamp (handle both Date objects and ISO strings)
+          const lastWatchedTimestamp = typeof progress.lastWatched === 'string' 
+            ? new Date(progress.lastWatched).getTime() 
+            : progress.lastWatched.getTime();
+          
           stmt.run(
             progress.id,
             progress.mediaId,
@@ -919,7 +924,7 @@ export class DatabaseManager {
             progress.duration,
             progress.percentage,
             progress.isCompleted ? 1 : 0,
-            progress.lastWatched.getTime(),
+            lastWatchedTimestamp,
             now,
             now
           );
