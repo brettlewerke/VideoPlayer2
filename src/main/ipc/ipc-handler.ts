@@ -88,30 +88,43 @@ export class IpcHandler {
   // Player handlers
   private async handlePlayerStart(event: Electron.IpcMainInvokeEvent, payload: { path: string; start?: number }) {
     try {
+      console.log('[IPC] Player start requested:', payload.path);
+      
       if (!validatePath(payload.path)) {
+        console.error('[IPC] Invalid file path:', payload.path);
         throw new Error('Invalid file path');
       }
 
       if (!isPlayablePath(payload.path)) {
+        console.error('[IPC] Unsupported file format:', payload.path);
         throw new Error('Unsupported file format');
       }
 
       // Create new player instance for each playback
       if (this.player) {
+        console.log('[IPC] Cleaning up existing player');
         await this.player.cleanup();
       }
+      
+      console.log('[IPC] Creating new player instance');
       this.player = this.playerFactory.createPlayer();
       
       // Find media ID for progress tracking
+      console.log('[IPC] Looking up media in database:', payload.path);
       const media = await this.database.getMediaByPath(payload.path);
       this.currentMediaId = media?.id || null;
       this.currentMediaType = media?.type || null;
+      console.log('[IPC] Media lookup result:', media);
       
+      console.log('[IPC] Setting up player events');
       this.setupPlayerEvents();
 
+      console.log('[IPC] Loading media into player');
       await this.player.loadMedia(payload.path, { start: payload.start });
+      console.log('[IPC] Player started successfully');
       return createIpcResponse(event.frameId.toString(), undefined);
     } catch (error) {
+      console.error('[IPC] Player start failed:', error);
       return createIpcResponse(event.frameId.toString(), undefined, error instanceof Error ? error.message : 'Unknown error');
     }
   }

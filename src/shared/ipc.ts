@@ -68,11 +68,20 @@ export function validatePath(path: string): boolean {
   
   // Basic path validation - more thorough validation in main process
   const dangerousPatterns = [
-    /\.\./,  // Directory traversal
-    /[<>:"|?*]/,  // Invalid filename characters (Windows)
+    /\.\.\//,  // Directory traversal with forward slash
+    /\.\.\\/,  // Directory traversal with backslash
+    /[<>"|?*]/,  // Invalid filename characters (removed : to allow drive letters)
     /^\/dev\//,  // Unix device files
-    /^\\\\?\\/,  // UNC paths on Windows
+    /^\\\\?\\/,  // UNC paths on Windows (extended-length paths)
   ];
+  
+  // Allow paths that start with drive letters (C:, D:, etc.) or are Unix-style absolute paths
+  const isWindowsPath = /^[A-Za-z]:[\\/]/.test(path);
+  const isUnixPath = /^\/[^\/]/.test(path);
+  
+  if (!isWindowsPath && !isUnixPath) {
+    return false; // Must be an absolute path
+  }
   
   return !dangerousPatterns.some(pattern => pattern.test(path));
 }
