@@ -82,7 +82,7 @@ class VideoPlayerApp {
       this.mainWindow.webContents.openDevTools();
     } else {
       // Production mode - load from built files
-      const indexPath = join(__dirname, '../renderer/index.html');
+      const indexPath = join(__dirname, '../../renderer/index.html');
       if (existsSync(indexPath)) {
         await this.mainWindow.loadFile(indexPath);
       } else {

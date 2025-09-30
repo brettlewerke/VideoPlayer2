@@ -17,33 +17,115 @@ A beautiful, local desktop media player for Movies & TV Shows on plugged-in driv
 
 ## 🚀 Quick Start
 
-### Option 1: Installer (Recommended)
+H Player can be run in multiple ways depending on your needs. Choose the method that works best for you:
 
-1. **Download** the installer for your platform:
-   - **Windows**: `H-Player-Setup-X.X.X.exe` (NSIS installer)
-   - **macOS**: `H-Player-X.X.X.dmg` (DMG with drag-to-Applications)
-   - **Linux**: `h-player_X.X.X_amd64.AppImage` or `h-player_X.X.X_amd64.deb`
+### 📊 Distribution Methods Comparison
 
-2. **Install** the application:
-   - Windows: Run the installer, follow prompts, creates Start Menu and Desktop shortcuts
-   - macOS: Open DMG, drag H Player to Applications folder
-   - Linux: Run AppImage directly or install DEB package
+| Method | Platform | Installation? | Shortcuts? | Uninstaller? | Admin Rights? | Best For |
+|--------|----------|---------------|------------|--------------|---------------|----------|
+| **NSIS Installer** | Windows | ✅ Yes | ✅ Desktop + Start Menu | ✅ Yes | ✅ Required | Permanent installation |
+| **Portable Windows** | Windows | ❌ No | ⚠️ Auto-created on first run | ❌ No | ❌ Not needed | USB drives, no admin |
+| **DMG** | macOS | ✅ Yes (drag-drop) | ✅ Launchpad | ✅ Yes (trash) | ❌ Not needed | Standard Mac install |
+| **Portable macOS** | macOS | ❌ No | ❌ Manual | ❌ No | ❌ Not needed | Testing, temporary use |
+| **AppImage** | Linux | ❌ No | ❌ Manual | ❌ No | ❌ Not needed | Universal Linux |
+| **DEB Package** | Linux | ✅ Yes | ✅ App menu | ✅ Yes (apt) | ✅ Required | Debian/Ubuntu |
+| **Portable Linux** | Linux | ❌ No | ❌ Manual | ❌ No | ❌ Not needed | Portable use |
 
-3. **Launch**: Double-click the desktop shortcut or start menu entry
+### Option 1: Full Installation (Recommended)
+
+**Best for**: Permanent installation with shortcuts and uninstaller
+
+#### Windows - NSIS Installer
+1. **Download**: `H-Player-Setup-1.2.0.exe`
+2. **Install**: 
+   - Run the installer executable
+   - Follow the installation wizard
+   - Choose installation directory (default: `C:\Program Files\H Player`)
+   - Installation creates Desktop and Start Menu shortcuts
+   - Appears in Windows Settings > Apps & features
+3. **Launch**: Double-click Desktop shortcut or find in Start Menu
+4. **Uninstall**: Via Windows Settings or Start Menu uninstaller
+
+#### macOS - DMG Package
+1. **Download**: `H-Player-1.2.0.dmg` (choose x64 or arm64 for Apple Silicon)
+2. **Install**:
+   - Open the DMG file
+   - Drag H Player to the Applications folder
+   - Eject the DMG
+3. **Launch**: Find H Player in Launchpad or Applications folder
+4. **Uninstall**: Drag H Player to Trash from Applications folder
+
+#### Linux - DEB Package (Debian/Ubuntu)
+1. **Download**: `h-player-1.2.0-x64.deb`
+2. **Install**: 
+   ```bash
+   sudo dpkg -i h-player-1.2.0-x64.deb
+   # Or double-click in file manager
+   ```
+3. **Launch**: Find H Player in application menu
+4. **Uninstall**: 
+   ```bash
+   sudo apt remove h-player
+   ```
+
+#### Linux - AppImage (Universal)
+1. **Download**: `h-player-1.2.0-x64.AppImage`
+2. **Run**:
+   ```bash
+   chmod +x h-player-1.2.0-x64.AppImage
+   ./h-player-1.2.0-x64.AppImage
+   ```
+3. No installation needed - single executable file
 
 ### Option 2: Portable Bundle
 
-1. **Download** the portable archive for your platform:
-   - **Windows**: `H-Player-Portable-win32-x64.zip`
-   - **macOS**: `H-Player-Portable-darwin-x64.tar.gz` or `H-Player-Portable-darwin-arm64.tar.gz`
-   - **Linux**: `H-Player-Portable-linux-x64.tar.gz`
+**Best for**: USB drives, temporary use, or no admin rights
 
-2. **Extract** the archive to any folder (USB drive, Documents, Desktop, etc.)
+#### Windows Portable
+1. **Download**: `H-Player-Portable-win32-x64.zip`
+2. **Extract**: Unzip to any folder (USB drive, Desktop, Documents, etc.)
+3. **Run**: Double-click `Run-H-Player.ps1`
+   - First run automatically creates a desktop shortcut (optional)
+   - No installation or admin rights required
+4. **Remove**: Simply delete the extracted folder
 
-3. **Run** the launcher script:
-   - Windows: Double-click `Run-H-Player.ps1`
-   - macOS: Double-click `Run-H-Player.command`
-   - Linux: Run `./run-h-player.sh` or double-click in file manager
+#### macOS Portable
+1. **Download**: `H-Player-Portable-darwin-x64.tar.gz` or `darwin-arm64.tar.gz`
+2. **Extract**: Untar to any folder
+3. **Run**: Double-click `Run-H-Player.command`
+4. **Remove**: Delete the extracted folder
+
+#### Linux Portable
+1. **Download**: `H-Player-Portable-linux-x64.tar.gz`
+2. **Extract**: 
+   ```bash
+   tar -xzf H-Player-Portable-linux-x64.tar.gz
+   cd H-Player-Portable-linux-x64
+   ```
+3. **Run**: 
+   ```bash
+   ./run-h-player.sh
+   ```
+4. **Remove**: Delete the extracted folder
+
+### Option 3: Development Mode
+
+**Best for**: Developers contributing to the project
+
+```bash
+# Clone repository
+git clone <repository-url>
+cd VideoPlayer2
+
+# Install dependencies
+npm install
+
+# Setup (downloads vendor binaries)
+npm run setup
+
+# Run in development mode
+npm run dev
+```
 
 ## 📁 Media Organization
 
@@ -151,22 +233,91 @@ npm install
 git clone <repository-url>
 cd VideoPlayer2
 
-# Setup (downloads dependencies and binaries)
+# Install dependencies
+npm install
+
+# Setup (downloads vendor binaries like MPV/ffmpeg)
 npm run setup
 
-# Development
+# Run in development mode (hot-reload enabled)
+npm run dev
+```
+
+### Building Distribution Packages
+
+H Player supports multiple distribution formats. Choose based on your target platform:
+
+#### Development Commands
+```bash
+# Run development server (Vite + Electron)
 npm run dev
 
-# Build for distribution
-npm run build
+# Build renderer (React/Vite)
+npm run build:renderer
 
-# Create portable bundles
-npm run pack:portable
+# Build main process (TypeScript)
+npm run build:main
 
-# Alternative: Manual packaging (if electron-builder fails)
-npm run pack:manual
-# This creates H-Player-Manual-X.X.X.zip with electron.exe placeholder
+# Type checking
+npm run type-check
+
+# Linting
+npm run lint
+npm run lint:fix
 ```
+
+#### Production Build Commands
+
+**All Platforms (using electron-builder)**
+```bash
+# Build for current platform only
+npm run build              # Windows: Creates NSIS installer
+npm run dist               # Alternative: same as build
+
+# Build for ALL platforms (Windows, macOS, Linux)
+npm run dist:all           # Requires platform-specific dependencies
+```
+
+**Windows-Specific**
+```bash
+# NSIS Installer (recommended)
+npm run build              # Creates H-Player-Setup-1.2.0.exe
+                          # - Full installation wizard
+                          # - Desktop & Start Menu shortcuts
+                          # - Add/Remove Programs integration
+                          # - Professional uninstaller
+
+# Portable Bundle
+npm run pack:portable      # Creates H-Player-Portable-win32-x64.zip
+                          # - No installation needed
+                          # - Run from any folder/USB drive
+                          # - Auto-creates desktop shortcut
+
+# Manual Packaging (fallback)
+npm run pack:manual        # Creates H-Player-Manual-1.2.0.zip
+                          # - Alternative to electron-builder
+                          # - Useful if electron-builder fails
+                          # - Includes FFmpeg DLLs directly
+```
+
+**macOS-Specific**
+```bash
+npm run dist               # Creates .dmg installer
+npm run pack:portable      # Creates portable .tar.gz bundle
+```
+
+**Linux-Specific**
+```bash
+npm run dist               # Creates AppImage and DEB packages
+npm run pack:portable      # Creates portable .tar.gz bundle
+```
+
+#### Output Locations
+
+All distribution packages are created in:
+- `dist-packages/` - electron-builder outputs (NSIS, DMG, AppImage, DEB)
+- `dist-portable/` - Portable bundles (ZIP, tar.gz)
+- `dist-manual/` - Manual packaging output
 ```
 
 ### Project Structure
