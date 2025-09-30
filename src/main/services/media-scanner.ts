@@ -87,11 +87,8 @@ export class MediaScanner extends EventEmitter {
       
       const result = await this.performScan(drive);
       
-      // Update drive's last scanned timestamp
-      await this.database.insertDrive({
-        ...drive,
-        lastScanned: new Date(),
-      });
+      // Update drive's last scanned timestamp (use updateDriveLastScanned to avoid CASCADE DELETE)
+      await this.database.updateDriveLastScanned(drive.id, new Date());
       
       console.log(`Scan completed for drive ${drive.label}:`, {
         movies: result.movies.length,
@@ -510,30 +507,35 @@ export class MediaScanner extends EventEmitter {
 
   private async saveResults(result: ScanResult): Promise<void> {
     try {
-      // Use a transaction to ensure consistency
-      await this.database.transaction(async () => {
+      // Use a transaction to ensure consistency (must be synchronous for better-sqlite3)
+      this.database.transaction(() => {
         // Save movies
         for (const movie of result.movies) {
-          await this.database.insertMovie(movie);
+          this.database.insertMovie(movie);
         }
 
         // Save shows
         for (const show of result.shows) {
-          await this.database.insertShow(show);
+          this.database.insertShow(show);
         }
 
         // Save seasons
         for (const season of result.seasons) {
-          await this.database.insertSeason(season);
+          this.database.insertSeason(season);
         }
 
         // Save episodes
         for (const episode of result.episodes) {
-          await this.database.insertEpisode(episode);
+          this.database.insertEpisode(episode);
         }
       });
 
       console.log('Scan results saved to database successfully');
+      
+      // Verify the data was saved
+      const savedMovies = await this.database.getMovies();
+      const savedShows = await this.database.getShows();
+      console.log(`[Scanner] Verification: ${savedMovies.length} movies, ${savedShows.length} shows in database`);
     } catch (error) {
       console.error('Failed to save scan results:', error);
       throw error;

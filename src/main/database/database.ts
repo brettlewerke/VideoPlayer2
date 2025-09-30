@@ -178,8 +178,16 @@ export class DatabaseManager {
   transaction<T>(fn: () => T): T {
     if (!this.db) throw new Error('Database not initialized');
     
+    console.log('[Database] Starting transaction...');
     const transaction = this.db.transaction(fn);
-    return transaction();
+    const result = transaction();
+    console.log('[Database] Transaction completed');
+    
+    // Force WAL checkpoint to ensure data is visible
+    this.db.pragma('wal_checkpoint(TRUNCATE)');
+    console.log('[Database] WAL checkpoint completed');
+    
+    return result;
   }
 
   // Drive operations
@@ -232,8 +240,16 @@ export class DatabaseManager {
     stmt.run(isConnected ? 1 : 0, Date.now(), driveId);
   }
 
+  async updateDriveLastScanned(driveId: string, lastScanned: Date): Promise<void> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    const stmt = this.db.prepare('UPDATE drives SET last_scanned = ?, updated_at = ? WHERE id = ?');
+    stmt.run(lastScanned.getTime(), Date.now(), driveId);
+    console.log(`[Database] Updated last_scanned for drive ${driveId}`);
+  }
+
   // Movie operations
-  async insertMovie(movie: Omit<Movie, 'createdAt' | 'updatedAt'>): Promise<void> {
+  insertMovie(movie: Omit<Movie, 'createdAt' | 'updatedAt'>): void {
     if (!this.db) throw new Error('Database not initialized');
 
     const now = Date.now();
@@ -259,6 +275,7 @@ export class DatabaseManager {
       now,
       now
     );
+    console.log(`[Database] Inserted movie: ${movie.title}`);
   }
 
   async getMovies(driveId?: string): Promise<Movie[]> {
@@ -274,8 +291,10 @@ export class DatabaseManager {
     
     query += ' ORDER BY title';
     
+    console.log(`[Database] getMovies query: ${query}, params:`, params);
     const stmt = this.db.prepare(query);
     const rows = stmt.all(...params) as any[];
+    console.log(`[Database] getMovies found ${rows.length} rows`);
     
     return rows.map(row => this.rowToMovie(row));
   }
@@ -322,7 +341,7 @@ export class DatabaseManager {
   }
 
   // Show operations
-  async insertShow(show: Omit<Show, 'createdAt' | 'updatedAt'>): Promise<void> {
+  insertShow(show: Omit<Show, 'createdAt' | 'updatedAt'>): void {
     if (!this.db) throw new Error('Database not initialized');
 
     const now = Date.now();
@@ -342,6 +361,7 @@ export class DatabaseManager {
       now,
       now
     );
+    console.log(`[Database] Inserted show: ${show.title}`);
   }
 
   async getShows(driveId?: string): Promise<Show[]> {
@@ -357,8 +377,10 @@ export class DatabaseManager {
     
     query += ' ORDER BY title';
     
+    console.log(`[Database] getShows query: ${query}, params:`, params);
     const stmt = this.db.prepare(query);
     const rows = stmt.all(...params) as any[];
+    console.log(`[Database] getShows found ${rows.length} rows`);
     
     return rows.map(row => ({
       id: row.id,
@@ -391,7 +413,7 @@ export class DatabaseManager {
   }
 
   // Season operations
-  async insertSeason(season: Omit<Season, 'createdAt' | 'updatedAt'>): Promise<void> {
+  insertSeason(season: Omit<Season, 'createdAt' | 'updatedAt'>): void {
     if (!this.db) throw new Error('Database not initialized');
 
     const now = Date.now();
@@ -434,7 +456,7 @@ export class DatabaseManager {
   }
 
   // Episode operations
-  async insertEpisode(episode: Omit<Episode, 'createdAt' | 'updatedAt'>): Promise<void> {
+  insertEpisode(episode: Omit<Episode, 'createdAt' | 'updatedAt'>): void {
     if (!this.db) throw new Error('Database not initialized');
 
     const now = Date.now();

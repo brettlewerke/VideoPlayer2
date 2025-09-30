@@ -115,7 +115,10 @@ const hplayerAPI = {
   },
 
   progress: {
-    get: (mediaId: string) => ipcRenderer.invoke(IPC_CHANNELS.LIBRARY_GET_PROGRESS, mediaId).catch(() => null),
+    get: async (mediaId: string) => {
+      const res = await ipcRenderer.invoke(IPC_CHANNELS.LIBRARY_GET_PROGRESS, mediaId).catch(() => null);
+      return res?.data || null;
+    },
     save: (progress: any) => ipcRenderer.invoke(IPC_CHANNELS.LIBRARY_SET_PROGRESS, progress).catch(() => {}),
     delete: (mediaId: string) => ipcRenderer.invoke('progress:delete', mediaId).catch(() => {}),
   },

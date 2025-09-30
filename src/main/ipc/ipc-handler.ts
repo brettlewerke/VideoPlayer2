@@ -271,8 +271,10 @@ export class IpcHandler {
   private async handleGetMovies(event: Electron.IpcMainInvokeEvent, driveId?: string) {
     try {
       const movies = await this.database.getMovies(driveId);
+      console.log(`[IPC] getMovies returned ${movies.length} movies`);
       return createIpcResponse(event.frameId.toString(), movies);
     } catch (error) {
+      console.error('[IPC] getMovies error:', error);
       return createIpcResponse(event.frameId.toString(), undefined, error instanceof Error ? error.message : 'Unknown error');
     }
   }
@@ -280,8 +282,10 @@ export class IpcHandler {
   private async handleGetShows(event: Electron.IpcMainInvokeEvent, driveId?: string) {
     try {
       const shows = await this.database.getShows(driveId);
+      console.log(`[IPC] getShows returned ${shows.length} shows`);
       return createIpcResponse(event.frameId.toString(), shows);
     } catch (error) {
+      console.error('[IPC] getShows error:', error);
       return createIpcResponse(event.frameId.toString(), undefined, error instanceof Error ? error.message : 'Unknown error');
     }
   }
