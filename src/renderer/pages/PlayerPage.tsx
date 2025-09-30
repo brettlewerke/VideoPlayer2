@@ -9,45 +9,136 @@ export function PlayerPage() {
   const { 
     playerStatus, 
     isPlaying, 
+    isPlayerLoading,
     isMuted, 
     volume, 
     position, 
     duration,
     currentMovie,
-    currentEpisode
+    currentEpisode,
+    useExternalPlayer,
+    videoPath,
+    setIsPlaying,
+    setPosition,
+    setDuration,
+    setVolume,
+    setIsMuted
   } = useAppStore();
 
   const currentMedia = currentMovie || currentEpisode;
+
+  // HTML5 video ref
+  const videoRef = React.useRef<HTMLVideoElement>(null);
+
+  // Handle HTML5 video events
+  React.useEffect(() => {
+    const video = videoRef.current;
+    if (!video || useExternalPlayer || !videoPath) return;
+
+    const handlePlay = () => setIsPlaying(true);
+    const handlePause = () => setIsPlaying(false);
+    const handleTimeUpdate = () => setPosition(video.currentTime);
+    const handleDurationChange = () => setDuration(video.duration);
+    const handleVolumeChange = () => {
+      setVolume(video.volume * 100);
+      setIsMuted(video.muted);
+    };
+
+    video.addEventListener('play', handlePlay);
+    video.addEventListener('pause', handlePause);
+    video.addEventListener('timeupdate', handleTimeUpdate);
+    video.addEventListener('durationchange', handleDurationChange);
+    video.addEventListener('volumechange', handleVolumeChange);
+
+    return () => {
+      video.removeEventListener('play', handlePlay);
+      video.removeEventListener('pause', handlePause);
+      video.removeEventListener('timeupdate', handleTimeUpdate);
+      video.removeEventListener('durationchange', handleDurationChange);
+      video.removeEventListener('volumechange', handleVolumeChange);
+    };
+  }, [useExternalPlayer, videoPath, setIsPlaying, setPosition, setDuration, setVolume, setIsMuted]);
+
+  // Helper functions for controls
+  const handlePlayPause = () => {
+    if (useExternalPlayer) {
+      // Use external player API
+      if (isPlaying) {
+        (window as any).HPlayerAPI.player.pause();
+      } else {
+        (window as any).HPlayerAPI.player.play();
+      }
+    } else {
+      // Use HTML5 video
+      const video = videoRef.current;
+      if (video) {
+        if (isPlaying) {
+          video.pause();
+        } else {
+          video.play();
+        }
+      }
+    }
+  };
+
+  const handleSeek = (newPosition: number) => {
+    if (useExternalPlayer) {
+      (window as any).HPlayerAPI.player.seek(newPosition);
+    } else {
+      const video = videoRef.current;
+      if (video) {
+        video.currentTime = newPosition;
+      }
+    }
+  };
+
+  const handleVolumeChange = (newVolume: number) => {
+    if (useExternalPlayer) {
+      (window as any).HPlayerAPI.player.setVolume(newVolume);
+    } else {
+      const video = videoRef.current;
+      if (video) {
+        video.volume = newVolume / 100;
+      }
+    }
+  };
+
+  const handleMuteToggle = () => {
+    if (useExternalPlayer) {
+      (window as any).HPlayerAPI.player.setMuted(!isMuted);
+    } else {
+      const video = videoRef.current;
+      if (video) {
+        video.muted = !video.muted;
+      }
+    }
+  };
 
   useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
       switch (e.code) {
         case 'Space':
           e.preventDefault();
-          if (isPlaying) {
-            window.electronAPI.player.pause();
-          } else {
-            window.electronAPI.player.play();
-          }
+          handlePlayPause();
           break;
         case 'KeyM':
-          window.electronAPI.player.setMuted(!isMuted);
+          handleMuteToggle();
           break;
         case 'ArrowLeft':
           e.preventDefault();
-          window.electronAPI.player.seek(Math.max(0, position - 10));
+          handleSeek(Math.max(0, position - 10));
           break;
         case 'ArrowRight':
           e.preventDefault();
-          window.electronAPI.player.seek(position + 10);
+          handleSeek(position + 10);
           break;
         case 'ArrowUp':
           e.preventDefault();
-          window.electronAPI.player.setVolume(Math.min(100, volume + 5));
+          handleVolumeChange(Math.min(100, volume + 5));
           break;
         case 'ArrowDown':
           e.preventDefault();
-          window.electronAPI.player.setVolume(Math.max(0, volume - 5));
+          handleVolumeChange(Math.max(0, volume - 5));
           break;
       }
     };
@@ -89,17 +180,40 @@ export function PlayerPage() {
 
   return (
     <div className="h-full bg-black relative group">
+      {/* Loading Overlay */}
+      {isPlayerLoading && (
+        <div className="absolute inset-0 bg-black/80 flex items-center justify-center z-50">
+          <div className="text-center text-white">
+            <div className="animate-spin text-4xl mb-4">⏳</div>
+            <h3 className="text-xl font-semibold">Starting playback...</h3>
+            <p className="text-slate-400 mt-2">Please wait while we load your video</p>
+          </div>
+        </div>
+      )}
+      
       {/* Video Player Area */}
       <div className="h-full flex items-center justify-center">
-        <div className="text-center text-white">
-          <div className="text-8xl mb-4">
-            {isPlaying ? '▶️' : '⏸️'}
+        {!useExternalPlayer && videoPath ? (
+          /* HTML5 Video Element */
+          <video
+            ref={videoRef}
+            src={`file://${videoPath}`}
+            className="w-full h-full object-contain"
+            controls={false}
+            autoPlay
+          />
+        ) : (
+          /* Fallback display for external player or no video */
+          <div className="text-center text-white">
+            <div className="text-8xl mb-4">
+              {isPlaying ? '▶️' : '⏸️'}
+            </div>
+            <h2 className="text-3xl font-bold mb-2">{currentMedia?.title}</h2>
+            <p className="text-slate-400 text-lg">
+              {getStatusText()}
+            </p>
           </div>
-          <h2 className="text-3xl font-bold mb-2">{currentMedia.title}</h2>
-          <p className="text-slate-400 text-lg">
-            {getStatusText()}
-          </p>
-        </div>
+        )}
       </div>
 
       {/* Controls Overlay */}
@@ -108,8 +222,19 @@ export function PlayerPage() {
         
         {/* Progress Bar */}
         <div className="mb-4">
-          <div className="w-full h-2 bg-slate-600 rounded-full">
-            <div className="h-full bg-blue-500 rounded-full transition-all duration-200 w-1/3" />
+          <div 
+            className="w-full h-2 bg-slate-600 rounded-full cursor-pointer"
+            onClick={(e) => {
+              const rect = e.currentTarget.getBoundingClientRect();
+              const clickX = e.clientX - rect.left;
+              const newPosition = (clickX / rect.width) * duration;
+              handleSeek(newPosition);
+            }}
+          >
+            <div 
+              className="h-full bg-blue-500 rounded-full transition-all duration-200" 
+              style={{ width: `${duration > 0 ? (position / duration) * 100 : 0}%` }}
+            />
           </div>
           <div className="flex justify-between text-sm text-slate-300 mt-1">
             <span>{formatTime(position)}</span>
@@ -122,7 +247,7 @@ export function PlayerPage() {
           <div className="flex items-center space-x-4">
             {/* Play/Pause */}
             <button
-              onClick={() => isPlaying ? window.electronAPI.player.pause() : window.electronAPI.player.play()}
+              onClick={handlePlayPause}
               className="text-white hover:text-blue-400 transition-colors text-2xl
                 focus:outline-none focus:ring-2 focus:ring-blue-500/50 rounded"
             >
@@ -132,20 +257,40 @@ export function PlayerPage() {
             {/* Volume */}
             <div className="flex items-center space-x-2">
               <button
-                onClick={() => window.electronAPI.player.setMuted(!isMuted)}
+                onClick={handleMuteToggle}
                 className="text-white hover:text-blue-400 transition-colors
                   focus:outline-none focus:ring-2 focus:ring-blue-500/50 rounded"
               >
                 {isMuted ? '🔇' : volume > 50 ? '🔊' : volume > 0 ? '🔉' : '🔈'}
               </button>
-              <div className="w-20 h-1 bg-slate-600 rounded-full">
-                <div className="h-full bg-white rounded-full w-3/4" />
+              <div 
+                className="w-20 h-1 bg-slate-600 rounded-full cursor-pointer"
+                onClick={(e) => {
+                  const rect = e.currentTarget.getBoundingClientRect();
+                  const clickX = e.clientX - rect.left;
+                  const newVolume = (clickX / rect.width) * 100;
+                  handleVolumeChange(newVolume);
+                }}
+              >
+                <div 
+                  className="h-full bg-white rounded-full" 
+                  style={{ width: `${isMuted ? 0 : volume}%` }}
+                />
               </div>
               <span className="text-sm text-slate-300 w-8">{Math.round(isMuted ? 0 : volume)}</span>
             </div>
           </div>
 
           <div className="flex items-center space-x-4">
+            {/* Back button */}
+            <button 
+              onClick={() => useAppStore.getState().setCurrentView('home')}
+              className="text-white hover:text-blue-400 transition-colors
+                focus:outline-none focus:ring-2 focus:ring-blue-500/50 rounded px-3 py-1"
+            >
+              ← Back
+            </button>
+
             {/* Settings placeholder */}
             <button className="text-white hover:text-blue-400 transition-colors
               focus:outline-none focus:ring-2 focus:ring-blue-500/50 rounded px-3 py-1">

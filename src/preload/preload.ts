@@ -9,6 +9,7 @@ import { contextBridge, ipcRenderer } from 'electron';
 // Inline IPC channel constants to avoid cross-tree imports
 const IPC_CHANNELS = {
   PLAYER_LOAD: 'player:load',
+  PLAYER_START: 'player:start',
   PLAYER_PLAY: 'player:play',
   PLAYER_PAUSE: 'player:pause',
   PLAYER_STOP: 'player:stop',
@@ -102,7 +103,7 @@ const hplayerAPI = {
   },
 
   player: {
-    load: (request: any) => ipcRenderer.invoke(IPC_CHANNELS.PLAYER_LOAD, request).catch(() => {}),
+    start: (path: string, options?: { start?: number }) => ipcRenderer.invoke(IPC_CHANNELS.PLAYER_START, { path, ...options }).catch(() => {}),
     play: () => ipcRenderer.invoke(IPC_CHANNELS.PLAYER_PLAY).catch(() => {}),
     pause: () => ipcRenderer.invoke(IPC_CHANNELS.PLAYER_PAUSE).catch(() => {}),
     stop: () => ipcRenderer.invoke(IPC_CHANNELS.PLAYER_STOP).catch(() => {}),
@@ -197,10 +198,12 @@ const hplayerAPI = {
   },
 };
 
+// Expose the API under both old and new names for backward compatibility
 contextBridge.exposeInMainWorld('HPlayerAPI', hplayerAPI);
+contextBridge.exposeInMainWorld('HoserVideoAPI', hplayerAPI);
 
 if (IS_DEV) {
-  console.log('[Preload] bridge ready');
+  console.log('[Preload] bridge ready (HPlayerAPI + HoserVideoAPI)');
   contextBridge.exposeInMainWorld('DEBUG', {
     ipcChannels: IPC_CHANNELS,
     nodeVersion: process.versions.node,

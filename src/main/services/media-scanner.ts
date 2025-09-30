@@ -507,28 +507,28 @@ export class MediaScanner extends EventEmitter {
 
   private async saveResults(result: ScanResult): Promise<void> {
     try {
-      // Use a transaction to ensure consistency (must be synchronous for better-sqlite3)
-      this.database.transaction(() => {
-        // Save movies
-        for (const movie of result.movies) {
-          this.database.insertMovie(movie);
-        }
+      // Save results (each insert goes to the correct per-drive database)
+      // No need for transaction since data is on separate drive databases
+      
+      // Save movies
+      for (const movie of result.movies) {
+        this.database.insertMovie(movie);
+      }
 
-        // Save shows
-        for (const show of result.shows) {
-          this.database.insertShow(show);
-        }
+      // Save shows
+      for (const show of result.shows) {
+        this.database.insertShow(show);
+      }
 
-        // Save seasons
-        for (const season of result.seasons) {
-          this.database.insertSeason(season);
-        }
+      // Save seasons
+      for (const season of result.seasons) {
+        this.database.insertSeason(season);
+      }
 
-        // Save episodes
-        for (const episode of result.episodes) {
-          this.database.insertEpisode(episode);
-        }
-      });
+      // Save episodes
+      for (const episode of result.episodes) {
+        this.database.insertEpisode(episode);
+      }
 
       console.log('Scan results saved to database successfully');
       

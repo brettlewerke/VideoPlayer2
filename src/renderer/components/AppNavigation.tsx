@@ -68,7 +68,7 @@ export const AppNavigation: React.FC<AppNavigationProps> = ({ orientation = 'aut
     >
       <div className={vertical ? 'px-4 py-4 flex items-center gap-3' : 'hidden md:flex items-center pr-6'}>
         <Logo size="sm" />
-        <span className="text-text-primary font-semibold tracking-wide text-lg">H Player</span>
+        <span className="text-text-primary font-semibold tracking-wide text-lg">Hoser Video</span>
       </div>
       <div className={vertical ? 'mt-2 flex-1 overflow-y-auto' : 'flex-1 flex items-end gap-2'}>
         {MENU.map(item => {

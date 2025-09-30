@@ -1,8 +1,9 @@
 /**
- * Logo component with animated "H" design
+ * Logo component with dragon mark design
  */
 
 import React from 'react';
+import dragonLogo from '../../../assets/brand/dragon-logo.svg';
 
 interface LogoProps {
   size?: 'sm' | 'md' | 'lg';
@@ -25,28 +26,29 @@ export function Logo({ size = 'md', showText = true, className = '' }: LogoProps
 
   return (
     <div className={`flex items-center space-x-3 ${className}`}>
-      {/* H Logo with glow effect */}
+      {/* Dragon Logo */}
       <div className={`${sizeClasses[size]} relative group`}>
         {/* Glow background */}
-        <div className="absolute inset-0 bg-green-500/30 rounded-xl blur-md group-hover:bg-green-400/40 transition-all duration-300" />
+        <div className="absolute inset-0 bg-green-500/20 rounded-lg blur-md group-hover:bg-green-400/30 transition-all duration-300" />
         
-        {/* Main logo */}
-        <div className="relative bg-gradient-to-br from-green-400 to-green-600 rounded-xl flex items-center justify-center h-full shadow-lg group-hover:from-green-300 group-hover:to-green-500 transition-all duration-300">
-          <span className="font-bold text-black text-2xl leading-none select-none">H</span>
+        {/* Dragon mark SVG */}
+        <div className="relative h-full w-full flex items-center justify-center">
+          <img 
+            src={dragonLogo} 
+            alt="Hoser Video Dragon Logo" 
+            className="w-full h-full object-contain drop-shadow-lg"
+          />
         </div>
-        
-        {/* Accent highlight */}
-        <div className="absolute top-1 left-1 w-3 h-3 bg-green-200/60 rounded-full blur-sm" />
       </div>
 
       {/* Text */}
       {showText && (
         <div className="flex flex-col">
           <span className={`${textSizeClasses[size]} font-bold bg-gradient-to-r from-green-400 to-green-200 bg-clip-text text-transparent`}>
-            VideoHub
+            Hoser Video
           </span>
           <span className="text-xs text-green-300/70 font-medium">
-            Media Center
+            Media Player
           </span>
         </div>
       )}

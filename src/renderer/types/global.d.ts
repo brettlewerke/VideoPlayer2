@@ -1,84 +1,166 @@
-/**/**
+/**/**/**
 
- * Global type declarations for renderer process * Global type declarations for renderer process
+ * Global type declarations for renderer process
 
- */ */
-
-
-
-import type { import type { 
-
-  Movie,   Movie, 
-
-  Show,   Show, 
-
-  Season,   Season, 
-
-  Episode,   Episode, 
-
-  Drive,   Drive, 
-
-  PlaybackProgress,   PlaybackProgress, 
-
-  LoadMediaRequest   LoadMediaRequest 
-
-} from '../../shared/types.js';} from '../../shared/types.js';
+ */ * Global type declarations for renderer process * Global type declarations for renderer process
 
 
 
-declare global {// Extend the global Window interface with our ElectronAPI
+import type {  */ */
 
-  interface Window {declare global {
+  Movie, 
 
-    HPlayerAPI?: {  interface Window {
+  Show, 
 
-      ping: () => Promise<boolean>;    electronAPI: {
+  Season, 
 
-      library: {      // Library management
+  Episode, import type { import type { 
 
-        list: () => Promise<{ movies: Movie[]; shows: Show[] }>;      library: {
+  Drive, 
 
-        getMovies: () => Promise<Movie[]>;        getMovies: () => Promise<Movie[]>;
+  PlaybackProgress,   Movie,   Movie, 
 
-        getShows: () => Promise<Show[]>;        getShows: () => Promise<Show[]>;
+  LoadMediaRequest 
 
-        getSeasons: (showId: string) => Promise<Season[]>;        getSeasons: (showId: string) => Promise<Season[]>;
+} from '../../shared/types.js';  Show,   Show, 
 
-        getEpisodes: (seasonId: string) => Promise<Episode[]>;        getEpisodes: (seasonId: string) => Promise<Episode[]>;
 
-        searchMedia: (query: string) => Promise<(Movie | Episode)[]>;        searchMedia: (query: string) => Promise<(Movie | Episode)[]>;
 
-        getRecentlyWatched: () => Promise<(Movie | Episode)[]>;        getRecentlyWatched: () => Promise<(Movie | Episode)[]>;
+declare global {  Season,   Season, 
 
-        scanMedia: () => Promise<void>;        scanMedia: () => Promise<void>;
+  interface Window {
 
-        addPath: (path: string) => Promise<void>;        addPath: (path: string) => Promise<void>;
+    HPlayerAPI?: {  Episode,   Episode, 
 
-      };      };
+      ping: () => Promise<boolean>;
+
+      library: {  Drive,   Drive, 
+
+        list: () => Promise<{ movies: Movie[]; shows: Show[] }>;
+
+        getMovies: () => Promise<Movie[]>;  PlaybackProgress,   PlaybackProgress, 
+
+        getShows: () => Promise<Show[]>;
+
+        getSeasons: (showId: string) => Promise<Season[]>;  LoadMediaRequest   LoadMediaRequest 
+
+        getEpisodes: (seasonId: string) => Promise<Episode[]>;
+
+        searchMedia: (query: string) => Promise<(Movie | Episode)[]>;} from '../../shared/types.js';} from '../../shared/types.js';
+
+        getRecentlyWatched: () => Promise<(Movie | Episode)[]>;
+
+        scanMedia: () => Promise<void>;
+
+        addPath: (path: string) => Promise<void>;
+
+      };declare global {// Extend the global Window interface with our ElectronAPI
 
       scanner: {
 
-        scan: () => Promise<void>;      // Media playback
+        scan: () => Promise<void>;  interface Window {declare global {
 
-      };      player: {
+      };
 
-      player: {        load: (request: LoadMediaRequest) => Promise<void>;
+      player: {    HPlayerAPI?: {  interface Window {
 
-        load: (request: LoadMediaRequest) => Promise<void>;        play: () => Promise<void>;
+        load: (request: LoadMediaRequest) => Promise<void>;
 
-        play: () => Promise<void>;        pause: () => Promise<void>;
+        play: () => Promise<void>;      ping: () => Promise<boolean>;    electronAPI: {
 
-        pause: () => Promise<void>;        stop: () => Promise<void>;
+        pause: () => Promise<void>;
 
-        stop: () => Promise<void>;        seek: (position: number) => Promise<void>;
+        stop: () => Promise<void>;      library: {      // Library management
 
-        seek: (position: number) => Promise<void>;        setVolume: (volume: number) => Promise<void>;
+        seek: (position: number) => Promise<void>;
 
-        setVolume: (volume: number) => Promise<void>;        setMuted: (muted: boolean) => Promise<void>;
+        setVolume: (volume: number) => Promise<void>;        list: () => Promise<{ movies: Movie[]; shows: Show[] }>;      library: {
 
-        setMuted: (muted: boolean) => Promise<void>;        setSubtitleTrack: (trackId: string | null) => Promise<void>;
+        setMuted: (muted: boolean) => Promise<void>;
+
+        setSubtitleTrack: (trackId: string | null) => Promise<void>;        getMovies: () => Promise<Movie[]>;        getMovies: () => Promise<Movie[]>;
+
+        setAudioTrack: (trackId: string) => Promise<void>;
+
+        getStatus: () => Promise<any>;        getShows: () => Promise<Show[]>;        getShows: () => Promise<Show[]>;
+
+      };
+
+      progress: {        getSeasons: (showId: string) => Promise<Season[]>;        getSeasons: (showId: string) => Promise<Season[]>;
+
+        get: (mediaId: string) => Promise<PlaybackProgress | null>;
+
+        save: (progress: PlaybackProgress) => Promise<void>;        getEpisodes: (seasonId: string) => Promise<Episode[]>;        getEpisodes: (seasonId: string) => Promise<Episode[]>;
+
+        delete: (mediaId: string) => Promise<void>;
+
+      };        searchMedia: (query: string) => Promise<(Movie | Episode)[]>;        searchMedia: (query: string) => Promise<(Movie | Episode)[]>;
+
+      settings: {
+
+        get: () => Promise<any>;        getRecentlyWatched: () => Promise<(Movie | Episode)[]>;        getRecentlyWatched: () => Promise<(Movie | Episode)[]>;
+
+        set: (settings: any) => Promise<void>;
+
+        reset: () => Promise<void>;        scanMedia: () => Promise<void>;        scanMedia: () => Promise<void>;
+
+      };
+
+      drives: {        addPath: (path: string) => Promise<void>;        addPath: (path: string) => Promise<void>;
+
+        getAll: () => Promise<Drive[]>;
+
+        scan: () => Promise<void>;      };      };
+
+        onScanProgress: (callback: (progress: any) => void) => () => void;
+
+      };      scanner: {
+
+      fs: {
+
+        getThumbnail: (path: string) => Promise<string | null>;        scan: () => Promise<void>;      // Media playback
+
+        getArtwork: (path: string, type: string) => Promise<string | null>;
+
+      };      };      player: {
+
+      ipc: {
+
+        send: (channel: string, ...args: any[]) => void;      player: {        load: (request: LoadMediaRequest) => Promise<void>;
+
+        on: (channel: string, callback: (...args: any[]) => void) => () => void;
+
+      };        load: (request: LoadMediaRequest) => Promise<void>;        play: () => Promise<void>;
+
+    };
+
+            play: () => Promise<void>;        pause: () => Promise<void>;
+
+    // Alias for new brand name - points to same API object
+
+    HoserVideoAPI?: typeof Window.prototype.HPlayerAPI;        pause: () => Promise<void>;        stop: () => Promise<void>;
+
+    
+
+    DEBUG?: {        stop: () => Promise<void>;        seek: (position: number) => Promise<void>;
+
+      ipcChannels: Record<string, string>;
+
+      nodeVersion: string;        seek: (position: number) => Promise<void>;        setVolume: (volume: number) => Promise<void>;
+
+      electronVersion: string;
+
+      chromiumVersion: string;        setVolume: (volume: number) => Promise<void>;        setMuted: (muted: boolean) => Promise<void>;
+
+    };
+
+  }        setMuted: (muted: boolean) => Promise<void>;        setSubtitleTrack: (trackId: string | null) => Promise<void>;
+
+}
 
         setSubtitleTrack: (trackId: string | null) => Promise<void>;        setAudioTrack: (trackId: string) => Promise<void>;
+
+export {};
 
         setAudioTrack: (trackId: string) => Promise<void>;        getStatus: () => Promise<any>;
 

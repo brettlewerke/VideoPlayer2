@@ -7,6 +7,7 @@ import { join } from 'path';
 import { app } from 'electron';
 import { IPlayer, IPlayerFactory, PlayerBackendConfig } from '../../shared/player.js';
 import { MpvPlayer } from './mpv-player.js';
+import { LibVlcPlayer } from './libvlc-player.js';
 import { MockPlayer } from './mock-player.js';
 
 export class MpvPlayerFactory implements IPlayerFactory {
@@ -33,6 +34,23 @@ export class MpvPlayerFactory implements IPlayerFactory {
 
   getName(): string {
     return 'MPV';
+  }
+}
+
+export class LibVlcPlayerFactory implements IPlayerFactory {
+  constructor(private config: PlayerBackendConfig) {}
+
+  createPlayer(): IPlayer {
+    return new LibVlcPlayer(this.config);
+  }
+
+  isAvailable(): boolean {
+    // TODO: Check system libVLC
+    return false;
+  }
+
+  getName(): string {
+    return 'libVLC';
   }
 }
 
@@ -64,15 +82,40 @@ export class PlayerFactory {
   }
 
   private registerFactories(): void {
-    // Get vendor binary paths
+    // Get vendor binary paths from manifest
     const vendorPath = join(process.cwd(), 'vendor');
-    const mpvPath = this.getMpvPath(vendorPath);
+    const manifestPath = join(vendorPath, 'manifest.json');
+    
+    let mpvPath: string | undefined;
+    let libvlcAvailable = false;
+    
+    if (existsSync(manifestPath)) {
+      try {
+        const manifest = require(manifestPath);
+        if (manifest.binaries?.mpv?.available && manifest.binaries.mpv.path) {
+          mpvPath = join(vendorPath, manifest.binaries.mpv.path);
+        }
+        // TODO: Check libVLC in manifest
+      } catch (error) {
+        console.warn('Failed to read vendor manifest:', error);
+      }
+    }
+    
+    // Fallback to old logic
+    if (!mpvPath) {
+      mpvPath = this.getMpvPath(vendorPath);
+    }
     
     // Register MPV factory
     this.factories.set('mpv', new MpvPlayerFactory({
       name: 'mpv',
       executablePath: mpvPath,
       timeout: 5000,
+    }));
+    
+    // Register libVLC factory
+    this.factories.set('libvlc', new LibVlcPlayerFactory({
+      name: 'libvlc',
     }));
     
     // Register Mock factory
@@ -110,27 +153,26 @@ export class PlayerFactory {
   }
 
   /**
-   * Create a player instance using the current backend
+   * Create a player instance using the best available backend
    */
   createPlayer(): IPlayer {
-    const factory = this.factories.get(this.currentBackend);
-    
-    if (!factory) {
-      throw new Error(`Unknown player backend: ${this.currentBackend}`);
+    // Try MPV first
+    const mpvFactory = this.factories.get('mpv');
+    if (mpvFactory && mpvFactory.isAvailable()) {
+      const config = (mpvFactory as MpvPlayerFactory)['config'];
+      console.log(`Player backend: mpv, resolved path: ${config.executablePath || 'system PATH'}`);
+      return mpvFactory.createPlayer();
     }
     
-    if (!factory.isAvailable()) {
-      // Try to fall back to mock player
-      const mockFactory = this.factories.get('mock');
-      if (mockFactory && mockFactory.isAvailable()) {
-        console.warn(`Backend ${this.currentBackend} not available, falling back to mock player`);
-        return mockFactory.createPlayer();
-      }
-      
-      throw new Error(`Player backend ${this.currentBackend} is not available`);
+    // Try libVLC
+    const libvlcFactory = this.factories.get('libvlc');
+    if (libvlcFactory && libvlcFactory.isAvailable()) {
+      console.log('Player backend: libVLC, resolved path: system');
+      return libvlcFactory.createPlayer();
     }
     
-    return factory.createPlayer();
+    // No external player available - throw error to force HTML5 video
+    throw new Error('No external video player available. Use HTML5 video element instead.');
   }
 
   /**

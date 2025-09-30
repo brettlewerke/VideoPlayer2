@@ -1,13 +1,15 @@
-# H Player
+# Hoser Video
 
 A beautiful, local desktop media player for Movies & TV Shows on plugged-in drives. No internet connection required - just plug in your drive and start watching.
 
-![H Player Logo](assets/brand/H-logo.svg)
+![Hoser Video Logo](assets/brand/dragon-logo.svg)
 
 ## ✨ Features
 
 - **📱 Netflix-like Interface**: Modern, green-and-black themed UI optimized for TV viewing
-- **💾 Local Media Library**: Automatic scanning of Movies and TV Shows folders
+- **## 📦 Releases & Versioning
+
+Hoser Video uses [semantic versioning](https://semver.org/) and automated releases.ocal Media Library**: Automatic scanning of Movies and TV Shows folders
 - **🎬 Hardware-Accelerated Playback**: MPV backend with optional libVLC support
 - **🔌 Drive Detection**: Automatic detection of Windows drives, macOS volumes, and Linux mounts
 - **📺 Ten-Foot Experience**: Keyboard navigation, remote control ready
@@ -17,7 +19,7 @@ A beautiful, local desktop media player for Movies & TV Shows on plugged-in driv
 
 ## 🚀 Quick Start
 
-H Player can be run in multiple ways depending on your needs. Choose the method that works best for you:
+Hoser Video can be run in multiple ways depending on your needs. Choose the method that works best for you:
 
 ### 📊 Distribution Methods Comparison
 
@@ -36,44 +38,44 @@ H Player can be run in multiple ways depending on your needs. Choose the method 
 **Best for**: Permanent installation with shortcuts and uninstaller
 
 #### Windows - NSIS Installer
-1. **Download**: `H-Player-Setup-1.2.0.exe`
+1. **Download**: `Hoser-Video-Setup-1.2.0.exe`
 2. **Install**: 
    - Run the installer executable
    - Follow the installation wizard
-   - Choose installation directory (default: `C:\Program Files\H Player`)
+   - Choose installation directory (default: `C:\Program Files\Hoser Video`)
    - Installation creates Desktop and Start Menu shortcuts
    - Appears in Windows Settings > Apps & features
 3. **Launch**: Double-click Desktop shortcut or find in Start Menu
 4. **Uninstall**: Via Windows Settings or Start Menu uninstaller
 
 #### macOS - DMG Package
-1. **Download**: `H-Player-1.2.0.dmg` (choose x64 or arm64 for Apple Silicon)
+1. **Download**: `Hoser-Video-1.2.0.dmg` (choose x64 or arm64 for Apple Silicon)
 2. **Install**:
    - Open the DMG file
-   - Drag H Player to the Applications folder
+   - Drag Hoser Video to the Applications folder
    - Eject the DMG
-3. **Launch**: Find H Player in Launchpad or Applications folder
-4. **Uninstall**: Drag H Player to Trash from Applications folder
+3. **Launch**: Find Hoser Video in Launchpad or Applications folder
+4. **Uninstall**: Drag Hoser Video to Trash from Applications folder
 
 #### Linux - DEB Package (Debian/Ubuntu)
-1. **Download**: `h-player-1.2.0-x64.deb`
+1. **Download**: `hoser-video-1.2.0-x64.deb`
 2. **Install**: 
    ```bash
-   sudo dpkg -i h-player-1.2.0-x64.deb
+   sudo dpkg -i hoser-video-1.2.0-x64.deb
    # Or double-click in file manager
    ```
-3. **Launch**: Find H Player in application menu
+3. **Launch**: Find Hoser Video in application menu
 4. **Uninstall**: 
    ```bash
-   sudo apt remove h-player
+   sudo apt remove hoser-video
    ```
 
 #### Linux - AppImage (Universal)
-1. **Download**: `h-player-1.2.0-x64.AppImage`
+1. **Download**: `hoser-video-1.2.0-x64.AppImage`
 2. **Run**:
    ```bash
-   chmod +x h-player-1.2.0-x64.AppImage
-   ./h-player-1.2.0-x64.AppImage
+   chmod +x hoser-video-1.2.0-x64.AppImage
+   ./hoser-video-1.2.0-x64.AppImage
    ```
 3. No installation needed - single executable file
 
@@ -82,29 +84,29 @@ H Player can be run in multiple ways depending on your needs. Choose the method 
 **Best for**: USB drives, temporary use, or no admin rights
 
 #### Windows Portable
-1. **Download**: `H-Player-Portable-win32-x64.zip`
+1. **Download**: `Hoser-Video-Portable-win32-x64.zip`
 2. **Extract**: Unzip to any folder (USB drive, Desktop, Documents, etc.)
-3. **Run**: Double-click `Run-H-Player.ps1`
+3. **Run**: Double-click `Run-Hoser-Video.ps1`
    - First run automatically creates a desktop shortcut (optional)
    - No installation or admin rights required
 4. **Remove**: Simply delete the extracted folder
 
 #### macOS Portable
-1. **Download**: `H-Player-Portable-darwin-x64.tar.gz` or `darwin-arm64.tar.gz`
+1. **Download**: `Hoser-Video-Portable-darwin-x64.tar.gz` or `darwin-arm64.tar.gz`
 2. **Extract**: Untar to any folder
-3. **Run**: Double-click `Run-H-Player.command`
+3. **Run**: Double-click `Run-Hoser-Video.command`
 4. **Remove**: Delete the extracted folder
 
 #### Linux Portable
-1. **Download**: `H-Player-Portable-linux-x64.tar.gz`
+1. **Download**: `Hoser-Video-Portable-linux-x64.tar.gz`
 2. **Extract**: 
    ```bash
-   tar -xzf H-Player-Portable-linux-x64.tar.gz
-   cd H-Player-Portable-linux-x64
+   tar -xzf Hoser-Video-Portable-linux-x64.tar.gz
+   cd Hoser-Video-Portable-linux-x64
    ```
 3. **Run**: 
    ```bash
-   ./run-h-player.sh
+   ./run-hoser-video.sh
    ```
 4. **Remove**: Delete the extracted folder
 
@@ -129,7 +131,7 @@ npm run dev
 
 ## 📁 Media Organization
 
-H Player automatically scans for media in `Movies/` and `TV Shows/` folders on attached drives.
+Hoser Video automatically scans for media in `Movies/` and `TV Shows/` folders on attached drives.
 
 ### Expected Structure
 
@@ -200,7 +202,7 @@ Any Drive/
 ### App won't start
 - **Windows**: Try running as Administrator
 - **macOS**: Check System Preferences > Security & Privacy for unsigned app warning
-- **Linux**: Ensure execute permissions on launcher script: `chmod +x run-h-player.sh`
+- **Linux**: Ensure execute permissions on launcher script: `chmod +x run-hoser-video.sh`
 
 ### Build Issues
 
@@ -245,7 +247,7 @@ npm run dev
 
 ### Building Distribution Packages
 
-H Player supports multiple distribution formats. Choose based on your target platform:
+Hoser Video supports multiple distribution formats. Choose based on your target platform:
 
 #### Development Commands
 ```bash
@@ -281,20 +283,20 @@ npm run dist:all           # Requires platform-specific dependencies
 **Windows-Specific**
 ```bash
 # NSIS Installer (recommended)
-npm run build              # Creates H-Player-Setup-1.2.0.exe
+npm run build              # Creates Hoser-Video-Setup-1.2.0.exe
                           # - Full installation wizard
                           # - Desktop & Start Menu shortcuts
                           # - Add/Remove Programs integration
                           # - Professional uninstaller
 
 # Portable Bundle
-npm run pack:portable      # Creates H-Player-Portable-win32-x64.zip
+npm run pack:portable      # Creates Hoser-Video-Portable-win32-x64.zip
                           # - No installation needed
                           # - Run from any folder/USB drive
                           # - Auto-creates desktop shortcut
 
 # Manual Packaging (fallback)
-npm run pack:manual        # Creates H-Player-Manual-1.2.0.zip
+npm run pack:manual        # Creates Hoser-Video-Manual-1.2.0.zip
                           # - Alternative to electron-builder
                           # - Useful if electron-builder fails
                           # - Includes FFmpeg DLLs directly

@@ -9,7 +9,7 @@ import { join } from 'path';
 import { tmpdir } from 'os';
 import net from 'net';
 import { IPlayer, PlayerBackendConfig } from '../../shared/player.js';
-import { PlayerStatus, PlayerState, MediaTracks, LoadMediaRequest } from '../../shared/types.js';
+import { PlayerStatus, PlayerState, MediaTracks } from '../../shared/types.js';
 
 export class MpvPlayer extends EventEmitter implements IPlayer {
   private process: ChildProcess | null = null;
@@ -35,25 +35,56 @@ export class MpvPlayer extends EventEmitter implements IPlayer {
     };
   }
 
-  async loadMedia(request: LoadMediaRequest): Promise<void> {
+  async loadMedia(absPath: string, options?: { start?: number }): Promise<void> {
     try {
-      await this.ensureStarted();
+      // Kill existing process if any
+      await this.cleanup();
       
-      const command = {
-        command: ['loadfile', request.path],
-      };
+      const args = [
+        '--no-terminal',
+        '--idle=no',
+        '--force-window=no',
+        '--pause=no',
+        `--input-ipc-server=${this.socketPath}`,
+        '--hwdec=auto-safe',
+        '--msg-level=all=v'
+      ];
       
-      await this.sendCommand(command);
-      
-      if (request.resumePosition && request.resumePosition > 0) {
-        // Wait a moment for the file to load, then seek
-        setTimeout(async () => {
-          await this.seek(request.resumePosition!);
-        }, 100);
+      if (options?.start && options.start > 0) {
+        args.push(`--start=${options.start}`);
       }
       
-      this.currentStatus.state = 'loading';
+      // Add the file path as the last argument
+      args.push(absPath);
+      
+      console.log(`Starting MPV: ${this.config.executablePath} ${args.join(' ')}`);
+      
+      this.process = spawn(this.config.executablePath!, args, {
+        stdio: ['ignore', 'pipe', 'pipe'],
+        detached: false,
+      });
+      
+      this.process.on('error', (error) => {
+        console.error('MPV process error:', error);
+        this.emit('error', new Error(`Failed to start MPV: ${error.message}`));
+      });
+      
+      this.process.on('exit', (code, signal) => {
+        console.log(`MPV process exited with code ${code}, signal ${signal}`);
+        this.isReady = false;
+        this.emit('ended');
+      });
+      
+      // Connect to IPC socket
+      await this.connectSocket();
+      await this.setupEventListeners();
+      
+      this.isReady = true;
+      this.currentStatus.state = 'playing';
       this.emit('statusChanged', this.currentStatus);
+      
+      // Start polling for progress
+      this.startProgressPolling();
     } catch (error) {
       this.emit('error', new Error(`Failed to load media: ${error}`));
     }
@@ -61,7 +92,7 @@ export class MpvPlayer extends EventEmitter implements IPlayer {
 
   async play(): Promise<void> {
     try {
-      await this.ensureStarted();
+      if (!this.isReady) throw new Error('Player not ready');
       await this.sendCommand({ command: ['set_property', 'pause', false] });
     } catch (error) {
       this.emit('error', new Error(`Failed to play: ${error}`));
@@ -70,7 +101,7 @@ export class MpvPlayer extends EventEmitter implements IPlayer {
 
   async pause(): Promise<void> {
     try {
-      await this.ensureStarted();
+      if (!this.isReady) throw new Error('Player not ready');
       await this.sendCommand({ command: ['set_property', 'pause', true] });
     } catch (error) {
       this.emit('error', new Error(`Failed to pause: ${error}`));
@@ -79,7 +110,7 @@ export class MpvPlayer extends EventEmitter implements IPlayer {
 
   async stop(): Promise<void> {
     try {
-      await this.ensureStarted();
+      if (!this.isReady) throw new Error('Player not ready');
       await this.sendCommand({ command: ['stop'] });
     } catch (error) {
       this.emit('error', new Error(`Failed to stop: ${error}`));
@@ -88,7 +119,7 @@ export class MpvPlayer extends EventEmitter implements IPlayer {
 
   async seek(position: number): Promise<void> {
     try {
-      await this.ensureStarted();
+      if (!this.isReady) throw new Error('Player not ready');
       await this.sendCommand({ command: ['seek', position, 'absolute'] });
     } catch (error) {
       this.emit('error', new Error(`Failed to seek: ${error}`));
@@ -97,7 +128,7 @@ export class MpvPlayer extends EventEmitter implements IPlayer {
 
   async setVolume(volume: number): Promise<void> {
     try {
-      await this.ensureStarted();
+      if (!this.isReady) throw new Error('Player not ready');
       const volumePercent = Math.max(0, Math.min(100, volume * 100));
       await this.sendCommand({ command: ['set_property', 'volume', volumePercent] });
     } catch (error) {
@@ -107,7 +138,7 @@ export class MpvPlayer extends EventEmitter implements IPlayer {
 
   async setMuted(muted: boolean): Promise<void> {
     try {
-      await this.ensureStarted();
+      if (!this.isReady) throw new Error('Player not ready');
       await this.sendCommand({ command: ['set_property', 'mute', muted] });
     } catch (error) {
       this.emit('error', new Error(`Failed to set muted: ${error}`));
@@ -116,7 +147,7 @@ export class MpvPlayer extends EventEmitter implements IPlayer {
 
   async setAudioTrack(trackId: number): Promise<void> {
     try {
-      await this.ensureStarted();
+      if (!this.isReady) throw new Error('Player not ready');
       await this.sendCommand({ command: ['set_property', 'aid', trackId] });
     } catch (error) {
       this.emit('error', new Error(`Failed to set audio track: ${error}`));
@@ -125,7 +156,7 @@ export class MpvPlayer extends EventEmitter implements IPlayer {
 
   async setSubtitleTrack(trackId: number): Promise<void> {
     try {
-      await this.ensureStarted();
+      if (!this.isReady) throw new Error('Player not ready');
       const sid = trackId === -1 ? false : trackId;
       await this.sendCommand({ command: ['set_property', 'sid', sid] });
     } catch (error) {
@@ -141,7 +172,7 @@ export class MpvPlayer extends EventEmitter implements IPlayer {
     return { ...this.currentStatus.tracks };
   }
 
-  async destroy(): Promise<void> {
+  async cleanup(): Promise<void> {
     try {
       if (this.socket) {
         this.socket.destroy();
@@ -165,7 +196,7 @@ export class MpvPlayer extends EventEmitter implements IPlayer {
       this.isReady = false;
       this.pendingRequests.clear();
     } catch (error) {
-      console.error('Error destroying MPV player:', error);
+      console.error('Error cleaning up MPV player:', error);
     }
   }
 
@@ -424,6 +455,43 @@ export class MpvPlayer extends EventEmitter implements IPlayer {
       this.emit('tracksChanged', this.currentStatus.tracks);
       this.emit('statusChanged', this.currentStatus);
     }
+  }
+
+  private startProgressPolling(): void {
+    const poll = async () => {
+      if (!this.isReady) return;
+      
+      try {
+        const [timePos, duration] = await Promise.all([
+          this.sendCommand({ command: ['get_property', 'time-pos'] }),
+          this.sendCommand({ command: ['get_property', 'duration'] })
+        ]);
+        
+        const position = timePos.data || 0;
+        const dur = duration.data || 0;
+        
+        let statusChanged = false;
+        if (this.currentStatus.position !== position) {
+          this.currentStatus.position = position;
+          statusChanged = true;
+        }
+        if (this.currentStatus.duration !== dur) {
+          this.currentStatus.duration = dur;
+          statusChanged = true;
+        }
+        
+        if (statusChanged) {
+          this.emit('statusChanged', this.currentStatus);
+        }
+      } catch (error) {
+        // Ignore polling errors
+      }
+      
+      // Poll every 750ms
+      setTimeout(poll, 750);
+    };
+    
+    poll();
   }
 
   private async sendCommand(command: any): Promise<any> {

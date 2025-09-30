@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 
 /**
- * Icon generation script for H Player
- * Converts SVG logo to PNG icons of various sizes
+ * Icon generation script for Hoser Video
+ * Converts SVG dragon logo to PNG icons of various sizes
  */
 
 const sharp = require('sharp');
@@ -16,7 +16,7 @@ const ASSETS_DIR = path.join(PROJECT_ROOT, 'assets', 'brand');
 const BUILD_DIR = path.join(PROJECT_ROOT, 'build');
 const ICONS_DIR = path.join(BUILD_DIR, 'icons');
 
-const SVG_PATH = path.join(ASSETS_DIR, 'H-logo.svg');
+const SVG_PATH = path.join(ASSETS_DIR, 'dragon-logo.svg');
 
 // Icon sizes needed for different platforms
 const ICON_SIZES = [
@@ -126,9 +126,9 @@ async function generateMacIcon() {
  */
 async function main() {
   log('\\n' + '='.repeat(60), 'blue');
-  log('H Player Icon Generation', 'blue');
+  log('Hoser Video Icon Generation', 'blue');
   log('='.repeat(60), 'blue');
-  log('\\nGenerating PNG icons from H-logo.svg\\n', 'bright');
+  log('\\nGenerating PNG icons from dragon-logo.svg\\n', 'bright');
 
   try {
     // Ensure directories exist
@@ -184,11 +184,11 @@ async function main() {
     log('  • Windows ICO: build/icon.ico', 'cyan');
     log('  • macOS ICNS: build/icon.icns', 'cyan');
 
-    log('\\nThe H logo features:', 'bright');
-    log('  • Stylized letter "H" in green gradient', 'cyan');
-    log('  • Black rounded rectangle background', 'cyan');
-    log('  • Subtle glow effect', 'cyan');
-    log('  • Clean, modern design for media player branding', 'cyan');
+    log('\\nThe dragon logo features:', 'bright');
+    log('  • Stylized dragon silhouette in green gradient', 'cyan');
+    log('  • Bold, recognizable design for media player branding', 'cyan');
+    log('  • Optimized for all sizes from 16x16 to 512x512', 'cyan');
+    log('  • Perfect for Hoser Video brand identity', 'cyan');
 
   } catch (error) {
     log('\\n' + '='.repeat(60), 'red');

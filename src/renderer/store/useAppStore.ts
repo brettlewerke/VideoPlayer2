@@ -43,10 +43,15 @@ interface AppState {
   // Player State
   playerStatus: PlayerStatus | null;
   isPlaying: boolean;
+  isPlayerLoading: boolean;
   isMuted: boolean;
   volume: number;
   position: number;
   duration: number;
+  
+  // HTML5 Video State
+  useExternalPlayer: boolean;
+  videoPath: string | null;
   
   // Progress and Continue Watching
   continueWatching: (Movie | Episode)[];
@@ -86,10 +91,15 @@ interface AppActions {
   // Player Actions
   setPlayerStatus: (status: PlayerStatus | null) => void;
   setIsPlaying: (playing: boolean) => void;
+  setIsPlayerLoading: (loading: boolean) => void;
   setIsMuted: (muted: boolean) => void;
   setVolume: (volume: number) => void;
   setPosition: (position: number) => void;
   setDuration: (duration: number) => void;
+  
+  // HTML5 Video Actions
+  setUseExternalPlayer: (useExternal: boolean) => void;
+  setVideoPath: (path: string | null) => void;
   
   // Continue Watching Actions
   setContinueWatching: (items: (Movie | Episode)[]) => void;
@@ -142,10 +152,15 @@ const initialState: AppState = {
   // Player State
   playerStatus: null,
   isPlaying: false,
+  isPlayerLoading: false,
   isMuted: false,
   volume: 100,
   position: 0,
   duration: 0,
+  
+  // HTML5 Video State
+  useExternalPlayer: false,
+  videoPath: null,
   
   // Progress and Continue Watching
   continueWatching: [],
@@ -190,10 +205,15 @@ export const useAppStore = create<AppStore>()(
       // Player Actions
       setPlayerStatus: (status) => set({ playerStatus: status }),
       setIsPlaying: (playing) => set({ isPlaying: playing }),
+      setIsPlayerLoading: (loading) => set({ isPlayerLoading: loading }),
       setIsMuted: (muted) => set({ isMuted: muted }),
       setVolume: (volume) => set({ volume }),
       setPosition: (position) => set({ position }),
       setDuration: (duration) => set({ duration }),
+      
+      // HTML5 Video Actions
+      setUseExternalPlayer: (useExternal) => set({ useExternalPlayer: useExternal }),
+      setVideoPath: (path) => set({ videoPath: path }),
       
       // Continue Watching Actions
       setContinueWatching: (items) => set({ continueWatching: items }),
@@ -291,7 +311,7 @@ export const useAppStore = create<AppStore>()(
       },
       
       playMedia: async (movie, episode) => {
-        const { setCurrentMovie, setCurrentEpisode, setCurrentView } = get();
+        const { setCurrentMovie, setCurrentEpisode, setCurrentView, setIsPlayerLoading, setUseExternalPlayer, setVideoPath } = get();
         const api = getAPI();
         
         if (!api) {
@@ -300,23 +320,43 @@ export const useAppStore = create<AppStore>()(
         }
         
         try {
+          setIsPlayerLoading(true);
+          
+          let path: string;
+          let progress: any = null;
+          
           if (movie) {
             setCurrentMovie(movie);
-            await api.player.load({
-              path: movie.videoFile.path,
-              // resumePosition can be added here when progress integrated
-            });
+            path = movie.videoFile.path;
+            // Get existing progress
+            progress = await api.progress.get(movie.id);
           } else if (episode) {
             setCurrentEpisode(episode);
-            await api.player.load({
-              path: episode.videoFile.path,
-            });
+            path = episode.videoFile.path;
+            // Get existing progress
+            progress = await api.progress.get(episode.id);
+          } else {
+            throw new Error('No media provided');
           }
           
           setCurrentView('player');
-          await api.player.play();
+          const result = await api.player.start(path, progress ? { start: progress.position } : undefined);
+          
+          // Handle the response - check if it's using external player or HTML5
+          if (result?.data) {
+            const { useExternalPlayer, videoPath, startTime } = result.data;
+            setUseExternalPlayer(useExternalPlayer);
+            if (!useExternalPlayer && videoPath) {
+              setVideoPath(videoPath);
+              if (startTime) {
+                set({ position: startTime });
+              }
+            }
+          }
         } catch (error) {
           console.error('Failed to play media:', error);
+        } finally {
+          setIsPlayerLoading(false);
         }
       },
       

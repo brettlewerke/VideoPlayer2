@@ -9,10 +9,13 @@ import { DriveManager } from '../services/drive-manager.js';
 import { MediaScanner } from '../services/media-scanner.js';
 import { IPlayer } from '../../shared/player.js';
 import { IPC_CHANNELS, createIpcResponse, validatePath, validateVolume, validatePosition, validateTrackId } from '../../shared/ipc.js';
-import type { LoadMediaRequest, PlaybackProgress } from '../../shared/types.js';
+import type { PlaybackProgress } from '../../shared/types.js';
+import { isPlayablePath } from '../../common/media/extensions.js';
 
 export class IpcHandler {
   private player: IPlayer | null = null;
+  private currentMediaId: string | null = null;
+  private currentMediaType: 'movie' | 'episode' | null = null;
 
   constructor(
     private database: DatabaseManager,
@@ -23,7 +26,7 @@ export class IpcHandler {
 
   setupHandlers(): void {
     // Player control handlers
-    ipcMain.handle(IPC_CHANNELS.PLAYER_LOAD, this.handlePlayerLoad.bind(this));
+    ipcMain.handle(IPC_CHANNELS.PLAYER_START, this.handlePlayerStart.bind(this));
     ipcMain.handle(IPC_CHANNELS.PLAYER_PLAY, this.handlePlayerPlay.bind(this));
     ipcMain.handle(IPC_CHANNELS.PLAYER_PAUSE, this.handlePlayerPause.bind(this));
     ipcMain.handle(IPC_CHANNELS.PLAYER_STOP, this.handlePlayerStop.bind(this));
@@ -65,7 +68,7 @@ export class IpcHandler {
 
   cleanup(): void {
     if (this.player) {
-      this.player.destroy();
+      this.player.cleanup();
       this.player = null;
     }
     
@@ -83,20 +86,63 @@ export class IpcHandler {
   }
 
   // Player handlers
-  private async handlePlayerLoad(event: Electron.IpcMainInvokeEvent, request: LoadMediaRequest) {
+  private async handlePlayerStart(event: Electron.IpcMainInvokeEvent, payload: { path: string; start?: number }) {
     try {
-      if (!validatePath(request.path)) {
+      console.log('[IPC] Player start requested:', payload.path);
+      
+      if (!validatePath(payload.path)) {
+        console.error('[IPC] Invalid file path:', payload.path);
         throw new Error('Invalid file path');
       }
 
-      if (!this.player) {
-        this.player = this.playerFactory.createPlayer();
-        this.setupPlayerEvents();
+      if (!isPlayablePath(payload.path)) {
+        console.error('[IPC] Unsupported file format:', payload.path);
+        throw new Error('Unsupported file format');
       }
 
-      await this.player.loadMedia(request);
-      return createIpcResponse(event.frameId.toString(), undefined);
+      // Find media ID for progress tracking
+      console.log('[IPC] Looking up media in database:', payload.path);
+      const media = await this.database.getMediaByPath(payload.path);
+      this.currentMediaId = media?.id || null;
+      this.currentMediaType = media?.type || null;
+      console.log('[IPC] Media lookup result:', media);
+
+      try {
+        // Try to create external player first
+        if (this.player) {
+          console.log('[IPC] Cleaning up existing player');
+          await this.player.cleanup();
+        }
+        
+        console.log('[IPC] Creating new player instance');
+        this.player = this.playerFactory.createPlayer();
+        
+        console.log('[IPC] Setting up player events');
+        this.setupPlayerEvents();
+
+        console.log('[IPC] Loading media into player');
+        await this.player.loadMedia(payload.path, { start: payload.start });
+        console.log('[IPC] Player started successfully');
+        
+        return createIpcResponse(event.frameId.toString(), { useExternalPlayer: true });
+      } catch (playerError) {
+        // External player not available, fall back to HTML5 video
+        const errorMessage = playerError instanceof Error ? playerError.message : 'Unknown player error';
+        console.log('[IPC] External player not available, using HTML5 video:', errorMessage);
+        
+        // Send the video path to renderer for HTML5 playback
+        const videoData = {
+          useExternalPlayer: false,
+          videoPath: payload.path,
+          startTime: payload.start || 0,
+          mediaId: this.currentMediaId,
+          mediaType: this.currentMediaType
+        };
+        
+        return createIpcResponse(event.frameId.toString(), videoData);
+      }
     } catch (error) {
+      console.error('[IPC] Player start failed:', error);
       return createIpcResponse(event.frameId.toString(), undefined, error instanceof Error ? error.message : 'Unknown error');
     }
   }
@@ -250,21 +296,59 @@ export class IpcHandler {
   private setupPlayerEvents(): void {
     if (!this.player) return;
 
-    this.player.on('statusChanged', (status) => {
+    let lastProgressSave = 0;
+    let lastStatus: any = null;
+
+    this.player.on('statusChanged', async (status) => {
       this.sendToRenderer(IPC_CHANNELS.PLAYER_STATUS_CHANGED, status);
+      lastStatus = status;
+      
+      // Save progress every 5-10 seconds if playing
+      const now = Date.now();
+      if (status.state === 'playing' && this.currentMediaId && this.currentMediaType && now - lastProgressSave > 5000) {
+        await this.saveProgress(status);
+        lastProgressSave = now;
+      }
     });
 
     this.player.on('tracksChanged', (tracks) => {
       this.sendToRenderer(IPC_CHANNELS.PLAYER_TRACKS_CHANGED, tracks);
     });
 
-    this.player.on('ended', () => {
+    this.player.on('ended', async () => {
       this.sendToRenderer(IPC_CHANNELS.PLAYER_ENDED);
+      // Mark as completed
+      if (this.currentMediaId && this.currentMediaType && lastStatus) {
+        await this.saveProgress(lastStatus, true);
+      }
     });
 
     this.player.on('error', (error) => {
       this.sendToRenderer(IPC_CHANNELS.PLAYER_ERROR, error.message);
     });
+  }
+
+  private async saveProgress(status: any, isCompleted = false): Promise<void> {
+    if (!this.currentMediaId || !this.currentMediaType) return;
+
+    try {
+      const progress: PlaybackProgress = {
+        id: `${this.currentMediaType}_${this.currentMediaId}`,
+        mediaId: this.currentMediaId,
+        mediaType: this.currentMediaType,
+        position: status.position || 0,
+        duration: status.duration || 0,
+        percentage: status.duration > 0 ? (status.position / status.duration) : 0,
+        isCompleted,
+        lastWatched: new Date(),
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      await this.database.setProgress(progress);
+    } catch (error) {
+      console.error('Failed to save progress:', error);
+    }
   }
 
   // Library handlers

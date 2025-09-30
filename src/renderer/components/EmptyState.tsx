@@ -61,7 +61,7 @@ export function EmptyState({ type, drives, onRescan, isScanning }: EmptyStatePro
                 No library folders found on the connected drive{drives.length > 1 ? 's' : ''}.
               </p>
               <p>
-                H Player looks for top-level folders named{' '}
+                Hoser Video looks for top-level folders named{' '}
                 <span className="font-semibold text-green-400">Movies</span>,{' '}
                 <span className="font-semibold text-green-400">Films</span>,{' '}
                 <span className="font-semibold text-green-400">TV Shows</span>,{' '}
