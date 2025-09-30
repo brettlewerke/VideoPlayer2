@@ -57,7 +57,7 @@ interface AppState {
   isScanning: boolean;
   
   // Settings
-  playerBackend: 'mpv' | 'mock';
+  playerBackend: 'libvlc' | 'mock';
   autoplay: boolean;
   subtitleEnabled: boolean;
   selectedAudioTrack: string | null;
@@ -100,7 +100,7 @@ interface AppActions {
   setIsScanning: (scanning: boolean) => void;
   
   // Settings Actions
-  setPlayerBackend: (backend: 'mpv' | 'mock') => void;
+  setPlayerBackend: (backend: 'libvlc' | 'mock') => void;
   setAutoplay: (autoplay: boolean) => void;
   setSubtitleEnabled: (enabled: boolean) => void;
   setSelectedAudioTrack: (track: string | null) => void;
@@ -111,7 +111,7 @@ interface AppActions {
   setIsFixing: (fixing: boolean) => void;
   setIsSwitchingBackend: (switching: boolean) => void;
   showRepairScreen: () => void;
-  fixFfmpeg: () => Promise<RepairResult>;
+  installVLC: () => Promise<RepairResult>;
   switchToLibVLC: () => Promise<RepairResult>;
   getManualInstructions: () => Promise<string>;
 
@@ -168,7 +168,7 @@ const initialState: AppState = {
   isSwitchingBackend: false,
 
   // Settings
-  playerBackend: 'mpv',
+  playerBackend: 'libvlc',
   autoplay: true,
   subtitleEnabled: true,
   selectedAudioTrack: null,
@@ -227,16 +227,16 @@ export const useAppStore = create<AppStore>()(
       setIsFixing: (fixing) => set({ isFixing: fixing }),
       setIsSwitchingBackend: (switching) => set({ isSwitchingBackend: switching }),
       showRepairScreen: () => set({ currentView: 'repair' }),
-      fixFfmpeg: async () => {
+      installVLC: async () => {
         const { setIsFixing } = get();
         try {
           setIsFixing(true);
-          const result = await window.electronAPI.repair.fixFfmpeg();
+          const result = await window.electronAPI.repair.installVLC();
           if (result.success) {
-            // Success - the main process should restart the app
-            console.log('FFmpeg fix successful, app should restart');
+            // Success - VLC download page opened
+            console.log('VLC download page opened');
           } else {
-            console.error('FFmpeg fix failed:', result.message);
+            console.error('Failed to open VLC download page:', result.message);
           }
           return result;
         } finally {

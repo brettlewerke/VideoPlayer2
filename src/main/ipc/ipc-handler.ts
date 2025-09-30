@@ -59,9 +59,9 @@ export class IpcHandler {
     ipcMain.handle(IPC_CHANNELS.APP_MINIMIZE, this.handleAppMinimize.bind(this));
     ipcMain.handle(IPC_CHANNELS.APP_TOGGLE_FULLSCREEN, this.handleToggleFullscreen.bind(this));
 
-    // Repair handlers (Windows)
+    // Repair handlers (VLC installation)
     ipcMain.handle(IPC_CHANNELS.REPAIR_CHECK_DEPENDENCIES, this.handleCheckDependencies.bind(this));
-    ipcMain.handle(IPC_CHANNELS.REPAIR_FIX_FFMPEG, this.handleFixFfmpeg.bind(this));
+    ipcMain.handle(IPC_CHANNELS.REPAIR_INSTALL_VLC, this.handleInstallVLC.bind(this));
     ipcMain.handle(IPC_CHANNELS.REPAIR_SWITCH_BACKEND, this.handleSwitchBackend.bind(this));
     ipcMain.handle(IPC_CHANNELS.REPAIR_GET_MANUAL_INSTRUCTIONS, this.handleGetManualInstructions.bind(this));
 
@@ -443,59 +443,22 @@ export class IpcHandler {
     }
   }
 
-  private async handleFixFfmpeg(event: Electron.IpcMainInvokeEvent): Promise<RepairResult> {
+  private async handleInstallVLC(event: Electron.IpcMainInvokeEvent): Promise<RepairResult> {
     try {
-      const { spawn } = require('child_process');
-      const path = require('path');
-
-      // Get the repair helper script path
-      const repairHelperPath = path.join(process.resourcesPath, 'scripts', 'repair-helper.js');
-
-      return new Promise((resolve) => {
-        const child = spawn('node', [repairHelperPath, 'repair'], {
-          stdio: ['inherit', 'pipe', 'pipe'],
-          cwd: process.cwd()
-        });
-
-        let stdout = '';
-        let stderr = '';
-
-        child.stdout.on('data', (data: Buffer) => {
-          stdout += data.toString();
-        });
-
-        child.stderr.on('data', (data: Buffer) => {
-          stderr += data.toString();
-        });
-
-        child.on('close', (code: number) => {
-          if (code === 0) {
-            resolve({
-              success: true,
-              message: 'FFmpeg DLLs successfully installed. The application will restart.',
-              requiresRestart: true
-            });
-          } else {
-            resolve({
-              success: false,
-              message: `Repair failed: ${stderr || stdout}`,
-              requiresRestart: false
-            });
-          }
-        });
-
-        child.on('error', (error: Error) => {
-          resolve({
-            success: false,
-            message: `Failed to run repair script: ${error.message}`,
-            requiresRestart: false
-          });
-        });
-      });
+      const { shell } = require('electron');
+      
+      // Open VLC download page
+      await shell.openExternal('https://www.videolan.org/vlc/');
+      
+      return {
+        success: true,
+        message: 'VLC download page opened. Please install VLC and restart H Player.',
+        requiresRestart: false
+      };
     } catch (error) {
       return {
         success: false,
-        message: error instanceof Error ? error.message : 'Unknown error during FFmpeg repair',
+        message: error instanceof Error ? error.message : 'Failed to open VLC download page',
         requiresRestart: false
       };
     }
@@ -504,7 +467,8 @@ export class IpcHandler {
   private async handleSwitchBackend(event: Electron.IpcMainInvokeEvent): Promise<RepairResult> {
     try {
       // Check if libVLC is available
-      const isLibVlcAvailable = await this.dependencyChecker.isLibVlcAvailable();
+      const dependencyResult = await this.dependencyChecker.checkDependencies();
+      const isLibVlcAvailable = dependencyResult.libvlcAvailable;
       if (!isLibVlcAvailable) {
         return {
           success: false,
@@ -534,35 +498,33 @@ export class IpcHandler {
   private async handleGetManualInstructions(event: Electron.IpcMainInvokeEvent): Promise<string> {
     // Return manual instructions as a string
     return `
-# Manual FFmpeg DLL Installation Instructions
+# VLC Media Player Installation Instructions
 
-## Step 1: Identify Your MPV Version
-Run this command in the directory containing mpv.exe:
+## Step 1: Download VLC Media Player
+Visit the official VLC website:
 \`\`\`
-mpv.exe --version
+https://www.videolan.org/vlc/
 \`\`\`
-Note the version number and architecture (32-bit vs 64-bit).
+Choose the version that matches your system (32-bit or 64-bit Windows).
 
-## Step 2: Download Compatible FFmpeg DLLs
-Visit https://www.gyan.dev/ffmpeg/builds/ and download the "ffmpeg-release-essentials" build that matches your MPV architecture.
+## Step 2: Install VLC
+1. Run the VLC installer as Administrator
+2. Follow the installation wizard
+3. Choose default options (recommended)
+4. Complete the installation
 
-## Step 3: Extract DLLs
-Extract the downloaded ZIP file and copy these DLLs to the same directory as mpv.exe:
-- ffmpeg.dll
-- avcodec-*.dll
-- avformat-*.dll
-- avutil-*.dll
-- avfilter-*.dll
-- swresample-*.dll
-- swscale-*.dll
+## Step 3: Restart H Player
+After installing VLC, restart H Player to enable full video playback capabilities.
 
-## Step 4: Verify Installation
-Run mpv.exe --version again. If it succeeds without errors, restart H Player.
+## Alternative Installation Methods
+- **Microsoft Store:** Search for "VLC" in the Microsoft Store
+- **Package Managers:** Use Chocolatey (choco install vlc) or Winget (winget install vlc)
+- **Portable Version:** Download the portable version if you prefer not to install
 
 ## Troubleshooting
-- Ensure all DLLs are from the same FFmpeg version
-- Match 32-bit vs 64-bit architecture exactly
-- Use Dependency Walker (depends.exe) to check for missing dependencies
+- Ensure you're using the latest VLC version
+- For portable VLC installations, make sure the VLC directory is added to your system PATH
+- Restart H Player after VLC installation
 `;
   }
 

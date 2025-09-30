@@ -23,7 +23,7 @@ export function App() {
     dependencyCheckResult,
     isFixing,
     isSwitchingBackend,
-    fixFfmpeg,
+    installVLC,
     switchToLibVLC,
     getManualInstructions,
     setDependencyCheckResult,
@@ -71,11 +71,11 @@ export function App() {
       case 'repair':
         return dependencyCheckResult ? (
           <RepairPage
-            error={dependencyCheckResult.error || 'Unknown dependency error'}
-            onFixNow={fixFfmpeg}
-            onSwitchToLibVLC={switchToLibVLC}
+            error={dependencyCheckResult.error || 'libVLC is not available for optimal video playback'}
+            onInstallVLC={installVLC}
+            onUseMockPlayer={switchToLibVLC}
             onShowManualInstructions={() => getManualInstructions()}
-            isFixing={isFixing}
+            isInstalling={isFixing}
             isSwitching={isSwitchingBackend}
           />
         ) : (

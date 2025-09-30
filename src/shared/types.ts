@@ -162,7 +162,7 @@ export interface ScanResult {
 
 // Settings types
 export interface AppSettings {
-  playerBackend: 'mpv' | 'libvlc';
+  playerBackend: 'libvlc' | 'mock';
   autoPlay: boolean;
   autoPlayNext: boolean;
   seekInterval: number; // seconds

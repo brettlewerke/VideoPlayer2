@@ -79,10 +79,10 @@ declare global {
         getPlatform: () => Promise<string>;
       };
 
-      // Dependency repair (Windows)
+      // Dependency repair (VLC installation)
       repair: {
         checkDependencies: () => Promise<DependencyCheckResult>;
-        fixFfmpeg: () => Promise<RepairResult>;
+        installVLC: () => Promise<RepairResult>;
         switchToLibVLC: () => Promise<RepairResult>;
         getManualInstructions: () => Promise<string>;
       };

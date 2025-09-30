@@ -80,10 +80,10 @@ interface ElectronAPI {
     getPlatform: () => Promise<string>;
   };
 
-  // Dependency repair (Windows)
+  // Dependency repair (VLC installation)
   repair: {
     checkDependencies: () => Promise<DependencyCheckResult>;
-    fixFfmpeg: () => Promise<RepairResult>;
+    installVLC: () => Promise<RepairResult>;
     switchToLibVLC: () => Promise<RepairResult>;
     getManualInstructions: () => Promise<string>;
   };
@@ -157,10 +157,10 @@ const electronAPI: ElectronAPI = {
     getPlatform: () => ipcRenderer.invoke('app:get-platform'),
   },
 
-  // Dependency repair (Windows)
+  // Dependency repair (VLC installation)
   repair: {
     checkDependencies: () => ipcRenderer.invoke(IPC_CHANNELS.REPAIR_CHECK_DEPENDENCIES),
-    fixFfmpeg: () => ipcRenderer.invoke(IPC_CHANNELS.REPAIR_FIX_FFMPEG),
+    installVLC: () => ipcRenderer.invoke(IPC_CHANNELS.REPAIR_INSTALL_VLC),
     switchToLibVLC: () => ipcRenderer.invoke(IPC_CHANNELS.REPAIR_SWITCH_BACKEND),
     getManualInstructions: () => ipcRenderer.invoke(IPC_CHANNELS.REPAIR_GET_MANUAL_INSTRUCTIONS),
   },

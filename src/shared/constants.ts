@@ -100,7 +100,7 @@ export const DATABASE = {
 
 // Player configuration
 export const PLAYER_CONFIG = {
-  DEFAULT_BACKEND: 'mpv' as const,
+  DEFAULT_BACKEND: 'libvlc' as const,
   SEEK_INTERVAL: 10, // seconds
   VOLUME_STEP: 0.05, // 5%
   COMPLETION_THRESHOLD: 0.9, // 90%
@@ -123,57 +123,10 @@ export const APP_PATHS = {
   VENDOR: 'vendor',
 } as const;
 
-// Binary download URLs and checksums
-export const BINARY_SOURCES = {
-  MPV: {
-    WIN32_X64: {
-      url: 'https://sourceforge.net/projects/mpv-player-windows/files/64bit/mpv-x86_64-latest.7z/download',
-      checksum: '', // Will be updated by setup script
-      executable: 'mpv.exe',
-    },
-    DARWIN_X64: {
-      url: 'https://laboratory.stolendata.net/~djinn/mpv_osx/mpv-latest.tar.gz',
-      checksum: '',
-      executable: 'mpv',
-    },
-    DARWIN_ARM64: {
-      url: 'https://laboratory.stolendata.net/~djinn/mpv_osx/mpv-latest.tar.gz',
-      checksum: '',
-      executable: 'mpv',
-    },
-    LINUX_X64: {
-      url: 'https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz',
-      checksum: '',
-      executable: 'mpv',
-    },
-  },
-  FFMPEG: {
-    WIN32_X64: {
-      url: 'https://github.com/BtbN/FFmpeg-Builds/releases/latest/download/ffmpeg-master-latest-win64-gpl.zip',
-      checksum: '',
-      executable: 'ffmpeg.exe',
-    },
-    DARWIN_X64: {
-      url: 'https://evermeet.cx/ffmpeg/getrelease/zip',
-      checksum: '',
-      executable: 'ffmpeg',
-    },
-    DARWIN_ARM64: {
-      url: 'https://evermeet.cx/ffmpeg/getrelease/zip',
-      checksum: '',
-      executable: 'ffmpeg',
-    },
-    LINUX_X64: {
-      url: 'https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz',
-      checksum: '',
-      executable: 'ffmpeg',
-    },
-  },
-} as const;
-
 // Default application settings
 export const DEFAULT_SETTINGS = {
-  playerBackend: 'mpv' as const,
+  // Player backend: libVLC provides video playback without FFmpeg dependency
+  playerBackend: 'libvlc' as const,
   autoPlay: true,
   autoPlayNext: true,
   seekInterval: 10,

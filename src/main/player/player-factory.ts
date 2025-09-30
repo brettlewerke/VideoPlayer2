@@ -1,39 +1,34 @@
 /**
- * Player factory for creating backend instances
+ * Player factory for creating backend instances - libVLC only (no FFmpeg dependency)
  */
 
 import { existsSync } from 'fs';
 import { join } from 'path';
 import { app } from 'electron';
 import { IPlayer, IPlayerFactory, PlayerBackendConfig } from '../../shared/player.js';
-import { MpvPlayer } from './mpv-player.js';
-import { MockPlayer } from './mock-player.js';
 import { VlcPlayer } from './vlc-player.js';
+import { MockPlayer } from './mock-player.js';
 
-export class MpvPlayerFactory implements IPlayerFactory {
+export class VlcPlayerFactory implements IPlayerFactory {
   constructor(private config: PlayerBackendConfig) {}
 
   createPlayer(): IPlayer {
-    return new MpvPlayer(this.config);
+    return new VlcPlayer(this.config);
   }
 
   isAvailable(): boolean {
-    if (this.config.executablePath) {
-      return existsSync(this.config.executablePath);
-    }
-    
-    // Check common system locations
+    // Check for VLC installation on the system
     const commonPaths = process.platform === 'win32' 
-      ? ['mpv.exe', 'C:\\Program Files\\mpv\\mpv.exe']
+      ? ['vlc.exe', 'C:\\Program Files\\VideoLAN\\VLC\\vlc.exe', 'C:\\Program Files (x86)\\VideoLAN\\VLC\\vlc.exe']
       : process.platform === 'darwin'
-      ? ['/usr/local/bin/mpv', '/opt/homebrew/bin/mpv']
-      : ['/usr/bin/mpv', '/usr/local/bin/mpv'];
+      ? ['/Applications/VLC.app/Contents/MacOS/VLC', '/usr/local/bin/vlc']
+      : ['/usr/bin/vlc', '/usr/local/bin/vlc', '/snap/bin/vlc'];
     
-    return commonPaths.some(path => existsSync(path));
+    return commonPaths.some(path => existsSync(path)) || true; // Default to true for built-in libVLC
   }
 
   getName(): string {
-    return 'MPV';
+    return 'libVLC';
   }
 }
 
@@ -54,60 +49,27 @@ export class MockPlayerFactory implements IPlayerFactory {
 }
 
 /**
- * Main player factory that manages all backends
+ * Main player factory that manages all backends - libVLC focused
  */
 export class PlayerFactory {
   private factories = new Map<string, IPlayerFactory>();
-  private currentBackend = 'mpv';
+  private currentBackend = 'libvlc';
 
   constructor() {
     this.registerFactories();
   }
 
   private registerFactories(): void {
-    // Get vendor binary paths
-    const vendorPath = join(process.cwd(), 'vendor');
-    const mpvPath = this.getMpvPath(vendorPath);
-    
-    // Register MPV factory
-    this.factories.set('mpv', new MpvPlayerFactory({
-      name: 'mpv',
-      executablePath: mpvPath,
+    // Register libVLC factory (primary backend)
+    this.factories.set('libvlc', new VlcPlayerFactory({
+      name: 'libvlc',
       timeout: 5000,
     }));
     
-    // Register Mock factory
+    // Register Mock factory (fallback/testing)
     this.factories.set('mock', new MockPlayerFactory({
       name: 'mock',
     }));
-  }
-
-  private getMpvPath(vendorPath: string): string | undefined {
-    const platform = process.platform;
-    const arch = process.arch;
-    
-    let executable: string;
-    let subdir: string;
-    
-    if (platform === 'win32') {
-      executable = 'mpv.exe';
-      subdir = arch === 'x64' ? 'win32-x64' : 'win32-ia32';
-    } else if (platform === 'darwin') {
-      executable = 'mpv';
-      subdir = arch === 'arm64' ? 'darwin-arm64' : 'darwin-x64';
-    } else {
-      executable = 'mpv';
-      subdir = 'linux-x64';
-    }
-    
-    const fullPath = join(vendorPath, 'mpv', subdir, executable);
-    
-    if (existsSync(fullPath)) {
-      return fullPath;
-    }
-    
-    // Fallback to system PATH
-    return undefined;
   }
 
   /**

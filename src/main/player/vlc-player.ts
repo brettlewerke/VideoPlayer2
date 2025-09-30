@@ -5,14 +5,8 @@
 
 import { spawn, ChildProcess } from 'child_process';
 import { EventEmitter } from 'events';
-import { IPlayer } from '../../shared/player.js';
+import { IPlayer, PlayerBackendConfig } from '../../shared/player.js';
 import { PlayerStatus, MediaTracks, LoadMediaRequest } from '../../shared/types.js';
-
-export interface VlcConfig {
-  name: string;
-  executablePath?: string;
-  timeout?: number;
-}
 
 export class VlcPlayer extends EventEmitter implements IPlayer {
   private process: ChildProcess | null = null;
@@ -22,9 +16,9 @@ export class VlcPlayer extends EventEmitter implements IPlayer {
   private duration = 0;
   private volume = 100;
   private muted = false;
-  private config: VlcConfig;
+  private config: PlayerBackendConfig;
 
-  constructor(config: VlcConfig) {
+  constructor(config: PlayerBackendConfig) {
     super();
     this.config = config;
   }
