@@ -40,7 +40,16 @@ export class MediaScanner extends EventEmitter {
   }
 
   async initialize(): Promise<void> {
-    console.log('Media scanner initialized successfully');
+    console.log('Media scanner initializing...');
+    
+    // Automatically scan all detected drives on startup
+    try {
+      await this.scanAllDrives();
+      console.log('Media scanner initialized and initial scan completed');
+    } catch (error) {
+      console.error('Error during initial media scan:', error);
+      // Don't throw - app should still start even if scan fails
+    }
   }
 
   async scanAllDrives(): Promise<void> {

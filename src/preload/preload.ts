@@ -1,3 +1,4 @@
+/// <reference lib="dom" />
 /**
  * Preload script - Secure bridge between main and renderer processes
  */

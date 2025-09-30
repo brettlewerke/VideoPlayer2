@@ -10,6 +10,6 @@
     "jsx": "preserve",
     "types": ["node", "electron"]
   },
-  "include": ["**/*", "../shared/**/*"],
+  "include": ["**/*", "../shared/**/*", "../preload/**/*"],
   "exclude": ["../../node_modules", "../../dist"]
 }

@@ -60,7 +60,7 @@ class VideoPlayerApp {
       webPreferences: {
         nodeIntegration: false,
         contextIsolation: true,
-        preload: join(__dirname, 'preload.js'),
+        preload: join(__dirname, '../preload/preload.js'),
       },
       icon: this.getAppIcon(),
       titleBarStyle: 'hidden',

@@ -204,24 +204,33 @@ export const useAppStore = create<AppStore>()(
       
       // Async Actions
       loadLibrary: async () => {
-        const { setLoading, setMovies, setShows, setContinueWatching, setRecentlyAdded } = get();
+        const { setLoading, setMovies, setShows, setContinueWatching, setRecentlyAdded, setDrives } = get();
         
         try {
           setLoading(true);
           
-          const [movies, shows, continueWatching, recentlyAdded] = await Promise.all([
+          console.log('[Store] Loading library...');
+          
+          const [moviesRes, showsRes, continueWatchingRes, recentlyAddedRes, drivesRes] = await Promise.all([
             window.electronAPI.library.getMovies(),
             window.electronAPI.library.getShows(),
             window.electronAPI.library.getRecentlyWatched(),
             window.electronAPI.library.getRecentlyWatched(), // TODO: Add getRecentlyAdded
+            window.electronAPI.drives.getAll(),
           ]);
           
-          setMovies(movies);
-          setShows(shows);
-          setContinueWatching(continueWatching);
-          setRecentlyAdded(recentlyAdded);
+          console.log('[Store] API responses:', { moviesRes, showsRes, drivesRes });
+          
+          // All API calls return arrays directly, not wrapped in IpcResponse
+          setMovies(moviesRes || []);
+          setShows(showsRes || []);
+          setContinueWatching(continueWatchingRes || []);
+          setRecentlyAdded(recentlyAddedRes || []);
+          setDrives(drivesRes || []);
+          
+          console.log(`[Store] Loaded library: ${(drivesRes || []).length} drives, ${(moviesRes || []).length} movies, ${(showsRes || []).length} shows`);
         } catch (error) {
-          console.error('Failed to load library:', error);
+          console.error('[Store] Failed to load library:', error);
         } finally {
           setLoading(false);
         }
