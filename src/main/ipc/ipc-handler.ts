@@ -48,6 +48,11 @@ export class IpcHandler {
     ipcMain.handle(IPC_CHANNELS.LIBRARY_SEARCH, this.handleLibrarySearch.bind(this));
     ipcMain.handle(IPC_CHANNELS.LIBRARY_GET_PROGRESS, this.handleGetProgress.bind(this));
     ipcMain.handle(IPC_CHANNELS.LIBRARY_SET_PROGRESS, this.handleSetProgress.bind(this));
+    ipcMain.handle(IPC_CHANNELS.LIBRARY_DELETE_PROGRESS, this.handleDeleteProgress.bind(this));
+    ipcMain.handle(IPC_CHANNELS.LIBRARY_DELETE_MOVIE, this.handleDeleteMovie.bind(this));
+    ipcMain.handle(IPC_CHANNELS.LIBRARY_DELETE_SHOW, this.handleDeleteShow.bind(this));
+    ipcMain.handle(IPC_CHANNELS.LIBRARY_DELETE_SEASON, this.handleDeleteSeason.bind(this));
+    ipcMain.handle(IPC_CHANNELS.LIBRARY_DELETE_EPISODE, this.handleDeleteEpisode.bind(this));
 
     // Drive handlers
     ipcMain.handle(IPC_CHANNELS.DRIVES_GET_ALL, this.handleGetDrives.bind(this));
@@ -435,6 +440,85 @@ export class IpcHandler {
       await this.database.setProgress(progress);
       return createIpcResponse(event.frameId.toString(), undefined);
     } catch (error) {
+      return createIpcResponse(event.frameId.toString(), undefined, error instanceof Error ? error.message : 'Unknown error');
+    }
+  }
+
+  private async handleDeleteProgress(event: Electron.IpcMainInvokeEvent, mediaId: string) {
+    try {
+      await this.database.deleteProgress(mediaId);
+      return createIpcResponse(event.frameId.toString(), { success: true });
+    } catch (error) {
+      return createIpcResponse(event.frameId.toString(), undefined, error instanceof Error ? error.message : 'Unknown error');
+    }
+  }
+
+  private async handleDeleteMovie(event: Electron.IpcMainInvokeEvent, movieId: string) {
+    try {
+      console.log(`[IPC] Deleting movie: ${movieId}`);
+      await this.database.deleteMovie(movieId);
+      // Also delete any progress for this movie
+      await this.database.deleteProgress(movieId);
+      return createIpcResponse(event.frameId.toString(), { success: true });
+    } catch (error) {
+      console.error('[IPC] Delete movie error:', error);
+      return createIpcResponse(event.frameId.toString(), undefined, error instanceof Error ? error.message : 'Unknown error');
+    }
+  }
+
+  private async handleDeleteShow(event: Electron.IpcMainInvokeEvent, showId: string) {
+    try {
+      console.log(`[IPC] Deleting show: ${showId}`);
+      
+      // Get all episodes for this show to delete their progress
+      const episodes = await this.database.getEpisodes(showId);
+      for (const episode of episodes) {
+        await this.database.deleteProgress(episode.id);
+      }
+      
+      // Delete the show (this will cascade to seasons and episodes)
+      await this.database.deleteShow(showId);
+      
+      return createIpcResponse(event.frameId.toString(), { success: true });
+    } catch (error) {
+      console.error('[IPC] Delete show error:', error);
+      return createIpcResponse(event.frameId.toString(), undefined, error instanceof Error ? error.message : 'Unknown error');
+    }
+  }
+
+  private async handleDeleteSeason(event: Electron.IpcMainInvokeEvent, seasonId: string) {
+    try {
+      console.log(`[IPC] Deleting season: ${seasonId}`);
+      
+      // Get all episodes for this season to delete their progress
+      const episodes = await this.database.getEpisodesBySeason(seasonId);
+      for (const episode of episodes) {
+        await this.database.deleteProgress(episode.id);
+      }
+      
+      // Delete the season (this will cascade to episodes)
+      await this.database.deleteSeason(seasonId);
+      
+      return createIpcResponse(event.frameId.toString(), { success: true });
+    } catch (error) {
+      console.error('[IPC] Delete season error:', error);
+      return createIpcResponse(event.frameId.toString(), undefined, error instanceof Error ? error.message : 'Unknown error');
+    }
+  }
+
+  private async handleDeleteEpisode(event: Electron.IpcMainInvokeEvent, episodeId: string) {
+    try {
+      console.log(`[IPC] Deleting episode: ${episodeId}`);
+      
+      // Delete episode progress
+      await this.database.deleteProgress(episodeId);
+      
+      // Delete the episode
+      await this.database.deleteEpisode(episodeId);
+      
+      return createIpcResponse(event.frameId.toString(), { success: true });
+    } catch (error) {
+      console.error('[IPC] Delete episode error:', error);
       return createIpcResponse(event.frameId.toString(), undefined, error instanceof Error ? error.message : 'Unknown error');
     }
   }

@@ -10,6 +10,8 @@ import { ShowsPage } from './pages/ShowsPage.js';
 import { PlayerPage } from './pages/PlayerPage.js';
 import { SearchPage } from './pages/SearchPage.js';
 import { SettingsPage } from './pages/SettingsPage.js';
+import { MovieDetailPage } from './pages/MovieDetailPage.js';
+import { ShowDetailPage } from './pages/ShowDetailPage.js';
 import { Sidebar } from './components/Sidebar.js';
 import { LoadingScreen } from './components/LoadingScreen.js';
 
@@ -96,6 +98,10 @@ export function App() {
         return <PlayerPage />;
       case 'settings':
         return <SettingsPage />;
+      case 'movie-detail':
+        return <MovieDetailPage />;
+      case 'show-detail':
+        return <ShowDetailPage />;
       default:
         return <HomePage />;
     }

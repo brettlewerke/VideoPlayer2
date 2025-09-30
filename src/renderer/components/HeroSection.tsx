@@ -11,10 +11,11 @@ interface HeroSectionProps {
 }
 
 export function HeroSection({ movie }: HeroSectionProps) {
-  const { playMedia } = useAppStore();
+  const { setCurrentMovie, setCurrentView } = useAppStore();
 
   const handlePlay = () => {
-    playMedia(movie, null);
+    setCurrentMovie(movie);
+    setCurrentView('movie-detail');
   };
 
   return (

@@ -12,20 +12,24 @@ interface MediaGridProps {
 }
 
 export function MediaGrid({ items, className = '' }: MediaGridProps) {
-  const { playMedia, setCurrentMovie, setCurrentShow } = useAppStore();
+  const { setCurrentMovie, setCurrentShow, setCurrentView } = useAppStore();
 
   const handleItemClick = (item: Movie | Show | Episode) => {
     if ('videoFile' in item) {
       // It's a Movie or Episode
-      const movie = 'seasonId' in item ? null : item as Movie;
-      const episode = 'seasonId' in item ? item as Episode : null;
-      if (movie) setCurrentMovie(movie);
-      playMedia(movie, episode);
+      if ('seasonId' in item) {
+        // It's an Episode - this shouldn't happen in grid, but handle it
+        console.log('Episode clicked:', item.title);
+      } else {
+        // It's a Movie - navigate to detail page
+        const movie = item as Movie;
+        setCurrentMovie(movie);
+        setCurrentView('movie-detail');
+      }
     } else {
-      // It's a Show
+      // It's a Show - navigate to detail page
       setCurrentShow(item as Show);
-      // Navigate to show details - for now just log
-      console.log('Navigate to show:', item.title);
+      setCurrentView('show-detail');
     }
   };
 

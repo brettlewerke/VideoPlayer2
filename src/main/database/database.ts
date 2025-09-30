@@ -966,7 +966,153 @@ export class DatabaseManager {
     return null;
   }
 
-  async getMediaByPath(filePath: string): Promise<{ id: string; type: 'movie' | 'episode' } | null> {
+  async deleteProgress(mediaId: string): Promise<void> {
+    // Delete progress from all drives (in case it exists on multiple)
+    const drives = await this.getDrives();
+    for (const drive of drives) {
+      if (!drive.isConnected) continue;
+
+      try {
+        const db = this.getOrCreateDriveDb(drive.mountPath);
+        const stmt = db.prepare('DELETE FROM playback_progress WHERE media_id = ?');
+        stmt.run(mediaId);
+        console.log(`[Database] Deleted progress for ${mediaId} from drive ${drive.id}`);
+      } catch (error) {
+        console.error(`[Database] Error deleting progress from drive ${drive.id}:`, error);
+      }
+    }
+  }
+
+  async deleteMovie(movieId: string): Promise<void> {
+    // Find which drive has this movie
+    const drives = await this.getDrives();
+    for (const drive of drives) {
+      if (!drive.isConnected) continue;
+
+      try {
+        const db = this.getOrCreateDriveDb(drive.mountPath);
+        const stmt = db.prepare('DELETE FROM movies WHERE id = ?');
+        const result = stmt.run(movieId);
+        
+        if (result.changes > 0) {
+          console.log(`[Database] Deleted movie ${movieId} from drive ${drive.id}`);
+          return;
+        }
+      } catch (error) {
+        console.error(`[Database] Error deleting movie from drive ${drive.id}:`, error);
+      }
+    }
+  }
+
+  async deleteShow(showId: string): Promise<void> {
+    // Find which drive has this show and delete it along with all seasons and episodes
+    const drives = await this.getDrives();
+    for (const drive of drives) {
+      if (!drive.isConnected) continue;
+
+      try {
+        const db = this.getOrCreateDriveDb(drive.mountPath);
+        
+        // Foreign key constraints will cascade delete seasons and episodes
+        const stmt = db.prepare('DELETE FROM shows WHERE id = ?');
+        const result = stmt.run(showId);
+        
+        if (result.changes > 0) {
+          console.log(`[Database] Deleted show ${showId} (and all seasons/episodes) from drive ${drive.id}`);
+          return;
+        }
+      } catch (error) {
+        console.error(`[Database] Error deleting show from drive ${drive.id}:`, error);
+      }
+    }
+  }
+
+  async deleteSeason(seasonId: string): Promise<void> {
+    // Find which drive has this season and delete it along with all episodes
+    const drives = await this.getDrives();
+    for (const drive of drives) {
+      if (!drive.isConnected) continue;
+
+      try {
+        const db = this.getOrCreateDriveDb(drive.mountPath);
+        
+        // Foreign key constraints will cascade delete episodes
+        const stmt = db.prepare('DELETE FROM seasons WHERE id = ?');
+        const result = stmt.run(seasonId);
+        
+        if (result.changes > 0) {
+          console.log(`[Database] Deleted season ${seasonId} (and all episodes) from drive ${drive.id}`);
+          return;
+        }
+      } catch (error) {
+        console.error(`[Database] Error deleting season from drive ${drive.id}:`, error);
+      }
+    }
+  }
+
+  async deleteEpisode(episodeId: string): Promise<void> {
+    // Find which drive has this episode and delete it
+    const drives = await this.getDrives();
+    for (const drive of drives) {
+      if (!drive.isConnected) continue;
+
+      try {
+        const db = this.getOrCreateDriveDb(drive.mountPath);
+        const stmt = db.prepare('DELETE FROM episodes WHERE id = ?');
+        const result = stmt.run(episodeId);
+        
+        if (result.changes > 0) {
+          console.log(`[Database] Deleted episode ${episodeId} from drive ${drive.id}`);
+          return;
+        }
+      } catch (error) {
+        console.error(`[Database] Error deleting episode from drive ${drive.id}:`, error);
+      }
+    }
+  }
+
+  async getEpisodesBySeason(seasonId: string): Promise<Episode[]> {
+    // Search for episodes for this season across all drives
+    const drives = await this.getDrives();
+    for (const drive of drives) {
+      if (!drive.isConnected) continue;
+
+      try {
+        const db = this.getOrCreateDriveDb(drive.mountPath);
+        const stmt = db.prepare('SELECT * FROM episodes WHERE season_id = ? ORDER BY episode_number ASC');
+        const rows = stmt.all(seasonId) as any[];
+        
+        if (rows.length > 0) {
+          return rows.map(row => ({
+            id: row.id,
+            showId: row.show_id,
+            seasonId: row.season_id,
+            episodeNumber: row.episode_number,
+            seasonNumber: row.season_number,
+            title: row.title,
+            path: row.path,
+            videoFile: {
+              id: row.id,
+              path: row.video_file_path,
+              filename: row.video_file_filename,
+              size: row.video_file_size,
+              lastModified: row.video_file_modified,
+              extension: row.video_file_extension,
+            },
+            duration: row.duration,
+            createdAt: new Date(row.created_at),
+            updatedAt: new Date(row.updated_at),
+          }));
+        }
+      } catch (error) {
+        console.error(`[Database] Error getting episodes from drive ${drive.id}:`, error);
+      }
+    }
+
+    return [];
+  }
+
+  async getMediaByPath(path: string): Promise<{ id: string; type: 'movie' | 'episode' } | null> {
     // Search for media file across all connected drives
     const drives = await this.getDrives();
     for (const drive of drives) {
@@ -977,14 +1123,14 @@ export class DatabaseManager {
         
         // Check movies first
         const movieStmt = db.prepare('SELECT id FROM movies WHERE video_file_path = ?');
-        const movieRow = movieStmt.get(filePath) as any;
+        const movieRow = movieStmt.get(path) as any;
         if (movieRow) {
           return { id: movieRow.id, type: 'movie' };
         }
 
         // Check episodes
         const episodeStmt = db.prepare('SELECT id FROM episodes WHERE video_file_path = ?');
-        const episodeRow = episodeStmt.get(filePath) as any;
+        const episodeRow = episodeStmt.get(path) as any;
         if (episodeRow) {
           return { id: episodeRow.id, type: 'episode' };
         }

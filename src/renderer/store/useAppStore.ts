@@ -22,7 +22,7 @@ function getAPI() {
 
 interface AppState {
   // UI State
-  currentView: 'home' | 'movies' | 'shows' | 'search' | 'player' | 'settings';
+  currentView: 'home' | 'movies' | 'shows' | 'search' | 'player' | 'settings' | 'movie-detail' | 'show-detail';
   isLoading: boolean;
   isSidebarOpen: boolean;
   searchQuery: string;

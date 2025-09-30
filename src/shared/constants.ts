@@ -3,19 +3,28 @@
  */
 
 // Supported video file extensions (case-insensitive)
+// Comprehensive list of video and audio formats
 export const VIDEO_EXTENSIONS = [
-  '.mkv',
-  '.mp4',
-  '.m4v',
-  '.mov',
-  '.avi',
-  '.ts',
-  '.mts',
-  '.m2ts',
-  '.wmv',
-  '.flv',
-  '.webm',
-  '.hevc',
+  // Common video formats
+  '.mp4', '.m4v', '.mkv', '.avi', '.mov', '.wmv', '.flv', '.webm',
+  
+  // MPEG formats
+  '.mpg', '.mpeg', '.m2v', '.m4p', '.m4b',
+  
+  // Transport streams
+  '.ts', '.mts', '.m2ts', '.mxf',
+  
+  // Modern codecs
+  '.hevc', '.h264', '.h265',
+  
+  // Other video formats
+  '.3gp', '.3g2', '.asf', '.divx', '.f4v', '.ogv', '.ogm', '.vob', '.rm', '.rmvb',
+  
+  // Audio formats (for music library support)
+  '.mp3', '.m4a', '.aac', '.flac', '.wav', '.wma', '.ogg', '.opus', '.ape', '.alac',
+  
+  // Playlist/metadata
+  '.m3u', '.m3u8', '.pls',
 ] as const;
 
 // Supported subtitle file extensions (case-insensitive)
