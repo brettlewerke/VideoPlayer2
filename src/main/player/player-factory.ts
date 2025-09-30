@@ -8,6 +8,7 @@ import { app } from 'electron';
 import { IPlayer, IPlayerFactory, PlayerBackendConfig } from '../../shared/player.js';
 import { MpvPlayer } from './mpv-player.js';
 import { MockPlayer } from './mock-player.js';
+import { VlcPlayer } from './vlc-player.js';
 
 export class MpvPlayerFactory implements IPlayerFactory {
   constructor(private config: PlayerBackendConfig) {}
