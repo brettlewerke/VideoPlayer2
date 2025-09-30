@@ -7,7 +7,7 @@
 
 ; General Configuration
 Name "H Player"
-OutFile "H-Player-Setup-1.2.0.exe"
+OutFile "H-Player-Setup-3.0.0.exe"
 Unicode True
 InstallDir "$PROGRAMFILES\H Player"
 InstallDirRegKey HKCU "Software\H Player" ""

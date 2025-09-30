@@ -25,16 +25,16 @@ export function SettingsPage() {
                 </label>
                 <select
                   value={playerBackend}
-                  onChange={(e) => setPlayerBackend(e.target.value as 'mpv' | 'mock')}
+                  onChange={(e) => setPlayerBackend(e.target.value as 'libvlc' | 'mock')}
                   title="Select video player backend"
                   className="bg-slate-700 border border-slate-600 rounded-lg py-2 px-3 text-white
                     focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50"
                 >
-                  <option value="mpv">MPV (Recommended)</option>
+                  <option value="libvlc">libVLC (Recommended)</option>
                   <option value="mock">Mock Player (Testing)</option>
                 </select>
                 <p className="text-sm text-slate-400 mt-1">
-                  MPV provides the best video playback experience. Mock player is for testing only.
+                  libVLC provides excellent video playback without external dependencies. Mock player is for testing only.
                 </p>
               </div>
             </div>

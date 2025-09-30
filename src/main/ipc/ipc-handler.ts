@@ -5,17 +5,21 @@
 import { ipcMain, BrowserWindow } from 'electron';
 import { DatabaseManager } from '../database/database.js';
 import { PlayerFactory } from '../player/player-factory.js';
+import { DependencyChecker } from '../services/dependency-checker.js';
 import { IPlayer } from '../../shared/player.js';
 import { IPC_CHANNELS, createIpcResponse, validatePath, validateVolume, validatePosition, validateTrackId } from '../../shared/ipc.js';
-import type { LoadMediaRequest, PlaybackProgress } from '../../shared/types.js';
+import type { LoadMediaRequest, PlaybackProgress, DependencyCheckResult, RepairResult } from '../../shared/types.js';
 
 export class IpcHandler {
   private player: IPlayer | null = null;
+  private dependencyChecker: DependencyChecker;
 
   constructor(
     private database: DatabaseManager,
     private playerFactory: PlayerFactory
-  ) {}
+  ) {
+    this.dependencyChecker = new DependencyChecker();
+  }
 
   setupHandlers(): void {
     // Player control handlers
@@ -54,6 +58,12 @@ export class IpcHandler {
     ipcMain.handle(IPC_CHANNELS.APP_QUIT, this.handleAppQuit.bind(this));
     ipcMain.handle(IPC_CHANNELS.APP_MINIMIZE, this.handleAppMinimize.bind(this));
     ipcMain.handle(IPC_CHANNELS.APP_TOGGLE_FULLSCREEN, this.handleToggleFullscreen.bind(this));
+
+    // Repair handlers (VLC installation)
+    ipcMain.handle(IPC_CHANNELS.REPAIR_CHECK_DEPENDENCIES, this.handleCheckDependencies.bind(this));
+    ipcMain.handle(IPC_CHANNELS.REPAIR_INSTALL_VLC, this.handleInstallVLC.bind(this));
+    ipcMain.handle(IPC_CHANNELS.REPAIR_SWITCH_BACKEND, this.handleSwitchBackend.bind(this));
+    ipcMain.handle(IPC_CHANNELS.REPAIR_GET_MANUAL_INSTRUCTIONS, this.handleGetManualInstructions.bind(this));
 
     console.log('IPC handlers set up successfully');
   }
@@ -419,4 +429,103 @@ export class IpcHandler {
       return createIpcResponse(event.frameId.toString(), undefined, error instanceof Error ? error.message : 'Unknown error');
     }
   }
+
+  // Repair handlers
+  private async handleCheckDependencies(event: Electron.IpcMainInvokeEvent): Promise<DependencyCheckResult> {
+    try {
+      const result = await this.dependencyChecker.checkDependencies();
+      return result;
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error during dependency check'
+      };
+    }
+  }
+
+  private async handleInstallVLC(event: Electron.IpcMainInvokeEvent): Promise<RepairResult> {
+    try {
+      const { shell } = require('electron');
+      
+      // Open VLC download page
+      await shell.openExternal('https://www.videolan.org/vlc/');
+      
+      return {
+        success: true,
+        message: 'VLC download page opened. Please install VLC and restart H Player.',
+        requiresRestart: false
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : 'Failed to open VLC download page',
+        requiresRestart: false
+      };
+    }
+  }
+
+  private async handleSwitchBackend(event: Electron.IpcMainInvokeEvent): Promise<RepairResult> {
+    try {
+      // Check if libVLC is available
+      const dependencyResult = await this.dependencyChecker.checkDependencies();
+      const isLibVlcAvailable = dependencyResult.libvlcAvailable;
+      if (!isLibVlcAvailable) {
+        return {
+          success: false,
+          message: 'libVLC backend is not available on this system'
+        };
+      }
+
+      // Switch to libVLC backend
+      this.playerFactory.setBackend('libvlc');
+
+      // Update settings
+      await this.database.setSetting('playerBackend', 'libvlc');
+
+      return {
+        success: true,
+        message: 'Successfully switched to libVLC backend',
+        requiresRestart: true
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : 'Unknown error during backend switch'
+      };
+    }
+  }
+
+  private async handleGetManualInstructions(event: Electron.IpcMainInvokeEvent): Promise<string> {
+    // Return manual instructions as a string
+    return `
+# VLC Media Player Installation Instructions
+
+## Step 1: Download VLC Media Player
+Visit the official VLC website:
+\`\`\`
+https://www.videolan.org/vlc/
+\`\`\`
+Choose the version that matches your system (32-bit or 64-bit Windows).
+
+## Step 2: Install VLC
+1. Run the VLC installer as Administrator
+2. Follow the installation wizard
+3. Choose default options (recommended)
+4. Complete the installation
+
+## Step 3: Restart H Player
+After installing VLC, restart H Player to enable full video playback capabilities.
+
+## Alternative Installation Methods
+- **Microsoft Store:** Search for "VLC" in the Microsoft Store
+- **Package Managers:** Use Chocolatey (choco install vlc) or Winget (winget install vlc)
+- **Portable Version:** Download the portable version if you prefer not to install
+
+## Troubleshooting
+- Ensure you're using the latest VLC version
+- For portable VLC installations, make sure the VLC directory is added to your system PATH
+- Restart H Player after VLC installation
+`;
+  }
+
 }

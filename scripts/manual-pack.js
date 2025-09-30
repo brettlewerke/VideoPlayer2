@@ -117,6 +117,19 @@ for (const script of scripts) {
   }
 }
 
+// Copy electron executable
+console.log('Copying Electron executable...');
+const electronSrc = path.join(__dirname, '..', 'node_modules', 'electron', 'dist', 'electron.exe');
+const electronTempDest = path.join(appDir, 'electron.exe');
+const electronFinalDest = path.join(appDir, 'H Player.exe');
+if (fs.existsSync(electronSrc)) {
+  fs.copyFileSync(electronSrc, electronTempDest);
+  fs.renameSync(electronTempDest, electronFinalDest);
+  console.log('✓ Electron executable copied and renamed to "H Player.exe"');
+} else {
+  console.log('⚠ Warning: Electron executable not found in node_modules');
+}
+
 // Copy electron executable (we'll use a simple approach)
 console.log('[4/4] Creating launcher and packaging...');
 
@@ -124,8 +137,8 @@ console.log('[4/4] Creating launcher and packaging...');
 const launcherContent = `@echo off
 echo Starting H Player...
 cd /d "%~dp0"
-if exist "electron.exe" (
-  electron.exe "resources\\app\\main\\main.js"
+if exist "H Player.exe" (
+  "H Player.exe" "resources\\app\\main\\main.js"
 ) else (
   echo Electron executable not found. Please ensure electron.exe is in the same directory.
   pause

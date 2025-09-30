@@ -53,6 +53,12 @@ export const IPC_CHANNELS = {
   APP_QUIT: 'app:quit',
   APP_MINIMIZE: 'app:minimize',
   APP_TOGGLE_FULLSCREEN: 'app:toggleFullscreen',
+
+  // Dependency repair (VLC installation)
+  REPAIR_CHECK_DEPENDENCIES: 'repair:checkDependencies',
+  REPAIR_INSTALL_VLC: 'repair:installVLC',
+  REPAIR_SWITCH_BACKEND: 'repair:switchBackend',
+  REPAIR_GET_MANUAL_INSTRUCTIONS: 'repair:getManualInstructions',
 } as const;
 
 // IPC validation helpers

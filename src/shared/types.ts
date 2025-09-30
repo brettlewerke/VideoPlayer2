@@ -162,7 +162,7 @@ export interface ScanResult {
 
 // Settings types
 export interface AppSettings {
-  playerBackend: 'mpv' | 'libvlc';
+  playerBackend: 'libvlc' | 'mock';
   autoPlay: boolean;
   autoPlayNext: boolean;
   seekInterval: number; // seconds
@@ -210,3 +210,22 @@ export type MediaItem = Movie | Episode;
 export type MediaWithProgress = MediaItem & { progress?: PlaybackProgress };
 export type SortField = 'title' | 'year' | 'dateAdded' | 'lastWatched';
 export type SortDirection = 'asc' | 'desc';
+
+// Repair types (Windows dependency issues)
+export interface DependencyCheckResult {
+  success: boolean;
+  error?: string;
+  missingDlls?: string[];
+  mpvPath?: string;
+  mpvVersion?: string;
+}
+
+export interface RepairOptions {
+  action: 'fix-now' | 'switch-libvlc' | 'manual';
+}
+
+export interface RepairResult {
+  success: boolean;
+  message: string;
+  requiresRestart?: boolean;
+}

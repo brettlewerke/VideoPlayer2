@@ -12,21 +12,25 @@ import { DriveManager } from './services/drive-manager.js';
 import { MediaScanner } from './services/media-scanner.js';
 import { PlayerFactory } from './player/player-factory.js';
 import { IpcHandler } from './ipc/ipc-handler.js';
+import { DependencyChecker } from './services/dependency-checker.js';
 import { DEFAULT_SETTINGS } from '../shared/constants.js';
 
 class VideoPlayerApp {
   private mainWindow: BrowserWindow | null = null;
+  private repairWindow: BrowserWindow | null = null;
   private database: DatabaseManager;
   private playerFactory: PlayerFactory;
   private ipcHandler: IpcHandler;
   private driveManager: DriveManager;
   private mediaScanner: MediaScanner;
+  private dependencyChecker: DependencyChecker;
 
   constructor() {
     this.database = new DatabaseManager();
     this.playerFactory = new PlayerFactory();
     this.driveManager = new DriveManager(this.database);
     this.mediaScanner = new MediaScanner(this.database);
+    this.dependencyChecker = new DependencyChecker();
     this.ipcHandler = new IpcHandler(this.database, this.playerFactory);
   }
 
@@ -51,6 +55,21 @@ class VideoPlayerApp {
   }
 
   async createMainWindow(): Promise<void> {
+    // On Windows, check dependencies before creating the main window
+    if (platform() === 'win32') {
+      const dependencyCheck = await this.dependencyChecker.checkDependencies();
+      if (!dependencyCheck.success) {
+        console.log('Dependency check failed, showing repair screen:', dependencyCheck.error);
+        await this.createRepairWindow(dependencyCheck);
+        return;
+      }
+    }
+
+    // Dependencies are OK, create the main window
+    await this.createMainApplicationWindow();
+  }
+
+  async createMainApplicationWindow(): Promise<void> {
     // Create the browser window
     this.mainWindow = new BrowserWindow({
       width: 1280,
@@ -111,6 +130,66 @@ class VideoPlayerApp {
 
     this.mainWindow.on('leave-full-screen', () => {
       this.ipcHandler.sendToRenderer('app:fullscreen-changed', false);
+    });
+  }
+
+  async createRepairWindow(dependencyCheck: any): Promise<void> {
+    // Create a repair window with the same styling but focused on the repair UI
+    this.repairWindow = new BrowserWindow({
+      width: 900,
+      height: 700,
+      minWidth: 800,
+      minHeight: 600,
+      webPreferences: {
+        nodeIntegration: false,
+        contextIsolation: true,
+        preload: join(__dirname, 'preload.js'),
+      },
+      icon: this.getAppIcon(),
+      titleBarStyle: 'hidden',
+      titleBarOverlay: {
+        color: '#1f2937',
+        symbolColor: '#ffffff',
+      },
+      show: false,
+      title: 'H Player - Dependency Repair',
+      backgroundColor: '#050706',
+      modal: true,
+      parent: undefined, // Not modal to main window since it doesn't exist yet
+    });
+
+    // Load the repair page
+    const isDevelopment = process.env.NODE_ENV === 'development';
+    if (isDevelopment) {
+      const devUrl = await this.findViteDevServer();
+      await this.repairWindow.loadURL(`${devUrl}#/repair`);
+      this.repairWindow.webContents.openDevTools();
+    } else {
+      const indexPath = join(__dirname, '../renderer/index.html');
+      if (existsSync(indexPath)) {
+        await this.repairWindow.loadFile(indexPath, { hash: '#/repair' });
+      } else {
+        throw new Error('Renderer files not found. Please run "npm run build" first.');
+      }
+    }
+
+    // Pass the dependency check result to the renderer
+    this.repairWindow.webContents.once('did-finish-load', () => {
+      this.repairWindow?.webContents.send('repair:dependency-check-result', dependencyCheck);
+    });
+
+    // Show window when ready
+    this.repairWindow.once('ready-to-show', () => {
+      this.repairWindow?.show();
+    });
+
+    // Handle window closed
+    this.repairWindow.on('closed', () => {
+      this.repairWindow = null;
+      // If repair window is closed without fixing, quit the app
+      if (!this.mainWindow) {
+        app.quit();
+      }
     });
   }
 

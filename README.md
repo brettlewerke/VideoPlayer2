@@ -14,15 +14,16 @@ A beautiful, local desktop media player for Movies & TV Shows on plugged-in driv
 - **🏠 Offline First**: No internet required, no data collection
 - **🔒 Secure**: Context isolation, no node integration, secure IPC
 - **📦 Portable**: Run from any folder without installation
+- **🔧 Windows Dependency Repair**: Automatic detection and repair of missing FFmpeg DLLs on Windows
 
 ## 🚀 Quick Start
 
 ### Option 1: Installer (Recommended)
 
 1. **Download** the installer for your platform:
-   - **Windows**: `H-Player-Setup-X.X.X.exe` (NSIS installer)
-   - **macOS**: `H-Player-X.X.X.dmg` (DMG with drag-to-Applications)
-   - **Linux**: `h-player_X.X.X_amd64.AppImage` or `h-player_X.X.X_amd64.deb`
+   - **Windows**: `H-Player-Setup-3.0.0.exe` (NSIS installer with automatic FFmpeg repair)
+   - **macOS**: `H-Player-3.0.0.dmg` (DMG with drag-to-Applications)
+   - **Linux**: `h-player_3.0.0_amd64.AppImage` or `h-player_3.0.0_amd64.deb`
 
 2. **Install** the application:
    - Windows: Run the installer, follow prompts, creates Start Menu and Desktop shortcuts
@@ -114,6 +115,24 @@ Any Drive/
 - Check Settings for player backend selection
 - Try switching to libVLC backend if available
 - Verify video file is not corrupted
+
+### Windows: "ffmpeg.dll was not found" error
+If you see this error on Windows, H Player will automatically show a repair screen with three options:
+
+**Option 1: Automatic Fix (Recommended)**
+- Click "Fix now" to automatically download and install the missing FFmpeg DLLs
+- The app will restart automatically after successful repair
+
+**Option 2: Switch to libVLC**
+- Click "Switch to libVLC" to use VLC's media libraries instead
+- No additional downloads required, works immediately
+
+**Option 3: Manual Installation**
+- Click "Manual fix instructions" for step-by-step guidance
+- Download FFmpeg DLLs from https://www.gyan.dev/ffmpeg/builds/
+- Extract and copy DLLs to the MPV directory
+
+This issue occurs because MPV requires FFmpeg DLLs that aren't always bundled together.
 
 ### App won't start
 - **Windows**: Try running as Administrator
