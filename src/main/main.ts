@@ -27,7 +27,7 @@ class VideoPlayerApp {
     this.playerFactory = new PlayerFactory();
     this.driveManager = new DriveManager(this.database);
     this.mediaScanner = new MediaScanner(this.database);
-    this.ipcHandler = new IpcHandler(this.database, this.playerFactory);
+    this.ipcHandler = new IpcHandler(this.database, this.playerFactory, this.driveManager, this.mediaScanner);
   }
 
   async initialize(): Promise<void> {

@@ -107,8 +107,23 @@ export function HomePage() {
             <p className="text-text-secondary mb-6 leading-relaxed">
               This desktop app catalogs Movies and TV Shows from a plugged-in drive. At the root of the drive, create two folders named <span className="text-brand font-semibold">Movies</span> and <span className="text-brand font-semibold">TV Shows</span>. Once attached, H Player will scan them locally and display your library—no network required.
             </p>
-            <div className="mb-4 text-sm text-text-muted">
-              Inspected mount points: {drives.length === 0 ? 'none detected yet' : drives.map(d=>d.mountPath).join(', ')}
+            <div className="mb-4 p-4 bg-slate-900/50 rounded-lg border border-slate-700/50">
+              <p className="text-sm font-semibold text-slate-300 mb-2">Debug Info:</p>
+              <p className="text-sm text-text-muted">
+                Detected drives: {drives.length === 0 ? 'none' : drives.length}
+              </p>
+              {drives.length > 0 && (
+                <div className="mt-2 space-y-1">
+                  {drives.map((d, i) => (
+                    <div key={i} className="text-xs text-slate-400 font-mono">
+                      • {d.label} at <span className="text-blue-400">{d.mountPath}</span> {d.isConnected ? '(connected)' : '(disconnected)'}
+                    </div>
+                  ))}
+                </div>
+              )}
+              <p className="text-xs text-slate-500 mt-2">
+                Looking for folders: Movies, Films, TV Shows, TV, Series, Shows (case-insensitive) at the root of each drive
+              </p>
             </div>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <button

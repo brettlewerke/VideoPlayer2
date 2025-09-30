@@ -5,6 +5,8 @@
 import { ipcMain, BrowserWindow } from 'electron';
 import { DatabaseManager } from '../database/database.js';
 import { PlayerFactory } from '../player/player-factory.js';
+import { DriveManager } from '../services/drive-manager.js';
+import { MediaScanner } from '../services/media-scanner.js';
 import { IPlayer } from '../../shared/player.js';
 import { IPC_CHANNELS, createIpcResponse, validatePath, validateVolume, validatePosition, validateTrackId } from '../../shared/ipc.js';
 import type { LoadMediaRequest, PlaybackProgress } from '../../shared/types.js';
@@ -14,7 +16,9 @@ export class IpcHandler {
 
   constructor(
     private database: DatabaseManager,
-    private playerFactory: PlayerFactory
+    private playerFactory: PlayerFactory,
+    private driveManager: DriveManager,
+    private mediaScanner: MediaScanner
   ) {}
 
   setupHandlers(): void {
@@ -44,6 +48,7 @@ export class IpcHandler {
 
     // Drive handlers
     ipcMain.handle(IPC_CHANNELS.DRIVES_GET_ALL, this.handleGetDrives.bind(this));
+    ipcMain.handle(IPC_CHANNELS.DRIVES_SCAN, this.handleDrivesScan.bind(this));
 
     // Settings handlers
     ipcMain.handle(IPC_CHANNELS.SETTINGS_GET, this.handleGetSettings.bind(this));
@@ -350,8 +355,31 @@ export class IpcHandler {
   private async handleGetDrives(event: Electron.IpcMainInvokeEvent) {
     try {
       const drives = await this.database.getDrives();
+      console.log(`[IPC] getDrives returned ${drives.length} drives:`, drives.map(d => `${d.label} (${d.mountPath})`));
       return createIpcResponse(event.frameId.toString(), drives);
     } catch (error) {
+      console.error('[IPC] getDrives error:', error);
+      return createIpcResponse(event.frameId.toString(), undefined, error instanceof Error ? error.message : 'Unknown error');
+    }
+  }
+
+  private async handleDrivesScan(event: Electron.IpcMainInvokeEvent) {
+    try {
+      console.log('[IPC] Starting drive scan...');
+      
+      // First, scan for drives
+      await this.driveManager.scanForDrives();
+      
+      // Then scan all detected drives for media
+      await this.mediaScanner.scanAllDrives();
+      
+      // Notify renderer to refresh
+      this.sendToRenderer('library:refresh');
+      
+      console.log('[IPC] Drive scan completed');
+      return createIpcResponse(event.frameId.toString(), { success: true });
+    } catch (error) {
+      console.error('[IPC] Drive scan error:', error);
       return createIpcResponse(event.frameId.toString(), undefined, error instanceof Error ? error.message : 'Unknown error');
     }
   }

@@ -121,18 +121,26 @@ export class DriveManager extends EventEmitter {
     const drives: Drive[] = [];
     
     try {
-      // Get all drive letters
-      const output = execSync('wmic logicaldisk get size,freespace,caption,description,drivetype', { encoding: 'utf8' });
-      const lines = output.split('\\n').filter(line => line.trim() && !line.includes('Caption'));
+      // Get all drive letters - use CSV format for reliable parsing
+      const output = execSync('wmic logicaldisk get caption,drivetype /format:csv', { encoding: 'utf8' });
+      // Windows uses \r\n for line endings
+      const lines = output.split(/\r?\n/).filter(line => line.trim() && !line.toLowerCase().includes('caption'));
+      
+      console.log('=== WMIC Drive Detection ===');
+      console.log('Raw output:', JSON.stringify(output));
+      console.log('Parsed lines count:', lines.length);
+      console.log('Parsed lines:', lines);
       
       for (const line of lines) {
-        const parts = line.trim().split(/\\s+/);
-        if (parts.length >= 5) {
-          const caption = parts[0]; // C:
-          const driveType = parseInt(parts[2]); // 2=removable, 3=fixed, etc.
+        const parts = line.trim().split(',');
+        if (parts.length >= 3) {
+          const caption = parts[1].trim(); // C:
+          const driveType = parseInt(parts[2].trim()); // 2=removable, 3=fixed, etc.
+          
+          console.log(`Parsing line: "${line}" -> caption="${caption}", driveType=${driveType}`);
           
           if (caption && caption.match(/^[A-Z]:$/)) {
-            const mountPath = caption + '\\\\';
+            const mountPath = caption + '\\';
             
             if (existsSync(mountPath)) {
               const drive: Drive = {
@@ -145,19 +153,25 @@ export class DriveManager extends EventEmitter {
                 updatedAt: new Date(),
               };
               
+              console.log(`Added drive: ${caption} at ${mountPath} (removable=${driveType === 2})`);
               drives.push(drive);
+            } else {
+              console.log(`Drive ${mountPath} does not exist`);
             }
           }
         }
       }
+      
+      console.log(`Found ${drives.length} drives via WMIC`);
     } catch (error) {
       console.error('Error scanning Windows drives:', error);
       
       // Fallback: try common drive letters
+      console.log('Using fallback drive detection');
       for (const letter of 'CDEFGHIJKLMNOPQRSTUVWXYZ') {
-        const mountPath = `${letter}:\\\\`;
+        const mountPath = `${letter}:\\`;
         if (existsSync(mountPath)) {
-          drives.push({
+          const drive = {
             id: hashString(`win32:${letter}:`),
             label: this.getDriveLabel(mountPath) || `${letter}:`,
             mountPath,
@@ -165,11 +179,14 @@ export class DriveManager extends EventEmitter {
             isConnected: true,
             createdAt: new Date(),
             updatedAt: new Date(),
-          });
+          };
+          console.log(`Fallback: Added drive ${letter}: at ${mountPath}`);
+          drives.push(drive);
         }
       }
     }
     
+    console.log(`Total drives found: ${drives.length}`);
     return drives;
   }
 

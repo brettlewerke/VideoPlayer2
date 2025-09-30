@@ -140,21 +140,30 @@ export class MediaScanner extends EventEmitter {
       };
 
       // Look for Movies and TV Shows folders at ROOT LEVEL ONLY
+      console.log(`=== Scanning drive: ${drive.label} at ${drive.mountPath} ===`);
       const rootEntries = this.getDirectoryEntries(drive.mountPath);
+      console.log(`Found ${rootEntries.length} entries at root:`, rootEntries);
       
       for (const entry of rootEntries) {
         const entryPath = join(drive.mountPath, entry);
         
         if (!this.isDirectory(entryPath)) {
+          console.log(`  Skipping "${entry}" - not a directory`);
           continue;
         }
 
-        if (isMoviesFolder(entry)) {
-          console.log(`Found Movies folder: ${entryPath}`);
+        console.log(`  Checking directory: "${entry}"`);
+        const isMovies = isMoviesFolder(entry);
+        const isTVShows = isTVShowsFolder(entry);
+        console.log(`    isMoviesFolder("${entry}") = ${isMovies}`);
+        console.log(`    isTVShowsFolder("${entry}") = ${isTVShows}`);
+
+        if (isMovies) {
+          console.log(`✓ Found Movies folder: ${entryPath}`);
           const movies = await this.scanMoviesFolder(entryPath, drive);
           result.movies.push(...movies);
-        } else if (isTVShowsFolder(entry)) {
-          console.log(`Found TV Shows folder: ${entryPath}`);
+        } else if (isTVShows) {
+          console.log(`✓ Found TV Shows folder: ${entryPath}`);
           const scanResult = await this.scanTVShowsFolder(entryPath, drive);
           result.shows.push(...scanResult.shows);
           result.seasons.push(...scanResult.seasons);
