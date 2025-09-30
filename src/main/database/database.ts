@@ -35,12 +35,10 @@ export class DatabaseManager {
   }
 
   /**
-   * Initialize database connection and run migrations
+   * Initialize database connection and ensure schema is up to date
    */
   async initialize(): Promise<void> {
     try {
-      const isNewDatabase = !existsSync(this.dbPath);
-      
       this.db = new Database(this.dbPath);
       
       // Configure SQLite
@@ -50,17 +48,75 @@ export class DatabaseManager {
       this.db.pragma('foreign_keys = ON');
       this.db.pragma('temp_store = MEMORY');
       
-      if (isNewDatabase) {
-        await this.createSchema();
-      } else {
-        await this.runMigrations();
-      }
+      // Run migrations to ensure schema is up to date
+      await this.migrate();
       
       console.log('Database initialized successfully');
     } catch (error) {
       console.error('Failed to initialize database:', error);
       throw error;
     }
+  }
+
+  /**
+   * Run database migrations and ensure all required tables exist
+   */
+  async migrate(): Promise<void> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    const transaction = this.db.transaction(() => {
+      // Create schema_version table if it doesn't exist
+      this.db!.exec(`
+        CREATE TABLE IF NOT EXISTS schema_migrations (
+          version INTEGER PRIMARY KEY,
+          applied_at INTEGER NOT NULL
+        )
+      `);
+
+      // Get current schema version
+      let currentVersion = 0;
+      try {
+        const result = this.db!.prepare('SELECT MAX(version) as version FROM schema_migrations').get() as { version: number | null };
+        currentVersion = result?.version || 0;
+      } catch {
+        // Table might not exist yet, version stays 0
+      }
+
+      // Apply pending migrations
+      const pendingMigrations = MIGRATIONS.filter(m => m.version > currentVersion);
+      
+      if (pendingMigrations.length > 0) {
+        console.log(`Applying ${pendingMigrations.length} database migrations...`);
+        
+        for (const migration of pendingMigrations) {
+          console.log(`Applying migration v${migration.version}`);
+          
+          for (const statement of migration.up) {
+            this.db!.exec(statement);
+          }
+          
+          this.db!.prepare(
+            'INSERT OR REPLACE INTO schema_migrations (version, applied_at) VALUES (?, ?)'
+          ).run(migration.version, Date.now());
+        }
+      }
+
+      // Ensure all required tables exist (idempotent creation)
+      const statements = generateSchemaSQL(SCHEMA_V1);
+      for (const statement of statements) {
+        try {
+          this.db!.exec(statement);
+        } catch (error) {
+          // Table might already exist, continue
+          console.log(`Table creation skipped (likely already exists): ${error}`);
+        }
+      }
+
+      const finalVersion = Math.max(currentVersion, SCHEMA_V1.version);
+      console.log(`Database initialized successfully (v${currentVersion} → v${finalVersion})`);
+    });
+
+    transaction();
   }
 
   /**
@@ -598,32 +654,41 @@ export class DatabaseManager {
   async getAllSettings(): Promise<Record<string, any>> {
     if (!this.db) throw new Error('Database not initialized');
 
-    const stmt = this.db.prepare('SELECT * FROM settings');
-    const rows = stmt.all() as any[];
-    
-    const settings: Record<string, any> = {};
-    
-    for (const row of rows) {
-      switch (row.type) {
-        case 'string':
-          settings[row.key] = row.value;
-          break;
-        case 'number':
-          settings[row.key] = parseFloat(row.value);
-          break;
-        case 'boolean':
-          settings[row.key] = row.value === 'true';
-          break;
-        case 'json':
-          settings[row.key] = JSON.parse(row.value);
-          break;
-        default:
-          settings[row.key] = row.value;
-          break;
+    // Ensure database is migrated before querying
+    await this.migrate();
+
+    try {
+      const stmt = this.db.prepare('SELECT * FROM settings');
+      const rows = stmt.all() as any[];
+      
+      const settings: Record<string, any> = {};
+      
+      for (const row of rows) {
+        switch (row.type) {
+          case 'string':
+            settings[row.key] = row.value;
+            break;
+          case 'number':
+            settings[row.key] = parseFloat(row.value);
+            break;
+          case 'boolean':
+            settings[row.key] = row.value === 'true';
+            break;
+          case 'json':
+            settings[row.key] = JSON.parse(row.value);
+            break;
+          default:
+            settings[row.key] = row.value;
+            break;
+        }
       }
+      
+      return settings;
+    } catch (error) {
+      // If settings table doesn't exist, return empty object (migration should have created it)
+      console.warn('Failed to query settings table, returning empty settings:', error);
+      return {};
     }
-    
-    return settings;
   }
 
   /**

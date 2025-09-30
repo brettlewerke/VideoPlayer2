@@ -71,6 +71,7 @@ declare global {
         minimize: () => void;
         maximize: () => void;
         close: () => void;
+        quit: () => void;
         toggleFullscreen: () => void;
         showOpenDialog: () => Promise<string[] | null>;
         showSaveDialog: () => Promise<string | null>;

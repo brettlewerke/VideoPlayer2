@@ -57,7 +57,7 @@ class VideoPlayerApp {
   async createMainWindow(): Promise<void> {
     // On Windows, check dependencies before creating the main window
     if (platform() === 'win32') {
-      const dependencyCheck = await this.dependencyChecker.checkDependencies();
+      const dependencyCheck = await this.dependencyChecker.verifyWindowsPlaybackDeps();
       if (!dependencyCheck.success) {
         console.log('Dependency check failed, showing repair screen:', dependencyCheck.error);
         await this.createRepairWindow(dependencyCheck);
@@ -92,29 +92,32 @@ class VideoPlayerApp {
       backgroundColor: '#050706'
     });
 
-    // Load the renderer
+    // Load the renderer based on environment
     const isDevelopment = process.env.NODE_ENV === 'development';
-    console.log(`[dev] NODE_ENV: ${process.env.NODE_ENV}, isDevelopment: ${isDevelopment}`);
+    console.log(`[renderer] Environment: ${process.env.NODE_ENV}, isDevelopment: ${isDevelopment}`);
+
     if (isDevelopment) {
-      // Dynamically discover the running Vite dev server port
-      const devUrl = await this.findViteDevServer();
-      await this.mainWindow.loadURL(devUrl);
+      // Development: Load from Vite dev server
+      const devServerUrl = process.env.VITE_DEV_SERVER_URL || 'http://localhost:3000';
+      console.log(`[renderer] Loading development renderer from: ${devServerUrl}`);
+
+      // Wait for Vite dev server to be ready
+      await this.waitForViteDevServer(devServerUrl);
+
+      await this.mainWindow.loadURL(devServerUrl);
       this.mainWindow.webContents.openDevTools();
     } else {
-      // Production mode - load from built files
-      const indexPath = join(__dirname, '../renderer/index.html');
-      if (existsSync(indexPath)) {
-        await this.mainWindow.loadFile(indexPath);
-      } else {
-        throw new Error('Renderer files not found. Please run "npm run build" first.');
-      }
+      // Production: Load from built files
+      const rendererPath = join(__dirname, '../renderer/index.html');
+      console.log(`[renderer] Loading production renderer from: ${rendererPath}`);
+      await this.mainWindow.loadFile(rendererPath);
     }
 
     // Show window when ready to prevent visual flash
     this.mainWindow.once('ready-to-show', () => {
       this.mainWindow?.show();
       
-      if (process.env.NODE_ENV === 'development') {
+      if (isDevelopment) {
         this.mainWindow?.focus();
       }
     });
@@ -159,19 +162,16 @@ class VideoPlayerApp {
       parent: undefined, // Not modal to main window since it doesn't exist yet
     });
 
-    // Load the repair page
+    // Load the repair page based on environment
     const isDevelopment = process.env.NODE_ENV === 'development';
     if (isDevelopment) {
-      const devUrl = await this.findViteDevServer();
-      await this.repairWindow.loadURL(`${devUrl}#/repair`);
+      const devServerUrl = process.env.VITE_DEV_SERVER_URL || 'http://localhost:3000';
+      await this.waitForViteDevServer(devServerUrl);
+      await this.repairWindow.loadURL(`${devServerUrl}#/repair`);
       this.repairWindow.webContents.openDevTools();
     } else {
-      const indexPath = join(__dirname, '../renderer/index.html');
-      if (existsSync(indexPath)) {
-        await this.repairWindow.loadFile(indexPath, { hash: '#/repair' });
-      } else {
-        throw new Error('Renderer files not found. Please run "npm run build" first.');
-      }
+      const rendererPath = join(__dirname, '../renderer/index.html');
+      await this.repairWindow.loadFile(rendererPath, { hash: '#/repair' });
     }
 
     // Pass the dependency check result to the renderer
@@ -242,107 +242,49 @@ class VideoPlayerApp {
   }
 
   /**
-   * Attempt to find the Vite dev server by probing a set of candidate ports.
-   * Returns the first responsive base URL. Throws if none are found.
+   * Wait for Vite dev server to be ready with timeout
    */
-  private async findViteDevServer(): Promise<string> {
-    const explicit = process.env.VITE_DEV_PORT ? [Number(process.env.VITE_DEV_PORT)] : [];
-    const candidates = [...explicit, ...Array.from({ length: 20 }, (_, i) => 3000 + i)];
-    
-    console.log(`[dev] Searching for Vite dev server on ports: ${candidates.join(', ')}`);
-    
-    // First, try all ports once
-    for (const port of candidates) {
+  private async waitForViteDevServer(devServerUrl: string, timeoutMs: number = 30000): Promise<void> {
+    const startTime = Date.now();
+    const checkInterval = 1000; // Check every second
+
+    console.log(`[renderer] Waiting for Vite dev server at ${devServerUrl}...`);
+
+    while (Date.now() - startTime < timeoutMs) {
       try {
-        console.log(`[dev] Testing port ${port}...`);
-        const isVite = await this.testPort(port);
-        if (isVite) {
-          console.log(`[dev] ✓ Found Vite dev server at http://localhost:${port}`);
-          return `http://localhost:${port}`;
+        const isReady = await this.checkViteDevServer(devServerUrl);
+        if (isReady) {
+          console.log(`[renderer] Vite dev server is ready`);
+          return;
         }
-      } catch (err) {
-        console.log(`[dev] Port ${port} test failed: ${err}`);
+      } catch (error) {
+        // Continue waiting
       }
+
+      await new Promise(resolve => setTimeout(resolve, checkInterval));
     }
-    
-    // If nothing found, wait a bit and try again (Vite might still be starting)
-    console.log(`[dev] No Vite server found on first pass, waiting and retrying...`);
-    await new Promise(r => setTimeout(r, 1000));
-    
-    for (const port of candidates) {
-      try {
-        const isVite = await this.testPort(port);
-        if (isVite) {
-          console.log(`[dev] ✓ Found Vite dev server at http://localhost:${port} (retry)`);
-          return `http://localhost:${port}`;
-        }
-      } catch (err) {
-        // Silent retry
-      }
-    }
-    
-    const msg = `Unable to locate Vite dev server on candidate ports: ${candidates.join(', ')}`;
-    console.error(`[dev] ${msg}`);
-    throw new Error(msg);
+
+    throw new Error(`Vite dev server at ${devServerUrl} did not become ready within ${timeoutMs}ms`);
   }
 
   /**
-   * Test if a port is responding with what looks like a Vite dev server
+   * Check if Vite dev server is responding
    */
-  private testPort(port: number): Promise<boolean> {
+  private async checkViteDevServer(devServerUrl: string): Promise<boolean> {
     return new Promise((resolve) => {
       const req = request({
-        hostname: '127.0.0.1', // Use IPv4 explicitly instead of 'localhost'
-        port: port,
+        hostname: '127.0.0.1',
+        port: parseInt(new URL(devServerUrl).port),
         path: '/',
         method: 'GET',
-        timeout: 1000,
-        family: 4 // Force IPv4
+        timeout: 2000,
+        family: 4
       }, (res) => {
-        console.log(`[dev] Port ${port} returned status ${res.statusCode}`);
-        
-        // Accept successful responses and some dev server specific codes
-        if (res.statusCode && (
-          (res.statusCode >= 200 && res.statusCode < 300) || 
-          res.statusCode === 426 || // Upgrade Required - common with Vite dev server
-          res.statusCode === 304    // Not Modified
-        )) {
-          let data = '';
-          res.setEncoding('utf8');
-          res.on('data', (chunk) => {
-            data += chunk;
-            // Stop reading once we have enough to check
-            if (data.length > 500) {
-              res.destroy();
-            }
-          });
-          res.on('end', () => {
-            const lowerData = data.toLowerCase();
-            // Look for Vite-specific markers or typical HTML structure
-            const isVite = lowerData.includes('vite') || 
-                          lowerData.includes('<!doctype html') ||
-                          lowerData.includes('<script type="module"') ||
-                          lowerData.includes('@vite/client') ||
-                          res.statusCode === 426; // 426 is often Vite dev server
-            console.log(`[dev] Port ${port} response check: ${isVite ? 'VITE' : 'OTHER'} (${data.slice(0, 100)}...)`);
-            resolve(isVite);
-          });
-          res.on('error', (err) => {
-            console.log(`[dev] Port ${port} response error: ${err.message}`);
-            resolve(false);
-          });
-        } else {
-          // Non-success status - reject this port
-          resolve(false);
-        }
+        resolve(res.statusCode === 200 || res.statusCode === 304);
       });
-      
-      req.on('error', (err) => {
-        console.log(`[dev] Port ${port} connection failed: ${err.message}`);
-        resolve(false);
-      });
+
+      req.on('error', () => resolve(false));
       req.on('timeout', () => {
-        console.log(`[dev] Port ${port} timeout`);
         req.destroy();
         resolve(false);
       });
@@ -352,6 +294,9 @@ class VideoPlayerApp {
 
   private async loadSettings(): Promise<void> {
     try {
+      // Ensure database is migrated before loading settings
+      await this.database.migrate();
+      
       const savedSettings = await this.database.getAllSettings();
       
       // Merge with defaults

@@ -17,6 +17,70 @@ export class DependencyChecker {
     'd3dcompiler_47.dll'
   ];
 
+  /**
+   * Verify Windows playback dependencies and return detailed diagnostic info
+   */
+  async verifyWindowsPlaybackDeps(): Promise<DependencyCheckResult> {
+    // Only check dependencies on Windows
+    if (platform() !== 'win32') {
+      return { success: true };
+    }
+
+    try {
+      // Check if we're in development or packaged
+      const isDev = !app.isPackaged;
+      const appPath = isDev ? process.cwd() : process.resourcesPath;
+
+      // Find MPV executable
+      const mpvPath = await this.findMpvExecutable(appPath);
+      if (!mpvPath) {
+        return {
+          success: false,
+          error: 'MPV executable not found. Please install MPV player.',
+          mpvPath: undefined,
+          missingDlls: DependencyChecker.REQUIRED_DLLS
+        };
+      }
+
+      // Check for required DLLs next to MPV executable
+      const mpvDir = join(mpvPath, '..');
+      const missingDlls: string[] = [];
+
+      for (const dll of DependencyChecker.REQUIRED_DLLS) {
+        const dllPath = join(mpvDir, dll);
+        if (!existsSync(dllPath)) {
+          missingDlls.push(dll);
+        }
+      }
+
+      // Get MPV version for diagnostics
+      const mpvVersion = await this.getMpvVersion(mpvPath);
+
+      if (missingDlls.length > 0) {
+        const error = `Missing required DLLs next to MPV executable: ${missingDlls.join(', ')}. MPV executable found at: ${mpvPath}`;
+        return {
+          success: false,
+          error,
+          mpvPath,
+          mpvVersion,
+          missingDlls
+        };
+      }
+
+      return {
+        success: true,
+        mpvPath,
+        mpvVersion
+      };
+
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error during dependency verification'
+      };
+    }
+  }
+
   async checkDependencies(): Promise<DependencyCheckResult> {
     // Only check dependencies on Windows
     if (platform() !== 'win32') {

@@ -72,6 +72,7 @@ interface ElectronAPI {
     minimize: () => void;
     maximize: () => void;
     close: () => void;
+    quit: () => void;
     toggleFullscreen: () => void;
     showOpenDialog: () => Promise<string[] | null>;
     showSaveDialog: () => Promise<string | null>;
@@ -149,6 +150,7 @@ const electronAPI: ElectronAPI = {
     minimize: () => ipcRenderer.send('app:minimize'),
     maximize: () => ipcRenderer.send('app:maximize'),
     close: () => ipcRenderer.send('app:close'),
+    quit: () => ipcRenderer.send('app:quit'),
     toggleFullscreen: () => ipcRenderer.send('app:toggle-fullscreen'),
     showOpenDialog: () => ipcRenderer.invoke('app:show-open-dialog'),
     showSaveDialog: () => ipcRenderer.invoke('app:show-save-dialog'),

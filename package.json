@@ -5,9 +5,9 @@
   "main": "dist/main/main/main.js",
   "scripts": {
     "setup": "node scripts/setup.js",
-    "dev": "concurrently \"npm run dev:renderer\" \"npm run dev:main\"",
+    "dev": "concurrently \"npm run dev:renderer\" \"cross-env NODE_ENV=development VITE_DEV_SERVER_URL=http://localhost:3000 npm run dev:main\"",
     "dev:renderer": "vite",
-    "dev:main": "cross-env NODE_ENV=development tsc -p src/main/tsconfig.json && electron dist/main/main/main.js",
+    "dev:main": "cross-env NODE_ENV=development tsc -p src/main/tsconfig.json && cross-env NODE_ENV=development electron dist/main/main/main.js",
     "build:renderer": "vite build",
     "build:main": "tsc -p src/main/tsconfig.json",
     "package": "electron-builder",
