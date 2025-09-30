@@ -5,7 +5,7 @@
 import { ipcMain, BrowserWindow } from 'electron';
 import { DatabaseManager } from '../database/database.js';
 import { PlayerFactory } from '../player/player-factory.js';
-import { DependencyChecker } from '../services/dependency-checker.js';
+import { DependencyChecker } from '../services/dependency-checker';
 import { IPlayer } from '../../shared/player.js';
 import { IPC_CHANNELS, createIpcResponse, validatePath, validateVolume, validatePosition, validateTrackId } from '../../shared/ipc.js';
 import type { LoadMediaRequest, PlaybackProgress, DependencyCheckResult, RepairResult } from '../../shared/types.js';
@@ -468,7 +468,7 @@ export class IpcHandler {
     try {
       // Check if libVLC is available
       const dependencyResult = await this.dependencyChecker.checkDependencies();
-      const isLibVlcAvailable = dependencyResult.libvlcAvailable;
+      const isLibVlcAvailable = dependencyResult.success;
       if (!isLibVlcAvailable) {
         return {
           success: false,

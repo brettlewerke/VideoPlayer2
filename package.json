@@ -7,7 +7,7 @@
     "setup": "node scripts/setup.js",
     "dev": "concurrently \"npm run dev:renderer\" \"npm run dev:main\"",
     "dev:renderer": "vite",
-    "dev:main": "tsc -p src/main/tsconfig.json && electron dist/main/main/main.js",
+    "dev:main": "cross-env NODE_ENV=development tsc -p src/main/tsconfig.json && electron dist/main/main/main.js",
     "build:renderer": "vite build",
     "build:main": "tsc -p src/main/tsconfig.json",
     "package": "electron-builder",
@@ -55,6 +55,7 @@
     "archiver": "^6.0.1",
     "autoprefixer": "^10.4.16",
     "concurrently": "^8.2.2",
+    "cross-env": "^10.1.0",
     "electron": "^27.3.11",
     "electron-builder": "^24.6.4",
     "electron-rebuild": "^3.2.9",
@@ -77,7 +78,7 @@
     "yauzl": "^2.10.0"
   },
   "dependencies": {
-    "better-sqlite3": "^9.1.1",
+    "better-sqlite3": "^12.4.1",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "zustand": "^4.4.6"

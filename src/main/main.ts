@@ -12,7 +12,7 @@ import { DriveManager } from './services/drive-manager.js';
 import { MediaScanner } from './services/media-scanner.js';
 import { PlayerFactory } from './player/player-factory.js';
 import { IpcHandler } from './ipc/ipc-handler.js';
-import { DependencyChecker } from './services/dependency-checker.js';
+import { DependencyChecker } from './services/dependency-checker';
 import { DEFAULT_SETTINGS } from '../shared/constants.js';
 
 class VideoPlayerApp {
@@ -94,6 +94,7 @@ class VideoPlayerApp {
 
     // Load the renderer
     const isDevelopment = process.env.NODE_ENV === 'development';
+    console.log(`[dev] NODE_ENV: ${process.env.NODE_ENV}, isDevelopment: ${isDevelopment}`);
     if (isDevelopment) {
       // Dynamically discover the running Vite dev server port
       const devUrl = await this.findViteDevServer();

@@ -6,14 +6,14 @@ import { existsSync } from 'fs';
 import { join } from 'path';
 import { app } from 'electron';
 import { IPlayer, IPlayerFactory, PlayerBackendConfig } from '../../shared/player.js';
-import { VlcPlayer } from './vlc-player.js';
+import { MpvPlayer } from './mpv-player.js';
 import { MockPlayer } from './mock-player.js';
 
 export class VlcPlayerFactory implements IPlayerFactory {
   constructor(private config: PlayerBackendConfig) {}
 
   createPlayer(): IPlayer {
-    return new VlcPlayer(this.config);
+    return new MpvPlayer(this.config);
   }
 
   isAvailable(): boolean {

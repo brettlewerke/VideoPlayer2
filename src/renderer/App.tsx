@@ -10,7 +10,6 @@ import { ShowsPage } from './pages/ShowsPage.js';
 import { PlayerPage } from './pages/PlayerPage.js';
 import { SearchPage } from './pages/SearchPage.js';
 import { SettingsPage } from './pages/SettingsPage.js';
-import { RepairPage } from './pages/RepairPage.js';
 import { Sidebar } from './components/Sidebar.js';
 import { LoadingScreen } from './components/LoadingScreen.js';
 
@@ -68,19 +67,6 @@ export function App() {
         return <PlayerPage />;
       case 'settings':
         return <SettingsPage />;
-      case 'repair':
-        return dependencyCheckResult ? (
-          <RepairPage
-            error={dependencyCheckResult.error || 'libVLC is not available for optimal video playback'}
-            onInstallVLC={installVLC}
-            onUseMockPlayer={switchToLibVLC}
-            onShowManualInstructions={() => getManualInstructions()}
-            isInstalling={isFixing}
-            isSwitching={isSwitchingBackend}
-          />
-        ) : (
-          <div>Loading repair screen...</div>
-        );
       default:
         return <HomePage />;
     }
