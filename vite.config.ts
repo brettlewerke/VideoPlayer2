@@ -17,6 +17,7 @@ export default defineConfig({
     alias: {
       '@': resolve(__dirname, 'src/renderer'),
       '@shared': resolve(__dirname, 'src/shared'),
+      '@common': resolve(__dirname, 'src/common'),
     },
   },
   server: {

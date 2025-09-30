@@ -4,9 +4,9 @@
 
 import React from 'react';
 import { useAppStore } from '../store/useAppStore.js';
-// import { useNavigation } from '../hooks/useNavigation.js';
 import { MediaGrid } from '../components/MediaGrid.js';
 import { HeroSection } from '../components/HeroSection.js';
+import { EmptyState } from '../components/EmptyState.js';
 
 export function HomePage() {
   const { 
@@ -17,16 +17,21 @@ export function HomePage() {
     isScanning,
     scanProgress,
     activeMenu,
-    drives
+    drives,
+    status,
+    scanDrives
   } = useAppStore();
 
   const featuredMovie = movies[0]; // Use first movie as featured
 
-  const missingMovies = drives.length > 0 && movies.length === 0;
-  const missingShows = drives.length > 0 && shows.length === 0;
-  const noDrive = drives.length === 0;
+  // Handle empty states
+  if (status === 'no-drives' && !isScanning) {
+    return <EmptyState type="no-drives" drives={drives} onRescan={scanDrives} isScanning={isScanning} />;
+  }
 
-  const showDriveNotFound = !isScanning && (noDrive || (missingMovies && missingShows));
+  if (status === 'no-folders' && !isScanning) {
+    return <EmptyState type="no-folders" drives={drives} onRescan={scanDrives} isScanning={isScanning} />;
+  }
 
   // Selected collection items
   let contentSection: React.ReactNode = null;
@@ -96,47 +101,7 @@ export function HomePage() {
       )}
 
       <div className="px-8 pb-8 space-y-8">
-        {showDriveNotFound ? (
-          <div className="text-center py-24 max-w-3xl mx-auto">
-            <div className="mb-6">
-              <div className="mx-auto w-28 h-28 rounded-2xl flex items-center justify-center bg-surface-2 shadow-brand-glow">
-                <span className="text-4xl font-bold text-brand">H</span>
-              </div>
-            </div>
-            <h1 className="text-4xl font-extrabold mb-4 text-text-primary">Drive not found</h1>
-            <p className="text-text-secondary mb-6 leading-relaxed">
-              This desktop app catalogs Movies and TV Shows from a plugged-in drive. At the root of the drive, create two folders named <span className="text-brand font-semibold">Movies</span> and <span className="text-brand font-semibold">TV Shows</span>. Once attached, H Player will scan them locally and display your library—no network required.
-            </p>
-            <div className="mb-4 p-4 bg-slate-900/50 rounded-lg border border-slate-700/50">
-              <p className="text-sm font-semibold text-slate-300 mb-2">Debug Info:</p>
-              <p className="text-sm text-text-muted">
-                Detected drives: {drives.length === 0 ? 'none' : drives.length}
-              </p>
-              {drives.length > 0 && (
-                <div className="mt-2 space-y-1">
-                  {drives.map((d, i) => (
-                    <div key={i} className="text-xs text-slate-400 font-mono">
-                      • {d.label} at <span className="text-blue-400">{d.mountPath}</span> {d.isConnected ? '(connected)' : '(disconnected)'}
-                    </div>
-                  ))}
-                </div>
-              )}
-              <p className="text-xs text-slate-500 mt-2">
-                Looking for folders: Movies, Films, TV Shows, TV, Series, Shows (case-insensitive) at the root of each drive
-              </p>
-            </div>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <button
-                onClick={() => window.electronAPI.library.scanMedia()}
-                className="px-6 py-3 rounded-lg bg-brand hover:bg-brand-hover text-text-inverted font-semibold shadow-brand-glow focus-visible:outline-none focus-visible:shadow-focus-brand transition"
-              >Rescan</button>
-              <button
-                onClick={() => useAppStore.getState().setCurrentView('settings')}
-                className="px-6 py-3 rounded-lg bg-surface-2 hover:bg-surface-3 border border-surface-border text-text-primary font-medium focus-visible:outline-none focus-visible:shadow-focus-brand transition"
-              >Settings</button>
-            </div>
-          </div>
-        ) : contentSection}
+        {contentSection}
       </div>
     </div>
   );

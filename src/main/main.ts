@@ -51,6 +51,17 @@ class VideoPlayerApp {
   }
 
   async createMainWindow(): Promise<void> {
+    const isDevelopment = process.env.NODE_ENV === 'development';
+    
+    // In both dev and prod, preload is at the same relative path from __dirname
+    // __dirname in dev: dist/main/main
+    // __dirname in prod (asar): dist/main/main
+    const preloadPath = join(__dirname, '../preload/preload.js');
+    
+    console.log(`[Main] Creating window with preload: ${preloadPath}`);
+    console.log(`[Main] __dirname: ${__dirname}`);
+    console.log(`[Main] Development mode: ${isDevelopment}`);
+    
     // Create the browser window
     this.mainWindow = new BrowserWindow({
       width: 1280,
@@ -60,7 +71,7 @@ class VideoPlayerApp {
       webPreferences: {
         nodeIntegration: false,
         contextIsolation: true,
-        preload: join(__dirname, '../preload/preload.js'),
+        preload: preloadPath,
       },
       icon: this.getAppIcon(),
       titleBarStyle: 'hidden',
@@ -74,19 +85,36 @@ class VideoPlayerApp {
     });
 
     // Load the renderer
-    const isDevelopment = process.env.NODE_ENV === 'development';
     if (isDevelopment) {
       // Dynamically discover the running Vite dev server port
-      const devUrl = await this.findViteDevServer();
-      await this.mainWindow.loadURL(devUrl);
-      this.mainWindow.webContents.openDevTools();
+      try {
+        const devUrl = await this.findViteDevServer();
+        console.log(`[Main] Loading dev URL: ${devUrl}`);
+        await this.mainWindow.loadURL(devUrl);
+        this.mainWindow.webContents.openDevTools();
+      } catch (error) {
+        console.error('[Main] Failed to find Vite dev server:', error);
+        console.error('[Main] Make sure Vite is running on port 3000 or set VITE_DEV_PORT');
+        app.quit();
+        return;
+      }
     } else {
       // Production mode - load from built files
+      // In asar: __dirname is dist/main/main, so renderer is at ../../renderer/index.html
       const indexPath = join(__dirname, '../../renderer/index.html');
+      console.log(`[Main] Loading production file: ${indexPath}`);
+      
       if (existsSync(indexPath)) {
         await this.mainWindow.loadFile(indexPath);
       } else {
-        throw new Error('Renderer files not found. Please run "npm run build" first.');
+        console.error(`[Main] Renderer index.html not found at: ${indexPath}`);
+        console.error(`[Main] Searched from __dirname: ${__dirname}`);
+        // Try to continue anyway in case the path resolution differs in asar
+        try {
+          await this.mainWindow.loadFile(indexPath);
+        } catch (err) {
+          console.error('[Main] Failed to load renderer:', err);
+        }
       }
     }
 
@@ -94,7 +122,7 @@ class VideoPlayerApp {
     this.mainWindow.once('ready-to-show', () => {
       this.mainWindow?.show();
       
-      if (process.env.NODE_ENV === 'development') {
+      if (isDevelopment) {
         this.mainWindow?.focus();
       }
     });

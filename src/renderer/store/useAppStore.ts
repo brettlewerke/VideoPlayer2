@@ -15,6 +15,11 @@ import type {
   ScanProgress
 } from '../../shared/types.js';
 
+// Type guard to check if HPlayerAPI is available
+function getAPI() {
+  return (window as any).HPlayerAPI;
+}
+
 interface AppState {
   // UI State
   currentView: 'home' | 'movies' | 'shows' | 'search' | 'player' | 'settings';
@@ -22,6 +27,8 @@ interface AppState {
   isSidebarOpen: boolean;
   searchQuery: string;
   activeMenu: 'movies' | 'shows' | 'continue' | 'recent';
+  status: 'idle' | 'loading' | 'error' | 'no-drives' | 'no-folders';
+  errorMessage: string | null;
   
   // Media Library
   movies: Movie[];
@@ -119,6 +126,8 @@ const initialState: AppState = {
   isSidebarOpen: false,
   searchQuery: '',
   activeMenu: 'movies',
+  status: 'idle',
+  errorMessage: null,
   
   // Media Library
   movies: [],
@@ -205,43 +214,73 @@ export const useAppStore = create<AppStore>()(
       // Async Actions
       loadLibrary: async () => {
         const { setLoading, setMovies, setShows, setContinueWatching, setRecentlyAdded, setDrives } = get();
+        const api = getAPI();
+        
+        if (!api) {
+          console.error('[Store] HPlayerAPI not available');
+          set({ status: 'error', errorMessage: 'Bridge not loaded' });
+          return;
+        }
         
         try {
           setLoading(true);
+          set({ status: 'loading' });
           
           console.log('[Store] Loading library...');
           
-          const [moviesRes, showsRes, continueWatchingRes, recentlyAddedRes, drivesRes] = await Promise.all([
-            window.electronAPI.library.getMovies(),
-            window.electronAPI.library.getShows(),
-            window.electronAPI.library.getRecentlyWatched(),
-            window.electronAPI.library.getRecentlyWatched(), // TODO: Add getRecentlyAdded
-            window.electronAPI.drives.getAll(),
+          // First check drives
+          const drivesRes = await api.drives.list();
+          setDrives(drivesRes || []);
+          
+          if (!drivesRes || drivesRes.length === 0) {
+            console.log('[Store] No drives found');
+            set({ status: 'no-drives', isLoading: false });
+            return;
+          }
+          
+          const [moviesRes, showsRes, continueWatchingRes, recentlyAddedRes] = await Promise.all([
+            api.library.getMovies(),
+            api.library.getShows(),
+            api.library.getRecentlyWatched(),
+            api.library.getRecentlyWatched(), // TODO: Add getRecentlyAdded
           ]);
           
           console.log('[Store] API responses:', { moviesRes, showsRes, drivesRes });
           
-          // All API calls return arrays directly, not wrapped in IpcResponse
           setMovies(moviesRes || []);
           setShows(showsRes || []);
           setContinueWatching(continueWatchingRes || []);
           setRecentlyAdded(recentlyAddedRes || []);
-          setDrives(drivesRes || []);
+          
+          // Check if we have any media
+          const hasMovies = (moviesRes || []).length > 0;
+          const hasShows = (showsRes || []).length > 0;
+          
+          if (!hasMovies && !hasShows) {
+            set({ status: 'no-folders', isLoading: false });
+          } else {
+            set({ status: 'idle', isLoading: false });
+          }
           
           console.log(`[Store] Loaded library: ${(drivesRes || []).length} drives, ${(moviesRes || []).length} movies, ${(showsRes || []).length} shows`);
         } catch (error) {
           console.error('[Store] Failed to load library:', error);
-        } finally {
-          setLoading(false);
+          set({ status: 'error', errorMessage: String(error), isLoading: false });
         }
       },
       
       searchMedia: async (query) => {
         const { setLoading } = get();
+        const api = getAPI();
+        
+        if (!api) {
+          console.error('[Store] HPlayerAPI not available');
+          return;
+        }
         
         try {
           setLoading(true);
-          const results = await window.electronAPI.library.searchMedia(query);
+          const results = await api.library.searchMedia(query);
           // TODO: Handle search results
           console.log('Search results:', results);
         } catch (error) {
@@ -253,34 +292,48 @@ export const useAppStore = create<AppStore>()(
       
       playMedia: async (movie, episode) => {
         const { setCurrentMovie, setCurrentEpisode, setCurrentView } = get();
+        const api = getAPI();
+        
+        if (!api) {
+          console.error('[Store] HPlayerAPI not available');
+          return;
+        }
         
         try {
           if (movie) {
             setCurrentMovie(movie);
-            await window.electronAPI.player.load({
+            await api.player.load({
               path: movie.videoFile.path,
               // resumePosition can be added here when progress integrated
             });
           } else if (episode) {
             setCurrentEpisode(episode);
-            await window.electronAPI.player.load({
+            await api.player.load({
               path: episode.videoFile.path,
             });
           }
           
           setCurrentView('player');
-          await window.electronAPI.player.play();
+          await api.player.play();
         } catch (error) {
           console.error('Failed to play media:', error);
         }
       },
       
       scanDrives: async () => {
-        const { setIsScanning } = get();
+        const { setIsScanning, loadLibrary } = get();
+        const api = getAPI();
+        
+        if (!api) {
+          console.error('[Store] HPlayerAPI not available');
+          return;
+        }
         
         try {
           setIsScanning(true);
-          await window.electronAPI.library.scanMedia();
+          await api.scanner.scan();
+          // Reload library after scan completes
+          await loadLibrary();
         } catch (error) {
           console.error('Failed to scan drives:', error);
         } finally {

@@ -2,7 +2,7 @@
  * Main App component with routing and layout
  */
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useAppStore } from './store/useAppStore.js';
 import { HomePage } from './pages/HomePage.js';
 import { MoviesPage } from './pages/MoviesPage.js';
@@ -15,14 +15,70 @@ import { LoadingScreen } from './components/LoadingScreen.js';
 
 export function App() {
   const { currentView, isLoading, isSidebarOpen, loadLibrary } = useAppStore();
+  const [bridgeReady, setBridgeReady] = useState(false);
+  const [bridgeError, setBridgeError] = useState<string | null>(null);
 
-  // Load initial data
+  // Check if preload bridge is available
   useEffect(() => {
-    loadLibrary();
-  }, [loadLibrary]);
+    const api = (window as any).HPlayerAPI;
+    
+    if (!api) {
+      console.error('[App] HPlayerAPI not available - preload bridge not loaded');
+      setBridgeError('Preload bridge not available');
+      return;
+    }
+    
+    // Ping the API to confirm it's working
+    api.ping()
+      .then((result: boolean) => {
+        if (result) {
+          console.log('[App] HPlayerAPI bridge ready');
+          setBridgeReady(true);
+        } else {
+          console.error('[App] HPlayerAPI ping returned false');
+          setBridgeError('Bridge ping failed');
+        }
+      })
+      .catch((error: Error) => {
+        console.error('[App] HPlayerAPI ping error:', error);
+        setBridgeError(`Bridge ping error: ${error.message}`);
+      });
+  }, []);
 
-  // Show loading screen while app initializes
-  if (isLoading && currentView === 'home') {
+  // Load initial data once bridge is ready
+  useEffect(() => {
+    if (bridgeReady) {
+      loadLibrary();
+    }
+  }, [bridgeReady, loadLibrary]);
+
+  // Show bridge error if preload failed
+  if (bridgeError) {
+    return (
+      <div className="h-screen bg-gradient-to-br from-black via-gray-900 to-red-900 text-white flex items-center justify-center">
+        <div className="max-w-2xl mx-auto px-6 py-12 text-center">
+          <div className="mb-8">
+            <svg className="mx-auto h-24 w-24 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+          </div>
+          <h1 className="text-4xl font-bold text-white mb-4">Bridge Error</h1>
+          <p className="text-gray-300 text-lg mb-4">
+            The preload bridge failed to initialize. This typically happens when the preload script could not be loaded.
+          </p>
+          <div className="bg-black/30 rounded-lg p-4 mb-6">
+            <p className="text-sm font-mono text-red-400">{bridgeError}</p>
+          </div>
+          <p className="text-sm text-gray-400">
+            Please check the console for more details and ensure the app was built correctly.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show loading screen while bridge is initializing or app is loading
+  if (!bridgeReady || (isLoading && currentView === 'home')) {
     return <LoadingScreen />;
   }
 

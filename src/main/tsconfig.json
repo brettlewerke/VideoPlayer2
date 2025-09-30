@@ -8,8 +8,15 @@
     "rootDir": "..",
     "noEmit": false,
     "jsx": "preserve",
-    "types": ["node", "electron"]
+    "types": ["node", "electron"],
+    "baseUrl": "../..",
+    "paths": {
+      "@common/*": ["src/common/*"],
+      "@main/*": ["src/main/*"],
+      "@preload/*": ["src/preload/*"],
+      "@shared/*": ["src/shared/*"]
+    }
   },
-  "include": ["**/*", "../shared/**/*", "../preload/**/*"],
+  "include": ["**/*", "../shared/**/*", "../preload/**/*", "../common/**/*"],
   "exclude": ["../../node_modules", "../../dist"]
 }
