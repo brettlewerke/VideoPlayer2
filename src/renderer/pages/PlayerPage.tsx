@@ -39,6 +39,25 @@ export function PlayerPage() {
     if (videoPath) {
       console.log('[PlayerPage] 🎬 Video path set:', videoPath);
       console.log('[PlayerPage] 📝 Expected file protocol URL:', `file://${videoPath}`);
+      
+      // Check codec support
+      if (typeof MediaSource !== 'undefined' && MediaSource.isTypeSupported) {
+        console.group('[PlayerPage] 🔍 Codec Support Check');
+        const codecs = [
+          { name: 'H.264 + AAC', mime: 'video/mp4; codecs="avc1.42E01E, mp4a.40.2"' },
+          { name: 'H.264 + AC3', mime: 'video/mp4; codecs="avc1.42E01E, ac-3"' },
+          { name: 'H.264 + E-AC3', mime: 'video/mp4; codecs="avc1.42E01E, ec-3"' },
+          { name: 'AC3 Audio Only', mime: 'audio/mp4; codecs="ac-3"' },
+          { name: 'E-AC3 Audio Only', mime: 'audio/mp4; codecs="ec-3"' },
+          { name: 'AAC Audio Only', mime: 'audio/mp4; codecs="mp4a.40.2"' },
+        ];
+        
+        codecs.forEach(({ name, mime }) => {
+          const supported = MediaSource.isTypeSupported(mime);
+          console.log(`${supported ? '✅' : '❌'} ${name}: ${mime}`);
+        });
+        console.groupEnd();
+      }
     }
   }, [videoPath]);
 
