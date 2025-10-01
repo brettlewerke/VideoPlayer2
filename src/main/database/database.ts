@@ -236,6 +236,7 @@ export class DatabaseManager {
         video_file_modified INTEGER,
         poster_path TEXT,
         backdrop_path TEXT,
+        rotten_tomatoes_poster_path TEXT,
         duration INTEGER,
         created_at INTEGER NOT NULL,
         updated_at INTEGER NOT NULL
@@ -250,6 +251,7 @@ export class DatabaseManager {
         drive_id TEXT NOT NULL,
         poster_path TEXT,
         backdrop_path TEXT,
+        rotten_tomatoes_poster_path TEXT,
         created_at INTEGER NOT NULL,
         updated_at INTEGER NOT NULL
       )`,
@@ -491,8 +493,8 @@ export class DatabaseManager {
     const stmt = db.prepare(`
       INSERT OR REPLACE INTO movies 
       (id, title, year, path, drive_id, video_file_path, video_file_size, video_file_modified, 
-       poster_path, backdrop_path, duration, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       poster_path, backdrop_path, rotten_tomatoes_poster_path, duration, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
     
     stmt.run(
@@ -506,6 +508,7 @@ export class DatabaseManager {
       movie.videoFile.lastModified,
       movie.posterPath,
       movie.backdropPath,
+      movie.rottenTomatoesPosterPath,
       movie.duration,
       now,
       now
@@ -615,6 +618,7 @@ export class DatabaseManager {
       },
       posterPath: row.poster_path,
       backdropPath: row.backdrop_path,
+      rottenTomatoesPosterPath: row.rotten_tomatoes_poster_path,
       duration: row.duration,
       createdAt: new Date(row.created_at),
       updatedAt: new Date(row.updated_at),
@@ -628,8 +632,8 @@ export class DatabaseManager {
     const now = Date.now();
     const stmt = db.prepare(`
       INSERT OR REPLACE INTO shows 
-      (id, title, path, drive_id, poster_path, backdrop_path, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      (id, title, path, drive_id, poster_path, backdrop_path, rotten_tomatoes_poster_path, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
     
     stmt.run(
@@ -639,6 +643,7 @@ export class DatabaseManager {
       show.driveId,
       show.posterPath,
       show.backdropPath,
+      show.rottenTomatoesPosterPath,
       now,
       now
     );
@@ -666,6 +671,7 @@ export class DatabaseManager {
         driveId: row.drive_id,
         posterPath: row.poster_path,
         backdropPath: row.backdrop_path,
+        rottenTomatoesPosterPath: row.rotten_tomatoes_poster_path,
         createdAt: new Date(row.created_at),
         updatedAt: new Date(row.updated_at),
       }));
@@ -687,6 +693,7 @@ export class DatabaseManager {
           driveId: row.drive_id,
           posterPath: row.poster_path,
           backdropPath: row.backdrop_path,
+          rottenTomatoesPosterPath: row.rotten_tomatoes_poster_path,
           createdAt: new Date(row.created_at),
           updatedAt: new Date(row.updated_at),
         })));
@@ -718,6 +725,7 @@ export class DatabaseManager {
           driveId: row.drive_id,
           posterPath: row.poster_path,
           backdropPath: row.backdrop_path,
+          rottenTomatoesPosterPath: row.rotten_tomatoes_poster_path,
           createdAt: new Date(row.created_at),
           updatedAt: new Date(row.updated_at),
         })));
@@ -984,6 +992,48 @@ export class DatabaseManager {
         console.log(`[Database] Deleted progress for ${mediaId} from drive ${drive.id}`);
       } catch (error) {
         console.error(`[Database] Error deleting progress from drive ${drive.id}:`, error);
+      }
+    }
+  }
+
+  async updateMoviePoster(movieId: string, posterPath: string): Promise<void> {
+    // Find which drive has this movie and update its poster path
+    const drives = await this.getDrives();
+    for (const drive of drives) {
+      if (!drive.isConnected) continue;
+
+      try {
+        const db = this.getOrCreateDriveDb(drive.mountPath);
+        const stmt = db.prepare('UPDATE movies SET rotten_tomatoes_poster_path = ?, updated_at = ? WHERE id = ?');
+        const result = stmt.run(posterPath, new Date().toISOString(), movieId);
+        
+        if (result.changes > 0) {
+          console.log(`[Database] Updated poster for movie ${movieId} on drive ${drive.id}`);
+          return;
+        }
+      } catch (error) {
+        console.error(`[Database] Error updating movie poster on drive ${drive.id}:`, error);
+      }
+    }
+  }
+
+  async updateShowPoster(showId: string, posterPath: string): Promise<void> {
+    // Find which drive has this show and update its poster path
+    const drives = await this.getDrives();
+    for (const drive of drives) {
+      if (!drive.isConnected) continue;
+
+      try {
+        const db = this.getOrCreateDriveDb(drive.mountPath);
+        const stmt = db.prepare('UPDATE shows SET rotten_tomatoes_poster_path = ?, updated_at = ? WHERE id = ?');
+        const result = stmt.run(posterPath, new Date().toISOString(), showId);
+        
+        if (result.changes > 0) {
+          console.log(`[Database] Updated poster for show ${showId} on drive ${drive.id}`);
+          return;
+        }
+      } catch (error) {
+        console.error(`[Database] Error updating show poster on drive ${drive.id}:`, error);
       }
     }
   }

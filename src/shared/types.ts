@@ -21,6 +21,7 @@ export interface Movie {
   videoFile: MediaFile;
   posterPath?: string;
   backdropPath?: string;
+  rottenTomatoesPosterPath?: string; // Downloaded from Rotten Tomatoes
   duration?: number;
   createdAt: Date;
   updatedAt: Date;
@@ -33,6 +34,7 @@ export interface Show {
   driveId: string;
   posterPath?: string;
   backdropPath?: string;
+  rottenTomatoesPosterPath?: string; // Downloaded from Rotten Tomatoes
   createdAt: Date;
   updatedAt: Date;
 }

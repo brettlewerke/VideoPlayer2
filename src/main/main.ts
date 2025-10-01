@@ -11,6 +11,7 @@ import { DatabaseManager } from './database/database.js';
 import { DriveManager } from './services/drive-manager.js';
 import { MediaScanner } from './services/media-scanner.js';
 import { FileWatcher } from './services/file-watcher.js';
+import { PosterFetcher } from './services/poster-fetcher.js';
 import { PlayerFactory } from './player/player-factory.js';
 import { IpcHandler } from './ipc/ipc-handler.js';
 import { DEFAULT_SETTINGS } from '../shared/constants.js';
@@ -23,6 +24,7 @@ class VideoPlayerApp {
   private driveManager: DriveManager;
   private mediaScanner: MediaScanner;
   private fileWatcher: FileWatcher;
+  private posterFetcher: PosterFetcher;
 
   constructor() {
     this.database = new DatabaseManager();
@@ -30,6 +32,7 @@ class VideoPlayerApp {
     this.driveManager = new DriveManager(this.database);
     this.mediaScanner = new MediaScanner(this.database);
     this.fileWatcher = new FileWatcher();
+    this.posterFetcher = new PosterFetcher(this.database);
     this.ipcHandler = new IpcHandler(this.database, this.playerFactory, this.driveManager, this.mediaScanner);
   }
 
@@ -55,6 +58,9 @@ class VideoPlayerApp {
     
     // Start file system watching
     await this.startFileWatching();
+    
+    // Start poster fetching (runs once on startup)
+    await this.startPosterFetching();
     
     // Listen to drive events to update file watcher
     this.driveManager.on('driveConnected', (drive) => {
@@ -430,6 +436,23 @@ class VideoPlayerApp {
     } catch (error) {
       console.error('[FileWatcher] Failed to start file watching:', error);
       // Non-fatal - app can continue without file watching
+    }
+  }
+
+  /**
+   * Start poster fetching from Rotten Tomatoes for movies/shows without posters
+   */
+  private async startPosterFetching(): Promise<void> {
+    try {
+      console.log('[PosterFetcher] Starting poster fetch for media without posters...');
+      
+      // Fetch posters for all media that doesn't have one yet
+      await this.posterFetcher.fetchAllMissingPosters();
+      
+      console.log('[PosterFetcher] Poster fetching completed');
+    } catch (error) {
+      console.error('[PosterFetcher] Failed to fetch posters:', error);
+      // Non-fatal - app can continue without posters
     }
   }
 
