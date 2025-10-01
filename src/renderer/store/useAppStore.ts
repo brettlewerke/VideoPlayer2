@@ -246,14 +246,11 @@ export const useAppStore = create<AppStore>()(
           setLoading(true);
           set({ status: 'loading' });
           
-          console.log('[Store] Loading library...');
-          
           // First check drives
           const drivesRes = await api.drives.list();
           setDrives(drivesRes || []);
           
           if (!drivesRes || drivesRes.length === 0) {
-            console.log('[Store] No drives found');
             set({ status: 'no-drives', isLoading: false });
             return;
           }
@@ -265,8 +262,6 @@ export const useAppStore = create<AppStore>()(
             api.library.getRecentlyWatched(), // TODO: Add getRecentlyAdded
           ]);
           
-          console.log('[Store] API responses:', { moviesRes, showsRes, drivesRes });
-          
           setMovies(moviesRes || []);
           setShows(showsRes || []);
           
@@ -275,7 +270,6 @@ export const useAppStore = create<AppStore>()(
           const allEpisodes: Episode[] = [];
           
           if (showsRes && showsRes.length > 0) {
-            console.log(`[Store] Loading seasons/episodes for ${showsRes.length} shows...`);
             for (const show of showsRes) {
               try {
                 const seasons = await api.library.getSeasons(show.id);
@@ -298,7 +292,6 @@ export const useAppStore = create<AppStore>()(
                 console.error(`[Store] Failed to load seasons for show ${show.id}:`, error);
               }
             }
-            console.log(`[Store] Loaded ${allSeasons.length} seasons and ${allEpisodes.length} episodes`);
           }
           
           setSeasons(allSeasons);
@@ -315,8 +308,6 @@ export const useAppStore = create<AppStore>()(
           } else {
             set({ status: 'idle', isLoading: false });
           }
-          
-          console.log(`[Store] Loaded library: ${(drivesRes || []).length} drives, ${(moviesRes || []).length} movies, ${(showsRes || []).length} shows, ${allSeasons.length} seasons, ${allEpisodes.length} episodes`);
         } catch (error) {
           console.error('[Store] Failed to load library:', error);
           set({ status: 'error', errorMessage: String(error), isLoading: false });
@@ -336,7 +327,6 @@ export const useAppStore = create<AppStore>()(
           setLoading(true);
           const results = await api.library.searchMedia(query);
           // TODO: Handle search results
-          console.log('Search results:', results);
         } catch (error) {
           console.error('Search failed:', error);
         } finally {

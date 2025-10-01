@@ -19,7 +19,7 @@ export function MediaGrid({ items, className = '' }: MediaGridProps) {
       // It's a Movie or Episode
       if ('seasonId' in item) {
         // It's an Episode - this shouldn't happen in grid, but handle it
-        console.log('Episode clicked:', item.title);
+        // Episodes should be handled in ShowDetailPage
       } else {
         // It's a Movie - navigate to detail page
         const movie = item as Movie;
@@ -94,14 +94,6 @@ function MediaCard({ item, onClick }: MediaCardProps) {
     // Convert Windows backslashes to forward slashes for URL
     const normalizedPath = posterPath.replace(/\\/g, '/');
     const finalUrl = `poster:///${normalizedPath}`;
-    
-    console.log(`[MediaGrid] ${item.title}:`, {
-      rtPoster,
-      regularPoster,
-      posterPath,
-      normalizedPath,
-      finalUrl
-    });
     
     return finalUrl;
   };

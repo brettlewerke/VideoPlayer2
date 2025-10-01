@@ -22,15 +22,6 @@ export function HomePage() {
     scanDrives
   } = useAppStore();
 
-  console.log('[HomePage] Render state:', {
-    activeMenu,
-    moviesCount: movies.length,
-    showsCount: shows.length,
-    continueWatchingCount: continueWatching.length,
-    recentlyAddedCount: recentlyAdded.length,
-    status
-  });
-
   const featuredMovie = movies[0]; // Use first movie as featured
 
   // Handle empty states
