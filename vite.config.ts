@@ -4,8 +4,6 @@ import { resolve } from 'path';
 
 export default defineConfig({
   plugins: [react()],
-  root: '.',
-  base: './',
   build: {
     outDir: 'dist/renderer',
     emptyOutDir: true,
@@ -21,6 +19,11 @@ export default defineConfig({
     },
   },
   server: {
+    host: '0.0.0.0', // Listen on all interfaces so Electron can connect
     port: 3000,
+    fs: {
+      // Allow serving files from the project root
+      allow: ['.']
+    }
   },
 });

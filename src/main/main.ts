@@ -320,76 +320,81 @@ class VideoPlayerApp {
   private testPort(port: number): Promise<boolean> {
     const tryHost = (hostname: string): Promise<boolean> => {
       return new Promise((resolveHost) => {
+        let settled = false;
+
+        const finalize = (result: boolean) => {
+          if (settled) {
+            return;
+          }
+          settled = true;
+          resolveHost(result);
+        };
+
         const req = request({
-          hostname: hostname,
-          port: port,
+          hostname,
+          port,
           path: '/',
           method: 'GET',
-          timeout: 1000,
+          timeout: 1500,
         }, (res) => {
-          console.log(`[dev] Port ${port} (${hostname}) returned status ${res.statusCode}`);
+          const contentType = res.headers['content-type'];
+          const contentTypeString = Array.isArray(contentType) ? contentType.join(', ') : contentType || '';
+          console.log(`[dev] Port ${port} (${hostname}) status: ${res.statusCode}, content-type: ${contentTypeString}`);
 
-          // Accept successful responses and some dev server specific codes
-          if (res.statusCode && (
-            (res.statusCode >= 200 && res.statusCode < 300) ||
-            res.statusCode === 426 || // Upgrade Required - common with Vite dev server
-            res.statusCode === 304    // Not Modified
-          )) {
-            let data = '';
-            res.setEncoding('utf8');
-            res.on('data', (chunk) => {
-              data += chunk;
-              // Stop reading once we have enough to check
-              if (data.length > 500) {
-                res.destroy();
-              }
-            });
-            res.on('end', () => {
-              const lowerData = data.toLowerCase();
-              // Look for Vite-specific markers or typical HTML structure
-              const isVite = lowerData.includes('vite') ||
-                            lowerData.includes('<!doctype html') ||
-                            lowerData.includes('<script type="module"') ||
-                            lowerData.includes('@vite/client') ||
-                            res.statusCode === 426; // 426 is often Vite dev server
-              console.log(`[dev] Port ${port} response check: ${isVite ? 'VITE' : 'OTHER'} (${data.slice(0, 100)}...)`);
-              resolveHost(isVite);
-            });
-            res.on('error', (err) => {
-              console.log(`[dev] Port ${port} response error: ${err.message}`);
-              resolveHost(false);
-            });
-          } else {
-            // Non-success status - reject this port
-            resolveHost(false);
-          }
+          let data = '';
+          res.setEncoding('utf8');
+          res.on('data', (chunk) => {
+            data += chunk;
+            if (data.length > 2048) {
+              data = data.slice(0, 2048);
+            }
+          });
+
+          const evaluate = () => {
+            const lowerData = data.toLowerCase();
+            const looksLikeVite = lowerData.includes('vite') ||
+              lowerData.includes('@vite/client') ||
+              lowerData.includes('<!doctype html') ||
+              lowerData.includes('<script type="module"');
+            const status = res.statusCode ?? 0;
+            const acceptableStatus = (status >= 200 && status < 300) || status === 404 || status === 426 || status === 304;
+            const isHtml = contentTypeString.includes('text/html');
+            const isVite = looksLikeVite || (acceptableStatus && isHtml);
+
+            console.log(`[dev] Port ${port} (${hostname}) response check: ${isVite ? 'VITE' : 'OTHER'} (${data.slice(0, 120)}...)`);
+            finalize(isVite);
+          };
+
+          res.on('end', evaluate);
+          res.on('close', evaluate);
+          res.on('error', (err) => {
+            console.log(`[dev] Port ${port} (${hostname}) response error: ${err.message}`);
+            finalize(false);
+          });
         });
 
         req.on('error', (err) => {
           console.log(`[dev] Port ${port} (${hostname}) connection failed: ${err.message}`);
-          resolveHost(false);
+          finalize(false);
         });
+
         req.on('timeout', () => {
           console.log(`[dev] Port ${port} (${hostname}) timeout`);
           req.destroy();
-          resolveHost(false);
+          finalize(false);
         });
+
         req.end();
       });
     };
 
-    return new Promise(async (resolve) => {
-      // Try localhost first
-      const localhostResult = await tryHost('localhost');
-      if (localhostResult) {
-        resolve(true);
-        return;
+    return (async () => {
+      if (await tryHost('localhost')) {
+        return true;
       }
 
-      // If localhost fails, try 127.0.0.1
-      const ipv4Result = await tryHost('127.0.0.1');
-      resolve(ipv4Result);
-    });
+      return await tryHost('127.0.0.1');
+    })();
   }
 
   private async loadSettings(): Promise<void> {
