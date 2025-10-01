@@ -93,9 +93,9 @@ export class IpcHandler {
   }
 
   // Player handlers
-  private async handlePlayerStart(event: Electron.IpcMainInvokeEvent, payload: { path: string; start?: number }) {
+  private async handlePlayerStart(event: Electron.IpcMainInvokeEvent, payload: { path: string; start?: number; forceExternal?: boolean }) {
     try {
-      console.log('[IPC] Player start requested:', payload.path);
+      console.log('[IPC] Player start requested:', payload.path, 'forceExternal:', payload.forceExternal);
       
       if (!validatePath(payload.path)) {
         console.error('[IPC] Invalid file path:', payload.path);
@@ -113,6 +113,28 @@ export class IpcHandler {
       this.currentMediaId = media?.id || null;
       this.currentMediaType = media?.type || null;
       console.log('[IPC] Media lookup result:', media);
+
+      // If forceExternal is true, only try external player and throw if it fails
+      if (payload.forceExternal) {
+        console.log('[IPC] Force external player requested');
+        
+        if (this.player) {
+          console.log('[IPC] Cleaning up existing player');
+          await this.player.cleanup();
+        }
+        
+        console.log('[IPC] Creating new external player instance');
+        this.player = this.playerFactory.createPlayer();
+        
+        console.log('[IPC] Setting up player events');
+        this.setupPlayerEvents();
+
+        console.log('[IPC] Loading media into external player');
+        await this.player.loadMedia(payload.path, { start: payload.start });
+        console.log('[IPC] External player started successfully');
+        
+        return createIpcResponse(event.frameId.toString(), { useExternalPlayer: true });
+      }
 
       try {
         // Try to create external player first
