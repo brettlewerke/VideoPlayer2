@@ -50,6 +50,9 @@ const IPC_CHANNELS = {
 
 const IS_DEV = process.env.NODE_ENV === 'development';
 
+// Store current video metadata for progress tracking
+let currentVideoMetadata: { filePath: string; fileSize: number; fileMtime: number } | null = null;
+
 const hplayerAPI = {
   ping: async () => {
     if (IS_DEV) console.log('[Preload] ping() called');
@@ -124,8 +127,38 @@ const hplayerAPI = {
   },
 
   player: {
-    start: (path: string, options?: { start?: number }) => ipcRenderer.invoke(IPC_CHANNELS.PLAYER_START, { path, ...options }).catch(() => {}),
+    start: async (path: string, options?: { start?: number }) => {
+      // Get file metadata when starting playback
+      try {
+        const fs = await import('fs');
+        const stats = fs.statSync(path);
+        currentVideoMetadata = {
+          filePath: path,
+          fileSize: stats.size,
+          fileMtime: stats.mtimeMs,
+        };
+        if (IS_DEV) console.log('[Preload] Captured video metadata:', currentVideoMetadata);
+      } catch (err) {
+        console.warn('[Preload] Could not get file stats:', err);
+        currentVideoMetadata = null;
+      }
+      return ipcRenderer.invoke(IPC_CHANNELS.PLAYER_START, { path, ...options }).catch(() => {});
+    },
     restart: async (path: string) => {
+      // Get file metadata when restarting playback
+      try {
+        const fs = await import('fs');
+        const stats = fs.statSync(path);
+        currentVideoMetadata = {
+          filePath: path,
+          fileSize: stats.size,
+          fileMtime: stats.mtimeMs,
+        };
+        if (IS_DEV) console.log('[Preload] Captured video metadata (restart):', currentVideoMetadata);
+      } catch (err) {
+        console.warn('[Preload] Could not get file stats:', err);
+        currentVideoMetadata = null;
+      }
       // Restart means start from 0 seconds
       return ipcRenderer.invoke(IPC_CHANNELS.PLAYER_START, { path, start: 0 }).catch(() => {});
     },
@@ -145,7 +178,32 @@ const hplayerAPI = {
       const res = await ipcRenderer.invoke(IPC_CHANNELS.LIBRARY_GET_PROGRESS, mediaId).catch(() => null);
       return res?.data || null;
     },
-    save: (progress: any) => ipcRenderer.invoke(IPC_CHANNELS.LIBRARY_SET_PROGRESS, progress).catch(() => {}),
+    getByFile: async (payload: { filePath: string; fileSize: number; fileMtime: number }) => {
+      const res = await ipcRenderer.invoke('library:getProgressByFile', payload).catch(() => null);
+      return res?.data || null;
+    },
+    save: async (progress: any) => {
+      // Use stored video metadata for file-based progress tracking
+      if (!currentVideoMetadata) {
+        console.warn('[Preload] No video metadata available for progress save, attempting save without file metadata');
+        return ipcRenderer.invoke(IPC_CHANNELS.LIBRARY_SET_PROGRESS, progress).catch((err) => {
+          console.error('[Preload] Progress save failed:', err);
+        });
+      }
+      
+      const payload = {
+        progress,
+        filePath: currentVideoMetadata.filePath,
+        fileSize: currentVideoMetadata.fileSize,
+        fileMtime: currentVideoMetadata.fileMtime,
+      };
+      
+      if (IS_DEV) console.log('[Preload] Saving progress with metadata:', payload);
+      
+      return ipcRenderer.invoke(IPC_CHANNELS.LIBRARY_SET_PROGRESS, payload).catch((err) => {
+        console.error('[Preload] Progress save failed:', err);
+      });
+    },
     delete: async (mediaId: string) => {
       const res = await ipcRenderer.invoke(IPC_CHANNELS.LIBRARY_DELETE_PROGRESS, mediaId);
       return res?.data;

@@ -290,20 +290,23 @@ export class DatabaseManager {
         FOREIGN KEY (season_id) REFERENCES seasons(id) ON DELETE CASCADE
       )`,
       
-      // Playback progress table
+      // Playback progress table with content_key for persistent resume
       `CREATE TABLE IF NOT EXISTS playback_progress (
         id TEXT PRIMARY KEY,
         media_id TEXT NOT NULL,
         media_type TEXT NOT NULL,
-        position REAL NOT NULL DEFAULT 0,
-        duration REAL NOT NULL DEFAULT 0,
+        content_key TEXT NOT NULL,
+        position_seconds REAL NOT NULL DEFAULT 0,
+        duration_seconds REAL NOT NULL DEFAULT 0,
         percentage REAL NOT NULL DEFAULT 0,
-        is_completed INTEGER NOT NULL DEFAULT 0,
-        last_watched INTEGER NOT NULL,
+        completed INTEGER NOT NULL DEFAULT 0,
+        last_played_at INTEGER NOT NULL,
         created_at INTEGER NOT NULL,
         updated_at INTEGER NOT NULL,
-        UNIQUE(media_id)
-      )`
+        UNIQUE(content_key)
+      )`,
+      `CREATE INDEX IF NOT EXISTS idx_progress_media_id ON playback_progress(media_id)`,
+      `CREATE INDEX IF NOT EXISTS idx_progress_last_played ON playback_progress(last_played_at)`
     ];
     
     const transaction = db.transaction(() => {
@@ -895,55 +898,52 @@ export class DatabaseManager {
   }
 
   // Progress operations (stored on per-drive databases)
-  async setProgress(progress: Omit<PlaybackProgress, 'createdAt' | 'updatedAt'>): Promise<void> {
-    // Find the media file to determine which drive database to use
-    const media = await this.getMediaByPath(progress.mediaId); // mediaId is actually the file path in some contexts
-    
-    // If we can't find the media, try all drives
-    const drives = await this.getDrives();
-    for (const drive of drives) {
-      if (!drive.isConnected) continue;
+  /**
+   * Generate a content_key for persistent resume tracking
+   * Format: volumeId|absPath|size|mtime
+   */
+  private generateContentKey(filePath: string, size: number, mtime: number): string {
+    const drivePath = this.getDrivePathFromFilePath(filePath);
+    const normalizedPath = filePath.replace(/\\/g, '/'); // Normalize to forward slashes
+    return `${drivePath}|${normalizedPath}|${size}|${mtime}`;
+  }
 
-      try {
-        const db = this.getOrCreateDriveDb(drive.mountPath);
-        
-        // Check if this media exists in this drive's database
-        const checkMovie = db.prepare('SELECT id FROM movies WHERE id = ?').get(progress.mediaId);
-        const checkEpisode = db.prepare('SELECT id FROM episodes WHERE id = ?').get(progress.mediaId);
-        
-        if (checkMovie || checkEpisode) {
-          const now = Date.now();
-          const stmt = db.prepare(`
-            INSERT OR REPLACE INTO playback_progress 
-            (id, media_id, media_type, position, duration, percentage, is_completed, last_watched, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-          `);
-          
-          // Convert lastWatched to timestamp (handle both Date objects and ISO strings)
-          const lastWatchedTimestamp = typeof progress.lastWatched === 'string' 
-            ? new Date(progress.lastWatched).getTime() 
-            : progress.lastWatched.getTime();
-          
-          stmt.run(
-            progress.id,
-            progress.mediaId,
-            progress.mediaType,
-            progress.position,
-            progress.duration,
-            progress.percentage,
-            progress.isCompleted ? 1 : 0,
-            lastWatchedTimestamp,
-            now,
-            now
-          );
-          return;
-        }
-      } catch (error) {
-        console.error(`[Database] Error setting progress on drive ${drive.id}:`, error);
-      }
+  async setProgress(progress: Omit<PlaybackProgress, 'createdAt' | 'updatedAt'>, filePath: string, fileSize: number, fileMtime: number): Promise<void> {
+    try {
+      const db = this.getDbForFilePath(filePath);
+      const contentKey = this.generateContentKey(filePath, fileSize, fileMtime);
+      const now = Date.now();
+      
+      const stmt = db.prepare(`
+        INSERT OR REPLACE INTO playback_progress 
+        (id, media_id, media_type, content_key, position_seconds, duration_seconds, percentage, completed, last_played_at, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `);
+      
+      // Convert lastWatched to timestamp if it's a Date object
+      const lastPlayedAt = typeof progress.lastWatched === 'string' 
+        ? new Date(progress.lastWatched).getTime() 
+        : progress.lastWatched.getTime();
+      
+      stmt.run(
+        progress.id,
+        progress.mediaId,
+        progress.mediaType,
+        contentKey,
+        progress.position,
+        progress.duration,
+        progress.percentage,
+        progress.isCompleted ? 1 : 0,
+        lastPlayedAt,
+        now,
+        now
+      );
+      
+      console.log(`[Database] Saved progress for ${contentKey}: ${progress.position}s / ${progress.duration}s`);
+    } catch (error) {
+      console.error(`[Database] Error setting progress:`, error);
+      throw error;
     }
-    
-    console.warn(`[Database] Could not find media ${progress.mediaId} to save progress`);
   }
 
   async getProgress(mediaId: string): Promise<PlaybackProgress | null> {
@@ -962,11 +962,11 @@ export class DatabaseManager {
             id: row.id,
             mediaId: row.media_id,
             mediaType: row.media_type,
-            position: row.position,
-            duration: row.duration,
+            position: row.position_seconds || row.position, // Support both old and new schema
+            duration: row.duration_seconds || row.duration,
             percentage: row.percentage,
-            isCompleted: !!row.is_completed,
-            lastWatched: new Date(row.last_watched),
+            isCompleted: !!row.completed || !!row.is_completed,
+            lastWatched: new Date(row.last_played_at || row.last_watched),
             createdAt: new Date(row.created_at),
             updatedAt: new Date(row.updated_at),
           };
@@ -974,6 +974,38 @@ export class DatabaseManager {
       } catch (error) {
         console.error(`[Database] Error getting progress from drive ${drive.id}:`, error);
       }
+    }
+
+    return null;
+  }
+
+  /**
+   * Get progress by content key for persistent resume
+   */
+  async getProgressByContentKey(filePath: string, fileSize: number, fileMtime: number): Promise<PlaybackProgress | null> {
+    try {
+      const db = this.getDbForFilePath(filePath);
+      const contentKey = this.generateContentKey(filePath, fileSize, fileMtime);
+      
+      const stmt = db.prepare('SELECT * FROM playback_progress WHERE content_key = ?');
+      const row = stmt.get(contentKey) as any;
+      
+      if (row) {
+        return {
+          id: row.id,
+          mediaId: row.media_id,
+          mediaType: row.media_type,
+          position: row.position_seconds,
+          duration: row.duration_seconds,
+          percentage: row.percentage,
+          isCompleted: !!row.completed,
+          lastWatched: new Date(row.last_played_at),
+          createdAt: new Date(row.created_at),
+          updatedAt: new Date(row.updated_at),
+        };
+      }
+    } catch (error) {
+      console.error(`[Database] Error getting progress by content key:`, error);
     }
 
     return null;
@@ -1239,19 +1271,19 @@ export class DatabaseManager {
         const db = this.getOrCreateDriveDb(drive.mountPath);
         const stmt = db.prepare(`
           SELECT * FROM playback_progress 
-          WHERE is_completed = 0 AND percentage > 0.05
-          ORDER BY last_watched DESC
+          WHERE (completed = 0 OR is_completed = 0) AND percentage > 0.05
+          ORDER BY last_played_at DESC, last_watched DESC
         `);
         const rows = stmt.all() as any[];
         allProgress.push(...rows.map(row => ({
           id: row.id,
           mediaId: row.media_id,
           mediaType: row.media_type,
-          position: row.position,
-          duration: row.duration,
+          position: row.position_seconds || row.position,
+          duration: row.duration_seconds || row.duration,
           percentage: row.percentage,
-          isCompleted: !!row.is_completed,
-          lastWatched: new Date(row.last_watched),
+          isCompleted: !!row.completed || !!row.is_completed,
+          lastWatched: new Date(row.last_played_at || row.last_watched),
           createdAt: new Date(row.created_at),
           updatedAt: new Date(row.updated_at),
         })));

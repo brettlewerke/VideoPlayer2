@@ -44,7 +44,12 @@ export function ShowDetailPage() {
     
     for (const episode of showEpisodes) {
       try {
-        const prog = await (window as any).HPlayerAPI.progress.get(episode.id);
+        // Use new content_key based progress retrieval
+        const prog = await (window as any).HPlayerAPI.progress.getByFile({
+          filePath: episode.videoFile.path,
+          fileSize: episode.videoFile.size,
+          fileMtime: episode.videoFile.lastModified
+        });
         if (prog) {
           progressMap.set(episode.id, prog);
         }
@@ -91,9 +96,13 @@ export function ShowDetailPage() {
         // Start from beginning
         await api.player.start(path, { start: 0 });
       } else {
-        // Resume from saved position
-        const prog = await api.progress.get(episode.id);
-        await api.player.start(path, prog ? { start: prog.position } : undefined);
+        // Resume from saved position - use content_key based retrieval
+        const prog = await api.progress.getByFile({
+          filePath: episode.videoFile.path,
+          fileSize: episode.videoFile.size,
+          fileMtime: episode.videoFile.lastModified
+        });
+        await api.player.start(path, prog ? { start: prog.position } : { start: 0 });
       }
     } catch (error) {
       console.error('Failed to play episode:', error);

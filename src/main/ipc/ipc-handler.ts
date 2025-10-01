@@ -17,6 +17,10 @@ export class IpcHandler {
   private player: IPlayer | null = null;
   private currentMediaId: string | null = null;
   private currentMediaType: 'movie' | 'episode' | null = null;
+  private currentFilePath: string | null = null;
+  private currentFileSize: number = 0;
+  private currentFileMtime: number = 0;
+  private progressUpdateInterval: NodeJS.Timeout | null = null;
 
   constructor(
     private database: DatabaseManager,
@@ -51,6 +55,7 @@ export class IpcHandler {
     ipcMain.handle(IPC_CHANNELS.LIBRARY_GET_PROGRESS, this.handleGetProgress.bind(this));
     ipcMain.handle(IPC_CHANNELS.LIBRARY_SET_PROGRESS, this.handleSetProgress.bind(this));
     ipcMain.handle(IPC_CHANNELS.LIBRARY_DELETE_PROGRESS, this.handleDeleteProgress.bind(this));
+    ipcMain.handle('library:getProgressByFile', this.handleGetProgressByFile.bind(this));
     ipcMain.handle(IPC_CHANNELS.LIBRARY_DELETE_MOVIE, this.handleDeleteMovie.bind(this));
     ipcMain.handle(IPC_CHANNELS.LIBRARY_DELETE_SHOW, this.handleDeleteShow.bind(this));
     ipcMain.handle(IPC_CHANNELS.LIBRARY_DELETE_SEASON, this.handleDeleteSeason.bind(this));
@@ -74,6 +79,8 @@ export class IpcHandler {
   }
 
   cleanup(): void {
+    this.stopProgressTracking();
+    
     if (this.player) {
       this.player.cleanup();
       this.player = null;
@@ -81,6 +88,27 @@ export class IpcHandler {
     
     // Remove all listeners (Electron does this automatically on app quit)
     ipcMain.removeAllListeners();
+  }
+
+  private startProgressTracking(): void {
+    this.stopProgressTracking();
+    
+    // Update progress every 10 seconds during playback
+    this.progressUpdateInterval = setInterval(async () => {
+      if (this.player && this.currentMediaId && this.currentFilePath) {
+        const status = this.player.getStatus();
+        if (status.state === 'playing') {
+          await this.saveProgress(status);
+        }
+      }
+    }, 10000);
+  }
+
+  private stopProgressTracking(): void {
+    if (this.progressUpdateInterval) {
+      clearInterval(this.progressUpdateInterval);
+      this.progressUpdateInterval = null;
+    }
   }
 
   sendToRenderer(channel: string, data?: any): void {
@@ -107,11 +135,25 @@ export class IpcHandler {
         throw new Error('Unsupported file format');
       }
 
-      // Find media ID for progress tracking
+      // Find media ID for progress tracking and get file metadata
       console.log('[IPC] Looking up media in database:', payload.path);
       const media = await this.database.getMediaByPath(payload.path);
       this.currentMediaId = media?.id || null;
       this.currentMediaType = media?.type || null;
+      this.currentFilePath = payload.path;
+      
+      // Get file metadata for content_key
+      const fs = require('fs');
+      try {
+        const stats = fs.statSync(payload.path);
+        this.currentFileSize = stats.size;
+        this.currentFileMtime = stats.mtimeMs;
+      } catch (err) {
+        console.warn('[IPC] Could not get file stats:', err);
+        this.currentFileSize = 0;
+        this.currentFileMtime = Date.now();
+      }
+      
       console.log('[IPC] Media lookup result:', media);
 
       try {
@@ -119,6 +161,7 @@ export class IpcHandler {
         if (this.player) {
           console.log('[IPC] Cleaning up existing player');
           await this.player.cleanup();
+          this.stopProgressTracking();
         }
         
         console.log('[IPC] Creating new player instance');
@@ -127,8 +170,12 @@ export class IpcHandler {
         console.log('[IPC] Setting up player events');
         this.setupPlayerEvents();
 
-        console.log('[IPC] Loading media into player');
+        console.log('[IPC] Loading media into player with startSeconds:', payload.start);
         await this.player.loadMedia(payload.path, { start: payload.start });
+        
+        // Start periodic progress tracking
+        this.startProgressTracking();
+        
         console.log('[IPC] Player started successfully');
         
         return createIpcResponse(event.frameId.toString(), { useExternalPlayer: true });
@@ -303,19 +350,11 @@ export class IpcHandler {
   private setupPlayerEvents(): void {
     if (!this.player) return;
 
-    let lastProgressSave = 0;
     let lastStatus: any = null;
 
     this.player.on('statusChanged', async (status) => {
       this.sendToRenderer(IPC_CHANNELS.PLAYER_STATUS_CHANGED, status);
       lastStatus = status;
-      
-      // Save progress every 5-10 seconds if playing
-      const now = Date.now();
-      if (status.state === 'playing' && this.currentMediaId && this.currentMediaType && now - lastProgressSave > 5000) {
-        await this.saveProgress(status);
-        lastProgressSave = now;
-      }
     });
 
     this.player.on('tracksChanged', (tracks) => {
@@ -325,9 +364,10 @@ export class IpcHandler {
     this.player.on('ended', async () => {
       this.sendToRenderer(IPC_CHANNELS.PLAYER_ENDED);
       // Mark as completed
-      if (this.currentMediaId && this.currentMediaType && lastStatus) {
+      if (this.currentMediaId && this.currentMediaType && this.currentFilePath && lastStatus) {
         await this.saveProgress(lastStatus, true);
       }
+      this.stopProgressTracking();
     });
 
     this.player.on('error', (error) => {
@@ -336,25 +376,28 @@ export class IpcHandler {
   }
 
   private async saveProgress(status: any, isCompleted = false): Promise<void> {
-    if (!this.currentMediaId || !this.currentMediaType) return;
+    if (!this.currentMediaId || !this.currentMediaType || !this.currentFilePath) return;
 
     try {
-      const progress: PlaybackProgress = {
+      const progress: Omit<PlaybackProgress, 'createdAt' | 'updatedAt'> = {
         id: `${this.currentMediaType}_${this.currentMediaId}`,
         mediaId: this.currentMediaId,
         mediaType: this.currentMediaType,
         position: status.position || 0,
         duration: status.duration || 0,
         percentage: status.duration > 0 ? (status.position / status.duration) : 0,
-        isCompleted,
+        isCompleted: isCompleted || (status.duration > 0 && (status.position / status.duration) >= 0.9),
         lastWatched: new Date(),
-        createdAt: new Date(),
-        updatedAt: new Date(),
       };
 
-      await this.database.setProgress(progress);
+      await this.database.setProgress(
+        progress,
+        this.currentFilePath,
+        this.currentFileSize,
+        this.currentFileMtime
+      );
     } catch (error) {
-      console.error('Failed to save progress:', error);
+      console.error('[IPC] Failed to save progress:', error);
     }
   }
 
@@ -445,9 +488,18 @@ export class IpcHandler {
     }
   }
 
-  private async handleSetProgress(event: Electron.IpcMainInvokeEvent, progress: PlaybackProgress) {
+  private async handleGetProgressByFile(event: Electron.IpcMainInvokeEvent, payload: { filePath: string; fileSize: number; fileMtime: number }) {
     try {
-      await this.database.setProgress(progress);
+      const progress = await this.database.getProgressByContentKey(payload.filePath, payload.fileSize, payload.fileMtime);
+      return createIpcResponse(event.frameId.toString(), progress);
+    } catch (error) {
+      return createIpcResponse(event.frameId.toString(), undefined, error instanceof Error ? error.message : 'Unknown error');
+    }
+  }
+
+  private async handleSetProgress(event: Electron.IpcMainInvokeEvent, payload: { progress: PlaybackProgress; filePath: string; fileSize: number; fileMtime: number }) {
+    try {
+      await this.database.setProgress(payload.progress, payload.filePath, payload.fileSize, payload.fileMtime);
       return createIpcResponse(event.frameId.toString(), undefined);
     } catch (error) {
       return createIpcResponse(event.frameId.toString(), undefined, error instanceof Error ? error.message : 'Unknown error');

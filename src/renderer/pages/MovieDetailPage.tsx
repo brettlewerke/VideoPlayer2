@@ -28,7 +28,14 @@ export function MovieDetailPage() {
     if (!currentMovie) return;
     try {
       console.log('[MovieDetail] Loading progress for movie:', currentMovie.id);
-      const prog = await (window as any).HPlayerAPI.progress.get(currentMovie.id);
+      
+      // Use new content_key based progress retrieval
+      const prog = await (window as any).HPlayerAPI.progress.getByFile({
+        filePath: currentMovie.videoFile.path,
+        fileSize: currentMovie.videoFile.size,
+        fileMtime: currentMovie.videoFile.lastModified
+      });
+      
       console.log('[MovieDetail] Progress loaded:', prog);
       setProgress(prog);
     } catch (error) {
