@@ -13,8 +13,12 @@ export function SearchPage() {
 
   const searchMedia = async (searchQuery: string) => {
     try {
-      const results = await window.electronAPI.library.searchMedia(searchQuery);
-      setSearchResults(results);
+      const results = await window.electronAPI?.library.search(searchQuery);
+      if (results) {
+        setSearchResults([...results.movies, ...results.shows]);
+      } else {
+        setSearchResults([]);
+      }
     } catch (error) {
       console.error('Search failed:', error);
       setSearchResults([]);

@@ -123,6 +123,8 @@ export function usePlayerControls() {
 
   const togglePlayPause = useCallback(async () => {
     try {
+      if (!window.electronAPI) return;
+      
       if (isPlaying) {
         await window.electronAPI.player.pause();
         setIsPlaying(false);
@@ -137,6 +139,8 @@ export function usePlayerControls() {
 
   const stop = useCallback(async () => {
     try {
+      if (!window.electronAPI) return;
+      
       await window.electronAPI.player.stop();
       setIsPlaying(false);
     } catch (error) {

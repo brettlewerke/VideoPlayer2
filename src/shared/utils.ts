@@ -2,7 +2,6 @@
  * Utility functions for file path parsing, media detection, and string manipulation
  */
 
-import path from 'path';
 import { 
   VIDEO_EXTENSIONS, 
   SUBTITLE_EXTENSIONS, 
@@ -15,6 +14,32 @@ import {
 import { isPlayablePath } from '../common/media/extensions.js';
 
 /**
+ * Cross-platform path utilities (no Node.js dependencies)
+ */
+function getExtname(filename: string): string {
+  const lastDot = filename.lastIndexOf('.');
+  return lastDot === -1 ? '' : filename.slice(lastDot);
+}
+
+function getBasename(filename: string, ext?: string): string {
+  const base = filename.replace(/[/\\]*$/, '').split(/[/\\]/).pop() || '';
+  if (ext && base.endsWith(ext)) {
+    return base.slice(0, -ext.length);
+  }
+  return base;
+}
+
+function getDirname(filePath: string): string {
+  const normalized = filePath.replace(/\\/g, '/');
+  const lastSlash = normalized.lastIndexOf('/');
+  return lastSlash === -1 ? '.' : normalized.slice(0, lastSlash) || '/';
+}
+
+function normalizePathString(filePath: string): string {
+  return filePath.replace(/\\/g, '/');
+}
+
+/**
  * Check if a file has a video extension (uses centralized playable extensions)
  */
 export function isVideoFile(filename: string): boolean {
@@ -25,7 +50,7 @@ export function isVideoFile(filename: string): boolean {
  * Check if a file has a subtitle extension
  */
 export function isSubtitleFile(filename: string): boolean {
-  const ext = path.extname(filename).toLowerCase();
+  const ext = getExtname(filename).toLowerCase();
   return SUBTITLE_EXTENSIONS.includes(ext as any);
 }
 
@@ -33,7 +58,7 @@ export function isSubtitleFile(filename: string): boolean {
  * Check if a file has an image extension
  */
 export function isImageFile(filename: string): boolean {
-  const ext = path.extname(filename).toLowerCase();
+  const ext = getExtname(filename).toLowerCase();
   return IMAGE_EXTENSIONS.includes(ext as any);
 }
 
@@ -85,7 +110,7 @@ export interface EpisodeInfo {
 }
 
 export function parseEpisodeInfo(filename: string, defaultSeason = 1): EpisodeInfo | null {
-  const baseName = path.basename(filename, path.extname(filename));
+  const baseName = getBasename(filename, getExtname(filename));
   
   for (const pattern of EPISODE_PATTERNS) {
     const match = baseName.match(pattern);
@@ -157,7 +182,7 @@ export function isTVShowsFolder(folderName: string): boolean {
  * Normalize path for cross-platform compatibility
  */
 export function normalizePath(filePath: string): string {
-  return path.normalize(filePath).replace(/\\/g, '/');
+  return normalizePathString(filePath);
 }
 
 /**
@@ -188,7 +213,8 @@ export function hashString(str: string): string {
 }
 
 /**
- * Find the largest video file in a directory (for movies)
+ * Find the primary video file in a directory (for movies)
+ * Returns the first video file found (simple heuristic)
  */
 export function findPrimaryVideoFile(files: string[]): string | null {
   const videoFiles = files.filter(isVideoFile);
@@ -197,48 +223,33 @@ export function findPrimaryVideoFile(files: string[]): string | null {
     return null;
   }
   
-  if (videoFiles.length === 1) {
-    return videoFiles[0];
-  }
+  // Simple heuristic: prefer files that don't contain "sample" or "trailer"
+  const mainFiles = videoFiles.filter(file => {
+    const lowerFile = file.toLowerCase();
+    return !lowerFile.includes('sample') && !lowerFile.includes('trailer');
+  });
   
-  // Find the largest video file by checking file sizes
-  const fs = require('fs');
-  let largestFile: string | null = null;
-  let largestSize = 0;
-  
-  for (const file of videoFiles) {
-    try {
-      const stats = fs.statSync(file);
-      if (stats.size > largestSize) {
-        largestSize = stats.size;
-        largestFile = file;
-      }
-    } catch (error) {
-      console.warn(`Cannot stat file ${file}:`, error);
-    }
-  }
-  
-  return largestFile || videoFiles[0]; // Fallback to first file if stats fail
+  return mainFiles.length > 0 ? mainFiles[0] : videoFiles[0];
 }
 
 /**
  * Find subtitle files for a video file
  */
 export function findSubtitleFiles(videoPath: string, allFiles: string[]): string[] {
-  const videoBaseName = path.basename(videoPath, path.extname(videoPath));
-  const videoDir = path.dirname(videoPath);
+  const videoBaseName = getBasename(videoPath, getExtname(videoPath));
+  const videoDir = getDirname(videoPath);
   
   return allFiles.filter(file => {
     if (!isSubtitleFile(file)) {
       return false;
     }
     
-    const fileDir = path.dirname(file);
+    const fileDir = getDirname(file);
     if (fileDir !== videoDir) {
       return false;
     }
     
-    const fileBaseName = path.basename(file, path.extname(file));
+    const fileBaseName = getBasename(file, getExtname(file));
     return fileBaseName.startsWith(videoBaseName);
   });
 }
@@ -253,13 +264,13 @@ export function findArtworkFiles(directory: string, allFiles: string[]): {
   const result: { poster?: string; backdrop?: string } = {};
   
   const filesInDir = allFiles.filter(file => 
-    path.dirname(file) === directory && isImageFile(file)
+    getDirname(file) === directory && isImageFile(file)
   );
   
   // Look for poster
   for (const posterName of ARTWORK_FILENAMES.POSTER) {
     const found = filesInDir.find(file => 
-      path.basename(file).toLowerCase() === posterName.toLowerCase()
+      getBasename(file).toLowerCase() === posterName.toLowerCase()
     );
     if (found) {
       result.poster = found;
@@ -270,7 +281,7 @@ export function findArtworkFiles(directory: string, allFiles: string[]): {
   // Look for backdrop
   for (const backdropName of ARTWORK_FILENAMES.BACKDROP) {
     const found = filesInDir.find(file => 
-      path.basename(file).toLowerCase() === backdropName.toLowerCase()
+      getBasename(file).toLowerCase() === backdropName.toLowerCase()
     );
     if (found) {
       result.backdrop = found;
@@ -335,4 +346,14 @@ export function debounce<T extends (...args: any[]) => any>(
     clearTimeout(timeoutId);
     timeoutId = setTimeout(() => func(...args), delay);
   };
+}
+
+/**
+ * Generate content key for progress tracking
+ * Format: volumeKey|canonicalAbsPath|size|mtime
+ */
+export function generateContentKey(volumeKey: string, absPath: string, size: number, mtime: number): string {
+  // Normalize path to use forward slashes and remove drive letter prefix on Windows
+  const normalizedPath = absPath.replace(/\\/g, '/').replace(/^([A-Z]:\/)/i, '/');
+  return `${volumeKey}|${normalizedPath}|${size}|${mtime}`;
 }

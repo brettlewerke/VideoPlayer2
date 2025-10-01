@@ -98,7 +98,7 @@ export class DatabaseManager {
       mkdirSync(driveDbDir, { recursive: true });
     }
 
-    const dbPath = join(driveDbDir, 'media.db');
+    const dbPath = join(driveDbDir, 'hoser.db');
     const isNewDatabase = !existsSync(dbPath);
 
     db = new Database(dbPath);
@@ -290,19 +290,17 @@ export class DatabaseManager {
         FOREIGN KEY (season_id) REFERENCES seasons(id) ON DELETE CASCADE
       )`,
       
-      // Playback progress table
-      `CREATE TABLE IF NOT EXISTS playback_progress (
+      // Progress table
+      `CREATE TABLE IF NOT EXISTS progress (
         id TEXT PRIMARY KEY,
-        media_id TEXT NOT NULL,
-        media_type TEXT NOT NULL,
-        position REAL NOT NULL DEFAULT 0,
-        duration REAL NOT NULL DEFAULT 0,
-        percentage REAL NOT NULL DEFAULT 0,
-        is_completed INTEGER NOT NULL DEFAULT 0,
-        last_watched INTEGER NOT NULL,
+        content_key TEXT NOT NULL,
+        position_seconds REAL NOT NULL DEFAULT 0,
+        duration_seconds REAL NOT NULL DEFAULT 0,
+        completed INTEGER NOT NULL DEFAULT 0,
+        last_played_at INTEGER NOT NULL,
         created_at INTEGER NOT NULL,
         updated_at INTEGER NOT NULL,
-        UNIQUE(media_id)
+        UNIQUE(content_key)
       )`
     ];
     
@@ -838,7 +836,7 @@ export class DatabaseManager {
         if (seasonExists) {
           const stmt = db.prepare('SELECT * FROM episodes WHERE season_id = ? ORDER BY episode_number');
           const rows = stmt.all(seasonId) as any[];
-          return rows.map(row => this.rowToEpisode(row));
+          return rows.map((row: any) => this.rowToEpisode(row));
         }
       } catch (error) {
         console.error(`[Database] Error reading episodes from drive ${drive.id}:`, error);
@@ -895,310 +893,167 @@ export class DatabaseManager {
   }
 
   // Progress operations (stored on per-drive databases)
-  async setProgress(progress: Omit<PlaybackProgress, 'createdAt' | 'updatedAt'>): Promise<void> {
-    // Find the media file to determine which drive database to use
-    const media = await this.getMediaByPath(progress.mediaId); // mediaId is actually the file path in some contexts
+  async getProgress(contentKey: string): Promise<PlaybackProgress | null> {
+    // Find the drive for this content key
+    const parsed = this.parseContentKey(contentKey);
+    if (!parsed) return null;
+
+    const drivePath = this.getDrivePathFromVolumeKey(parsed.volumeKey);
+    if (!drivePath) return null;
+
+    try {
+      const db = this.getOrCreateDriveDb(drivePath);
+      const stmt = db.prepare('SELECT * FROM progress WHERE content_key = ?');
+      const row = stmt.get(contentKey) as any;
+      
+      if (!row) return null;
+      
+      return {
+        id: row.id,
+        contentKey: row.content_key,
+        positionSeconds: row.position_seconds,
+        durationSeconds: row.duration_seconds,
+        completed: !!row.completed,
+        lastPlayedAt: new Date(row.last_played_at),
+        createdAt: new Date(row.created_at),
+        updatedAt: new Date(row.updated_at),
+      };
+    } catch (error) {
+      console.error('[Database] Error getting progress:', error);
+      return null;
+    }
+  }
+
+  async setProgress(progress: PlaybackProgress): Promise<void> {
+    const parsed = this.parseContentKey(progress.contentKey);
+    if (!parsed) throw new Error('Invalid content key');
+
+    const drivePath = this.getDrivePathFromVolumeKey(parsed.volumeKey);
+    if (!drivePath) throw new Error('Drive not found for content key');
+
+    const db = this.getOrCreateDriveDb(drivePath);
     
-    // If we can't find the media, try all drives
-    const drives = await this.getDrives();
-    for (const drive of drives) {
-      if (!drive.isConnected) continue;
-
-      try {
-        const db = this.getOrCreateDriveDb(drive.mountPath);
-        
-        // Check if this media exists in this drive's database
-        const checkMovie = db.prepare('SELECT id FROM movies WHERE id = ?').get(progress.mediaId);
-        const checkEpisode = db.prepare('SELECT id FROM episodes WHERE id = ?').get(progress.mediaId);
-        
-        if (checkMovie || checkEpisode) {
-          const now = Date.now();
-          const stmt = db.prepare(`
-            INSERT OR REPLACE INTO playback_progress 
-            (id, media_id, media_type, position, duration, percentage, is_completed, last_watched, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-          `);
-          
-          // Convert lastWatched to timestamp (handle both Date objects and ISO strings)
-          const lastWatchedTimestamp = typeof progress.lastWatched === 'string' 
-            ? new Date(progress.lastWatched).getTime() 
-            : progress.lastWatched.getTime();
-          
-          stmt.run(
-            progress.id,
-            progress.mediaId,
-            progress.mediaType,
-            progress.position,
-            progress.duration,
-            progress.percentage,
-            progress.isCompleted ? 1 : 0,
-            lastWatchedTimestamp,
-            now,
-            now
-          );
-          return;
-        }
-      } catch (error) {
-        console.error(`[Database] Error setting progress on drive ${drive.id}:`, error);
-      }
-    }
+    const now = Date.now();
+    const stmt = db.prepare(`
+      INSERT OR REPLACE INTO progress 
+      (id, content_key, position_seconds, duration_seconds, completed, last_played_at, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `);
     
-    console.warn(`[Database] Could not find media ${progress.mediaId} to save progress`);
+    stmt.run(
+      progress.id,
+      progress.contentKey,
+      progress.positionSeconds,
+      progress.durationSeconds,
+      progress.completed ? 1 : 0,
+      progress.lastPlayedAt.getTime(),
+      progress.createdAt.getTime(),
+      now
+    );
   }
 
-  async getProgress(mediaId: string): Promise<PlaybackProgress | null> {
-    // Search for progress across all connected drives
-    const drives = await this.getDrives();
-    for (const drive of drives) {
-      if (!drive.isConnected) continue;
+  async deleteProgress(contentKey: string): Promise<void> {
+    const parsed = this.parseContentKey(contentKey);
+    if (!parsed) return;
 
-      try {
-        const db = this.getOrCreateDriveDb(drive.mountPath);
-        const stmt = db.prepare('SELECT * FROM playback_progress WHERE media_id = ?');
-        const row = stmt.get(mediaId) as any;
-        
-        if (row) {
-          return {
-            id: row.id,
-            mediaId: row.media_id,
-            mediaType: row.media_type,
-            position: row.position,
-            duration: row.duration,
-            percentage: row.percentage,
-            isCompleted: !!row.is_completed,
-            lastWatched: new Date(row.last_watched),
-            createdAt: new Date(row.created_at),
-            updatedAt: new Date(row.updated_at),
-          };
-        }
-      } catch (error) {
-        console.error(`[Database] Error getting progress from drive ${drive.id}:`, error);
-      }
-    }
+    const drivePath = this.getDrivePathFromVolumeKey(parsed.volumeKey);
+    if (!drivePath) return;
 
-    return null;
-  }
-
-  async deleteProgress(mediaId: string): Promise<void> {
-    // Delete progress from all drives (in case it exists on multiple)
-    const drives = await this.getDrives();
-    for (const drive of drives) {
-      if (!drive.isConnected) continue;
-
-      try {
-        const db = this.getOrCreateDriveDb(drive.mountPath);
-        const stmt = db.prepare('DELETE FROM playback_progress WHERE media_id = ?');
-        stmt.run(mediaId);
-        console.log(`[Database] Deleted progress for ${mediaId} from drive ${drive.id}`);
-      } catch (error) {
-        console.error(`[Database] Error deleting progress from drive ${drive.id}:`, error);
-      }
-    }
-  }
-
-  async updateMoviePoster(movieId: string, posterPath: string): Promise<void> {
-    // Find which drive has this movie and update its poster path
-    const drives = await this.getDrives();
-    for (const drive of drives) {
-      if (!drive.isConnected) continue;
-
-      try {
-        const db = this.getOrCreateDriveDb(drive.mountPath);
-        const stmt = db.prepare('UPDATE movies SET rotten_tomatoes_poster_path = ?, updated_at = ? WHERE id = ?');
-        const result = stmt.run(posterPath, new Date().toISOString(), movieId);
-        
-        if (result.changes > 0) {
-          console.log(`[Database] Updated poster for movie ${movieId} on drive ${drive.id}`);
-          return;
-        }
-      } catch (error) {
-        console.error(`[Database] Error updating movie poster on drive ${drive.id}:`, error);
-      }
-    }
-  }
-
-  async updateShowPoster(showId: string, posterPath: string): Promise<void> {
-    // Find which drive has this show and update its poster path
-    const drives = await this.getDrives();
-    for (const drive of drives) {
-      if (!drive.isConnected) continue;
-
-      try {
-        const db = this.getOrCreateDriveDb(drive.mountPath);
-        const stmt = db.prepare('UPDATE shows SET rotten_tomatoes_poster_path = ?, updated_at = ? WHERE id = ?');
-        const result = stmt.run(posterPath, new Date().toISOString(), showId);
-        
-        if (result.changes > 0) {
-          console.log(`[Database] Updated poster for show ${showId} on drive ${drive.id}`);
-          return;
-        }
-      } catch (error) {
-        console.error(`[Database] Error updating show poster on drive ${drive.id}:`, error);
-      }
-    }
-  }
-
-  async deleteMovie(movieId: string): Promise<void> {
-    // Find which drive has this movie
-    const drives = await this.getDrives();
-    for (const drive of drives) {
-      if (!drive.isConnected) continue;
-
-      try {
-        const db = this.getOrCreateDriveDb(drive.mountPath);
-        const stmt = db.prepare('DELETE FROM movies WHERE id = ?');
-        const result = stmt.run(movieId);
-        
-        if (result.changes > 0) {
-          console.log(`[Database] Deleted movie ${movieId} from drive ${drive.id}`);
-          return;
-        }
-      } catch (error) {
-        console.error(`[Database] Error deleting movie from drive ${drive.id}:`, error);
-      }
-    }
-  }
-
-  async deleteShow(showId: string): Promise<void> {
-    // Find which drive has this show and delete it along with all seasons and episodes
-    const drives = await this.getDrives();
-    for (const drive of drives) {
-      if (!drive.isConnected) continue;
-
-      try {
-        const db = this.getOrCreateDriveDb(drive.mountPath);
-        
-        // Foreign key constraints will cascade delete seasons and episodes
-        const stmt = db.prepare('DELETE FROM shows WHERE id = ?');
-        const result = stmt.run(showId);
-        
-        if (result.changes > 0) {
-          console.log(`[Database] Deleted show ${showId} (and all seasons/episodes) from drive ${drive.id}`);
-          return;
-        }
-      } catch (error) {
-        console.error(`[Database] Error deleting show from drive ${drive.id}:`, error);
-      }
-    }
-  }
-
-  async deleteSeason(seasonId: string): Promise<void> {
-    // Find which drive has this season and delete it along with all episodes
-    const drives = await this.getDrives();
-    for (const drive of drives) {
-      if (!drive.isConnected) continue;
-
-      try {
-        const db = this.getOrCreateDriveDb(drive.mountPath);
-        
-        // Foreign key constraints will cascade delete episodes
-        const stmt = db.prepare('DELETE FROM seasons WHERE id = ?');
-        const result = stmt.run(seasonId);
-        
-        if (result.changes > 0) {
-          console.log(`[Database] Deleted season ${seasonId} (and all episodes) from drive ${drive.id}`);
-          return;
-        }
-      } catch (error) {
-        console.error(`[Database] Error deleting season from drive ${drive.id}:`, error);
-      }
-    }
-  }
-
-  async deleteEpisode(episodeId: string): Promise<void> {
-    // Find which drive has this episode and delete it
-    const drives = await this.getDrives();
-    for (const drive of drives) {
-      if (!drive.isConnected) continue;
-
-      try {
-        const db = this.getOrCreateDriveDb(drive.mountPath);
-        const stmt = db.prepare('DELETE FROM episodes WHERE id = ?');
-        const result = stmt.run(episodeId);
-        
-        if (result.changes > 0) {
-          console.log(`[Database] Deleted episode ${episodeId} from drive ${drive.id}`);
-          return;
-        }
-      } catch (error) {
-        console.error(`[Database] Error deleting episode from drive ${drive.id}:`, error);
-      }
+    try {
+      const db = this.getOrCreateDriveDb(drivePath);
+      const stmt = db.prepare('DELETE FROM progress WHERE content_key = ?');
+      stmt.run(contentKey);
+    } catch (error) {
+      console.error('[Database] Error deleting progress:', error);
     }
   }
 
   /**
-   * Clear all media (movies, shows, seasons, episodes) for a specific drive before rescanning.
-   * This ensures we don't accumulate duplicate entries on each scan.
+   * Generate content key for progress tracking
+   * Format: volumeKey|canonicalAbsPath|size|mtime
    */
-  async clearAllMediaForDrive(driveId: string): Promise<void> {
-    const drives = await this.getDrives();
-    const drive = drives.find(d => d.id === driveId);
-    
-    if (!drive || !drive.isConnected) {
-      console.warn(`[Database] Cannot clear media for disconnected drive ${driveId}`);
-      return;
-    }
-
-    try {
-      const db = this.getOrCreateDriveDb(drive.mountPath);
-      
-      // Delete in reverse order to respect foreign keys (even though CASCADE is enabled)
-      // Episodes first, then seasons, then shows, then movies
-      db.prepare('DELETE FROM episodes').run();
-      db.prepare('DELETE FROM seasons').run();
-      db.prepare('DELETE FROM shows').run();
-      db.prepare('DELETE FROM movies').run();
-      
-      console.log(`[Database] Cleared all media for drive ${driveId}`);
-    } catch (error) {
-      console.error(`[Database] Error clearing media for drive ${driveId}:`, error);
-      throw error;
-    }
+  generateContentKey(volumeKey: string, absPath: string, size: number, mtime: number): string {
+    // Normalize path to use forward slashes and remove drive letter prefix on Windows
+    const normalizedPath = absPath.replace(/\\/g, '/').replace(/^([A-Z]:\/)/i, '/');
+    return `${volumeKey}|${normalizedPath}|${size}|${mtime}`;
   }
 
-  async getEpisodesBySeason(seasonId: string): Promise<Episode[]> {
-    // Search for episodes for this season across all drives
+  /**
+   * Parse content key back to components
+   */
+  parseContentKey(contentKey: string): { volumeKey: string; absPath: string; size: number; mtime: number } | null {
+    const parts = contentKey.split('|');
+    if (parts.length !== 4) return null;
+    
+    const [volumeKey, path, sizeStr, mtimeStr] = parts;
+    const size = parseInt(sizeStr, 10);
+    const mtime = parseInt(mtimeStr, 10);
+    
+    if (isNaN(size) || isNaN(mtime)) return null;
+    
+    // Restore drive letter on Windows
+    const absPath = process.platform === 'win32' && path.startsWith('/') 
+      ? `${volumeKey.split('|')[0]}:${path.replace(/\//g, '\\')}`
+      : path;
+    
+    return { volumeKey, absPath, size, mtime };
+  }
+
+  /**
+   * Get volume key from drive path
+   */
+  private getVolumeKeyFromDrivePath(drivePath: string): string {
+    // For now, use the drive path as volume key
+    // In future, could include UUID/serial
+    return drivePath;
+  }
+
+  /**
+   * Get drive path from volume key
+   */
+  private getDrivePathFromVolumeKey(volumeKey: string): string | null {
+    // For now, volume key is the drive path
+    return volumeKey;
+  }
+
+  async getContinueWatching(limit = 10): Promise<PlaybackProgress[]> {
+    const allProgress: PlaybackProgress[] = [];
+
+    // Get progress from all connected drives
     const drives = await this.getDrives();
     for (const drive of drives) {
       if (!drive.isConnected) continue;
 
       try {
         const db = this.getOrCreateDriveDb(drive.mountPath);
-        const stmt = db.prepare('SELECT * FROM episodes WHERE season_id = ? ORDER BY episode_number ASC');
-        const rows = stmt.all(seasonId) as any[];
-        
-        if (rows.length > 0) {
-          return rows.map(row => ({
-            id: row.id,
-            showId: row.show_id,
-            seasonId: row.season_id,
-            episodeNumber: row.episode_number,
-            seasonNumber: row.season_number,
-            title: row.title,
-            path: row.path,
-            videoFile: {
-              id: row.id,
-              path: row.video_file_path,
-              filename: row.video_file_filename,
-              size: row.video_file_size,
-              lastModified: row.video_file_modified,
-              extension: row.video_file_extension,
-            },
-            duration: row.duration,
-            createdAt: new Date(row.created_at),
-            updatedAt: new Date(row.updated_at),
-          }));
-        }
+        const stmt = db.prepare(`
+          SELECT * FROM progress 
+          WHERE completed = 0 AND position_seconds > 15
+          ORDER BY last_played_at DESC
+        `);
+        const rows = stmt.all() as any[];
+        allProgress.push(...rows.map(row => ({
+          id: row.id,
+          contentKey: row.content_key,
+          positionSeconds: row.position_seconds,
+          durationSeconds: row.duration_seconds,
+          completed: !!row.completed,
+          lastPlayedAt: new Date(row.last_played_at),
+          createdAt: new Date(row.created_at),
+          updatedAt: new Date(row.updated_at),
+        })));
       } catch (error) {
-        console.error(`[Database] Error getting episodes from drive ${drive.id}:`, error);
+        console.error(`[Database] Error getting continue watching from drive ${drive.id}:`, error);
       }
     }
 
-    return [];
+    // Sort by last_played_at and limit
+    allProgress.sort((a, b) => b.lastPlayedAt.getTime() - a.lastPlayedAt.getTime());
+    return allProgress.slice(0, limit);
   }
 
   async getMediaByPath(path: string): Promise<{ id: string; type: 'movie' | 'episode' } | null> {
-    // Search for media file across all connected drives
+    // Search all connected drives for the media
     const drives = await this.getDrives();
     for (const drive of drives) {
       if (!drive.isConnected) continue;
@@ -1227,145 +1082,151 @@ export class DatabaseManager {
     return null;
   }
 
-  async getContinueWatching(limit = 10): Promise<PlaybackProgress[]> {
-    const allProgress: PlaybackProgress[] = [];
-
-    // Get progress from all connected drives
+  // Delete methods
+  async deleteMovie(movieId: string): Promise<void> {
     const drives = await this.getDrives();
     for (const drive of drives) {
-      if (!drive.isConnected) continue;
-
       try {
         const db = this.getOrCreateDriveDb(drive.mountPath);
-        const stmt = db.prepare(`
-          SELECT * FROM playback_progress 
-          WHERE is_completed = 0 AND percentage > 0.05
-          ORDER BY last_watched DESC
-        `);
-        const rows = stmt.all() as any[];
-        allProgress.push(...rows.map(row => ({
-          id: row.id,
-          mediaId: row.media_id,
-          mediaType: row.media_type,
-          position: row.position,
-          duration: row.duration,
-          percentage: row.percentage,
-          isCompleted: !!row.is_completed,
-          lastWatched: new Date(row.last_watched),
-          createdAt: new Date(row.created_at),
-          updatedAt: new Date(row.updated_at),
-        })));
+        const stmt = db.prepare('DELETE FROM movies WHERE id = ?');
+        stmt.run(movieId);
       } catch (error) {
-        console.error(`[Database] Error getting continue watching from drive ${drive.id}:`, error);
+        console.error(`[Database] Error deleting movie ${movieId} from drive ${drive.id}:`, error);
+      }
+    }
+  }
+
+  async deleteShow(showId: string): Promise<void> {
+    const drives = await this.getDrives();
+    for (const drive of drives) {
+      try {
+        const db = this.getOrCreateDriveDb(drive.mountPath);
+        const stmt = db.prepare('DELETE FROM shows WHERE id = ?');
+        stmt.run(showId);
+      } catch (error) {
+        console.error(`[Database] Error deleting show ${showId} from drive ${drive.id}:`, error);
+      }
+    }
+  }
+
+  async deleteSeason(seasonId: string): Promise<void> {
+    const drives = await this.getDrives();
+    for (const drive of drives) {
+      try {
+        const db = this.getOrCreateDriveDb(drive.mountPath);
+        const stmt = db.prepare('DELETE FROM seasons WHERE id = ?');
+        stmt.run(seasonId);
+      } catch (error) {
+        console.error(`[Database] Error deleting season ${seasonId} from drive ${drive.id}:`, error);
+      }
+    }
+  }
+
+  async deleteEpisode(episodeId: string): Promise<void> {
+    const drives = await this.getDrives();
+    for (const drive of drives) {
+      try {
+        const db = this.getOrCreateDriveDb(drive.mountPath);
+        const stmt = db.prepare('DELETE FROM episodes WHERE id = ?');
+        stmt.run(episodeId);
+      } catch (error) {
+        console.error(`[Database] Error deleting episode ${episodeId} from drive ${drive.id}:`, error);
+      }
+    }
+  }
+
+  async getEpisodesBySeason(seasonId: string): Promise<Episode[]> {
+    const allEpisodes: Episode[] = [];
+    const drives = await this.getDrives();
+
+    for (const drive of drives) {
+      try {
+        const db = this.getOrCreateDriveDb(drive.mountPath);
+        const stmt = db.prepare('SELECT * FROM episodes WHERE season_id = ? ORDER BY episode_number');
+        const rows = stmt.all(seasonId) as any[];
+        allEpisodes.push(...rows.map((row: any) => this.rowToEpisode(row)));
+      } catch (error) {
+        console.error(`[Database] Error reading episodes from drive ${drive.id}:`, error);
       }
     }
 
-    // Sort by last_watched and limit
-    allProgress.sort((a, b) => b.lastWatched.getTime() - a.lastWatched.getTime());
-    return allProgress.slice(0, limit);
+    return allEpisodes;
   }
 
-  // Settings operations (stored in settings database)
-  async setSetting(key: string, value: any): Promise<void> {
-    if (!this.settingsDb) throw new Error('Database not initialized');
-
-    let type: string;
-    let stringValue: string;
-    
-    switch (typeof value) {
-      case 'string':
-        type = 'string';
-        stringValue = value;
-        break;
-      case 'number':
-        type = 'number';
-        stringValue = value.toString();
-        break;
-      case 'boolean':
-        type = 'boolean';
-        stringValue = value.toString();
-        break;
-      default:
-        type = 'json';
-        stringValue = JSON.stringify(value);
-        break;
-    }
-    
-    const stmt = this.settingsDb.prepare(`
-      INSERT OR REPLACE INTO settings (key, value, type, updated_at)
-      VALUES (?, ?, ?, ?)
-    `);
-    
-    stmt.run(key, stringValue, type, Date.now());
-  }
-
-  async getSetting(key: string): Promise<any> {
-    if (!this.settingsDb) throw new Error('Database not initialized');
-
-    const stmt = this.settingsDb.prepare('SELECT * FROM settings WHERE key = ?');
-    const row = stmt.get(key) as any;
-    
-    if (!row) return undefined;
-    
-    switch (row.type) {
-      case 'string':
-        return row.value;
-      case 'number':
-        return parseFloat(row.value);
-      case 'boolean':
-        return row.value === 'true';
-      case 'json':
-        return JSON.parse(row.value);
-      default:
-        return row.value;
-    }
-  }
-
+  // Settings methods
   async getAllSettings(): Promise<Record<string, any>> {
-    if (!this.settingsDb) throw new Error('Database not initialized');
-
-    const stmt = this.settingsDb.prepare('SELECT * FROM settings');
+    if (!this.settingsDb) throw new Error('Settings database not initialized');
+    const stmt = this.settingsDb.prepare('SELECT key, value FROM settings');
     const rows = stmt.all() as any[];
-    
     const settings: Record<string, any> = {};
-    
     for (const row of rows) {
-      switch (row.type) {
-        case 'string':
-          settings[row.key] = row.value;
-          break;
-        case 'number':
-          settings[row.key] = parseFloat(row.value);
-          break;
-        case 'boolean':
-          settings[row.key] = row.value === 'true';
-          break;
-        case 'json':
-          settings[row.key] = JSON.parse(row.value);
-          break;
-        default:
-          settings[row.key] = row.value;
-          break;
+      try {
+        settings[row.key] = JSON.parse(row.value);
+      } catch {
+        settings[row.key] = row.value;
       }
     }
-    
     return settings;
   }
 
-  /**
-   * Clear all media data for a drive (useful when drive is disconnected)
-   */
-  async clearDriveData(driveId: string): Promise<void> {
-    // Find the drive to get its mount path
-    const drive = await this.getDriveById(driveId);
-    if (!drive) {
-      console.log(`[Database] Drive ${driveId} not found`);
-      return;
-    }
+  async setSetting(key: string, value: any): Promise<void> {
+    if (!this.settingsDb) throw new Error('Settings database not initialized');
+    const stmt = this.settingsDb.prepare(`
+      INSERT OR REPLACE INTO settings (key, value, updated_at)
+      VALUES (?, ?, ?)
+    `);
+    stmt.run(key, JSON.stringify(value), Date.now());
+  }
 
-    // Close the drive's database
-    this.closeDriveDb(drive.mountPath);
+  // Media clearing methods
+  async clearAllMediaForDrive(driveId: string): Promise<void> {
+    const drives = await this.getDrives();
+    const drive = drives.find(d => d.id === driveId);
+    if (!drive) return;
+
+    const db = this.getOrCreateDriveDb(drive.mountPath);
     
-    console.log(`[Database] Cleared data for drive ${driveId}`);
+    // Delete in order: episodes, seasons, shows, movies (respecting foreign keys)
+    const statements = [
+      'DELETE FROM episodes',
+      'DELETE FROM seasons', 
+      'DELETE FROM shows',
+      'DELETE FROM movies'
+    ];
+
+    for (const sql of statements) {
+      try {
+        db.exec(sql);
+      } catch (error) {
+        console.error(`[Database] Error executing ${sql} on drive ${driveId}:`, error);
+      }
+    }
+  }
+
+  // Poster update methods
+  async updateMoviePoster(movieId: string, posterPath: string | null): Promise<void> {
+    const drives = await this.getDrives();
+    for (const drive of drives) {
+      try {
+        const db = this.getOrCreateDriveDb(drive.mountPath);
+        const stmt = db.prepare('UPDATE movies SET poster_path = ?, updated_at = ? WHERE id = ?');
+        stmt.run(posterPath, Date.now(), movieId);
+      } catch (error) {
+        console.error(`[Database] Error updating movie poster for ${movieId} on drive ${drive.id}:`, error);
+      }
+    }
+  }
+
+  async updateShowPoster(showId: string, posterPath: string | null): Promise<void> {
+    const drives = await this.getDrives();
+    for (const drive of drives) {
+      try {
+        const db = this.getOrCreateDriveDb(drive.mountPath);
+        const stmt = db.prepare('UPDATE shows SET poster_path = ?, updated_at = ? WHERE id = ?');
+        stmt.run(posterPath, Date.now(), showId);
+      } catch (error) {
+        console.error(`[Database] Error updating show poster for ${showId} on drive ${drive.id}:`, error);
+      }
+    }
   }
 }

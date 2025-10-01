@@ -10,6 +10,7 @@
     "dev:renderer": "vite",
     "dev:main": "tsc -p src/main/tsconfig.json && cross-env NODE_ENV=development electron dist/main/main/main.js",
     "dev:play": "node scripts/dev-play.js",
+    "dev:avcheck": "node scripts/dev-avcheck.js",
     "build:renderer": "vite build",
     "build:main": "tsc -p src/main/tsconfig.json",
     "package": "electron-builder",

@@ -141,13 +141,13 @@ const hplayerAPI = {
   },
 
   progress: {
-    get: async (mediaId: string) => {
-      const res = await ipcRenderer.invoke(IPC_CHANNELS.LIBRARY_GET_PROGRESS, mediaId).catch(() => null);
+    get: async (contentKey: string) => {
+      const res = await ipcRenderer.invoke(IPC_CHANNELS.LIBRARY_GET_PROGRESS, contentKey).catch(() => null);
       return res?.data || null;
     },
     save: (progress: any) => ipcRenderer.invoke(IPC_CHANNELS.LIBRARY_SET_PROGRESS, progress).catch(() => {}),
-    delete: async (mediaId: string) => {
-      const res = await ipcRenderer.invoke(IPC_CHANNELS.LIBRARY_DELETE_PROGRESS, mediaId);
+    delete: async (contentKey: string) => {
+      const res = await ipcRenderer.invoke(IPC_CHANNELS.LIBRARY_DELETE_PROGRESS, contentKey);
       return res?.data;
     },
   },

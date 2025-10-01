@@ -49,7 +49,7 @@ export function SettingsPage() {
                 <button
                   onClick={() => {
                     console.log('Triggering media scan...');
-                    window.electronAPI.library.scanMedia();
+                    window.electronAPI?.scanner.scan();
                   }}
                   className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 
                     text-white font-medium py-2 px-4 rounded-lg transition-all duration-200 

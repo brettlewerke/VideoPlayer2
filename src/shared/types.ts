@@ -79,13 +79,11 @@ export interface Drive {
 
 export interface PlaybackProgress {
   id: string;
-  mediaId: string;
-  mediaType: 'movie' | 'episode';
-  position: number;
-  duration: number;
-  percentage: number;
-  isCompleted: boolean;
-  lastWatched: Date;
+  contentKey: string;
+  positionSeconds: number;
+  durationSeconds: number;
+  completed: boolean;
+  lastPlayedAt: Date;
   createdAt: Date;
   updatedAt: Date;
 }

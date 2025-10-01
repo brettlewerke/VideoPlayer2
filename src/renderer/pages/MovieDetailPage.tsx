@@ -5,6 +5,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAppStore } from '../store/useAppStore.js';
 import type { Movie } from '../../shared/types.js';
+import { generateContentKey } from '../../shared/utils.js';
 
 export function MovieDetailPage() {
   const { 
@@ -27,8 +28,9 @@ export function MovieDetailPage() {
   const loadProgress = async () => {
     if (!currentMovie) return;
     try {
-      console.log('[MovieDetail] Loading progress for movie:', currentMovie.id);
-      const prog = await (window as any).HPlayerAPI.progress.get(currentMovie.id);
+      const contentKey = getContentKey(currentMovie);
+      console.log('[MovieDetail] Loading progress for content key:', contentKey);
+      const prog = await (window as any).HPlayerAPI.progress.get(contentKey);
       console.log('[MovieDetail] Progress loaded:', prog);
       setProgress(prog);
     } catch (error) {
@@ -46,7 +48,8 @@ export function MovieDetailPage() {
       console.log('[MovieDetail] Current movie:', currentMovie.title, currentMovie.id);
       
       // Get existing progress
-      const prog = await api.progress.get(currentMovie.id);
+      const contentKey = getContentKey(currentMovie);
+      const prog = await api.progress.get(contentKey);
       console.log('[MovieDetail] Resume - Current progress:', prog);
       
       // Change view FIRST
@@ -54,7 +57,7 @@ export function MovieDetailPage() {
       
       // Call player.start and handle the response properly
       const path = currentMovie.videoFile.path;
-      const startOptions = prog && prog.position > 0 ? { start: prog.position } : { start: 0 };
+      const startOptions = prog && prog.positionSeconds > 0 ? { start: prog.positionSeconds } : { start: 0 };
       console.log('[MovieDetail] Calling player.start with:', { path, startOptions });
       
       const result = await api.player.start(path, startOptions);
@@ -88,7 +91,8 @@ export function MovieDetailPage() {
       console.log('[MovieDetail] handleRestart called');
       
       // Clear progress first
-      await api.progress.delete(currentMovie.id);
+      const contentKey = getContentKey(currentMovie);
+      await api.progress.delete(contentKey);
       console.log('[MovieDetail] Progress deleted');
       
       // Change view
@@ -159,6 +163,30 @@ export function MovieDetailPage() {
     return `${mb.toFixed(2)} MB`;
   };
 
+  const getVolumeKey = (filePath: string): string => {
+    // Windows: Extract drive letter (e.g., "C:\")
+    const winMatch = filePath.match(/^([A-Z]:)[\\\/]/i);
+    if (winMatch) {
+      return winMatch[1] + '\\';
+    }
+    // macOS: /Volumes/DriveName
+    if (filePath.startsWith('/Volumes/')) {
+      const parts = filePath.split('/');
+      return `/${parts[1]}/${parts[2]}`;
+    }
+    // Linux: /media/drivename or /mnt/drivename
+    const parts = filePath.split('/');
+    if (parts.length >= 3 && (parts[1] === 'media' || parts[1] === 'mnt')) {
+      return `/${parts[1]}/${parts[2]}`;
+    }
+    return '/'; // Root drive fallback
+  };
+
+  const getContentKey = (movie: Movie): string => {
+    const volumeKey = getVolumeKey(movie.videoFile.path);
+    return generateContentKey(volumeKey, movie.videoFile.path, movie.videoFile.size, movie.videoFile.lastModified);
+  };
+
   if (!currentMovie) {
     return (
       <div className="h-full flex items-center justify-center bg-black">
@@ -176,8 +204,9 @@ export function MovieDetailPage() {
     );
   }
 
-  const hasProgress = progress && progress.position > 0;
-  const progressPercentage = progress && progress.duration > 0 ? Math.round((progress.position / progress.duration) * 100) : 0;
+  const canResume = progress && progress.positionSeconds >= 15 && (progress.positionSeconds / progress.durationSeconds) < 0.9 && !progress.completed;
+  const hasProgress = progress && progress.positionSeconds > 0;
+  const progressPercentage = progress && progress.durationSeconds > 0 ? Math.round((progress.positionSeconds / progress.durationSeconds) * 100) : 0;
 
   console.log('[MovieDetail] Render state:', { 
     hasProgress, 
@@ -299,7 +328,7 @@ export function MovieDetailPage() {
                 <div className="mb-4">
                   <div className="flex justify-between text-sm text-slate-400 mb-2">
                     <span>{progressPercentage}% complete</span>
-                    <span>{formatTime(progress.position)} / {formatTime(progress.duration)}</span>
+                    <span>{formatTime(progress.positionSeconds)} / {formatTime(progress.durationSeconds)}</span>
                   </div>
                   <div className="w-full h-2 bg-slate-700 rounded-full overflow-hidden">
                     <div 
@@ -316,18 +345,18 @@ export function MovieDetailPage() {
 
       {/* Action Buttons */}
       <div className="p-8 max-w-6xl">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-          {/* Resume Button */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8 max-w-lg">
+          {/* Primary Play Button */}
           <button
-            onClick={handleResume}
+            onClick={canResume ? handleResume : handleResume}
             className="group relative overflow-hidden bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white font-semibold py-6 px-8 rounded-xl transition-all duration-200 shadow-lg hover:shadow-blue-500/50 hover:scale-105"
           >
             <div className="flex items-center justify-center gap-3">
               <span className="text-2xl">▶️</span>
               <div className="text-left">
-                <div className="text-lg">{hasProgress ? 'Resume' : 'Play'}</div>
-                {hasProgress && (
-                  <div className="text-xs opacity-80">From {formatTime(progress.position)}</div>
+                <div className="text-lg">{canResume ? 'Resume' : 'Play'}</div>
+                {canResume && (
+                  <div className="text-xs opacity-80">From {formatTime(progress.positionSeconds)}</div>
                 )}
               </div>
             </div>

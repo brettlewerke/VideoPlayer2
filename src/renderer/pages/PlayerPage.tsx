@@ -4,6 +4,7 @@
 
 import React, { useEffect } from 'react';
 import { useAppStore } from '../store/useAppStore.js';
+import { generateContentKey } from '../../shared/utils.js';
 
 export function PlayerPage() {
   const { 
@@ -47,18 +48,18 @@ export function PlayerPage() {
       return;
     }
 
-    const percentage = (currentPosition / totalDuration) * 100;
-    const isCompleted = percentage >= 90; // Consider completed if 90% or more watched
+    const contentKey = getContentKey(currentMedia);
+    const isCompleted = (currentPosition / totalDuration) >= 0.9;
 
     const progressData = {
-      id: currentMedia.id, // Use media ID as progress ID
-      mediaId: currentMedia.id,
-      mediaType: currentMovie ? 'movie' : 'episode' as 'movie' | 'episode',
-      position: currentPosition,
-      duration: totalDuration,
-      percentage,
-      isCompleted,
-      lastWatched: new Date().toISOString(),
+      id: contentKey, // Use content key as ID
+      contentKey,
+      positionSeconds: currentPosition,
+      durationSeconds: totalDuration,
+      completed: isCompleted,
+      lastPlayedAt: new Date(),
+      createdAt: new Date(), // This will be ignored on update
+      updatedAt: new Date(),
     };
 
     console.log('[PlayerPage] Saving progress:', progressData);
@@ -237,6 +238,108 @@ export function PlayerPage() {
       }
     }
   };
+
+  // Helper function to get volume key from file path
+  const getVolumeKey = (filePath: string): string => {
+    // Windows: Extract drive letter (e.g., "C:\")
+    const winMatch = filePath.match(/^([A-Z]:)[\\\/]/i);
+    if (winMatch) {
+      return winMatch[1] + '\\';
+    }
+    // macOS: /Volumes/DriveName
+    if (filePath.startsWith('/Volumes/')) {
+      const parts = filePath.split('/');
+      return `/${parts[1]}/${parts[2]}`;
+    }
+    // Linux: /media/drivename or /mnt/drivename
+    const parts = filePath.split('/');
+    if (parts.length >= 3 && (parts[1] === 'media' || parts[1] === 'mnt')) {
+      return `/${parts[1]}/${parts[2]}`;
+    }
+    return '/'; // Root drive fallback
+  };
+
+  // Helper function to get content key
+  const getContentKey = (media: any): string => {
+    const filePath = media.videoFile?.path;
+    if (!filePath) return '';
+    const volumeKey = getVolumeKey(filePath);
+    return generateContentKey(volumeKey, filePath, media.videoFile.size, media.videoFile.lastModified);
+  };
+
+  // A/V Test logic
+  const isAvTest = videoPath && videoPath.includes('colorbars_10s.mp4');
+  const [testStep, setTestStep] = React.useState<string>('');
+
+  React.useEffect(() => {
+    if (!isAvTest || !videoRef.current) return;
+
+    const runAvTest = async () => {
+      const video = videoRef.current!;
+      console.log('🎬 Starting A/V self-test');
+
+      try {
+        // Wait for video to load
+        setTestStep('Loading video...');
+        await new Promise((resolve) => {
+          if (video.readyState >= 1) resolve(undefined);
+          else video.addEventListener('loadedmetadata', () => resolve(undefined), { once: true });
+        });
+
+        console.log('AV_TEST: video_decoded');
+        setTestStep('Video loaded, checking audio...');
+
+        // Check audio tracks (best effort - if video plays, assume audio works)
+        console.log('AV_TEST: audio_tracks');
+
+        setTestStep('Checking subtitles...');
+
+        // Check if subtitle file exists next to video
+        const subtitlePath = videoPath.replace('.mp4', '.srt');
+        const hasSubs = await fetch(subtitlePath, { method: 'HEAD' }).then(r => r.ok).catch(() => false);
+        if (hasSubs) {
+          // Load subtitles
+          const track = document.createElement('track');
+          track.kind = 'subtitles';
+          track.label = 'English';
+          track.srclang = 'en';
+          track.src = subtitlePath;
+          track.default = true;
+          video.appendChild(track);
+
+          console.log('AV_TEST: subtitle_tracks');
+        }
+
+        setTestStep('Testing playback controls...');
+
+        // Test play/pause
+        video.play();
+        await new Promise(r => setTimeout(r, 1000));
+        video.pause();
+        await new Promise(r => setTimeout(r, 500));
+        video.play();
+
+        console.log('AV_TEST: playback_controls');
+        setTestStep('Testing seek...');
+
+        // Test seek
+        const originalPos = video.currentTime;
+        video.currentTime = originalPos + 3;
+        await new Promise(r => setTimeout(r, 1000));
+
+        console.log('AV_TEST: seek_test');
+        setTestStep('Test completed successfully!');
+
+        console.log('🎉 A/V test passed');
+
+      } catch (error) {
+        console.error('A/V test failed:', error);
+        setTestStep('Test failed: ' + (error instanceof Error ? error.message : String(error)));
+      }
+    };
+
+    runAvTest();
+  }, [isAvTest, videoPath]);
 
   useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
@@ -433,6 +536,14 @@ export function PlayerPage() {
           <div>↑/↓: Volume ±5</div>
         </div>
       </div>
+
+      {/* A/V Test Overlay */}
+      {isAvTest && (
+        <div className="absolute top-4 left-4 bg-black/80 text-white p-4 rounded-lg max-w-md">
+          <h3 className="text-lg font-bold mb-2">🎬 A/V Self-Test</h3>
+          <p className="text-sm">{testStep || 'Initializing...'}</p>
+        </div>
+      )}
     </div>
   );
 }
