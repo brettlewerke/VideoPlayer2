@@ -2,10 +2,10 @@
  * Main Electron process
  */
 
-import { app, BrowserWindow, Menu, globalShortcut, nativeTheme, dialog } from 'electron';
+import { app, BrowserWindow, Menu, globalShortcut, nativeTheme, dialog, protocol } from 'electron';
 import { join } from 'path';
 import { platform } from 'os';
-import { existsSync, mkdirSync, readdirSync, copyFileSync, statSync } from 'fs';
+import { existsSync, mkdirSync, readdirSync, copyFileSync, statSync, readFileSync } from 'fs';
 import { request } from 'http';
 import { DatabaseManager } from './database/database.js';
 import { DriveManager } from './services/drive-manager.js';
@@ -33,7 +33,7 @@ class VideoPlayerApp {
     this.mediaScanner = new MediaScanner(this.database);
     this.fileWatcher = new FileWatcher();
     this.posterFetcher = new PosterFetcher(this.database);
-    this.ipcHandler = new IpcHandler(this.database, this.playerFactory, this.driveManager, this.mediaScanner);
+    this.ipcHandler = new IpcHandler(this.database, this.playerFactory, this.driveManager, this.mediaScanner, this.posterFetcher);
   }
 
   async initialize(): Promise<void> {
@@ -677,9 +677,40 @@ class VideoPlayerApp {
 // Global app instance
 let videoPlayerApp: VideoPlayerApp | null = null;
 
+// Register custom protocol for serving local poster files
+// This must be done before app.whenReady()
+protocol.registerSchemesAsPrivileged([
+  {
+    scheme: 'poster',
+    privileges: {
+      secure: true,
+      supportFetchAPI: true,
+      bypassCSP: true,
+      corsEnabled: false,
+      stream: true
+    }
+  }
+]);
+
 // Electron app event handlers
 app.whenReady().then(async () => {
   try {
+    // Register the poster:// protocol handler
+    protocol.registerFileProtocol('poster', (request, callback) => {
+      // Convert poster://C:/path/to/file.jpg to C:\path\to\file.jpg
+      const url = request.url.replace('poster:///', '');
+      const filePath = decodeURIComponent(url).replace(/\//g, '\\');
+      
+      console.log(`[Protocol] Serving poster: ${filePath}`);
+      
+      if (existsSync(filePath)) {
+        callback({ path: filePath });
+      } else {
+        console.error(`[Protocol] Poster file not found: ${filePath}`);
+        callback({ error: -6 }); // FILE_NOT_FOUND
+      }
+    });
+    
     videoPlayerApp = new VideoPlayerApp();
     await videoPlayerApp.initialize();
     await videoPlayerApp.createMainWindow();

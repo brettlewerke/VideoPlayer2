@@ -27,6 +27,20 @@ export class PosterFetcher {
   constructor(private database: DatabaseManager) {}
 
   /**
+   * Sanitize a string for use in a filename
+   */
+  private sanitizeFilename(name: string): string {
+    // Remove or replace invalid filename characters
+    return name
+      .replace(/[<>:"/\\|?*]/g, '') // Remove invalid chars
+      .replace(/\s+/g, '_') // Replace spaces with underscores
+      .replace(/[()]/g, '') // Remove parentheses
+      .replace(/__+/g, '_') // Replace multiple underscores with single
+      .replace(/^_|_$/g, '') // Remove leading/trailing underscores
+      .substring(0, 50); // Limit length
+  }
+
+  /**
    * Make an HTTPS GET request and return the response body as a string
    */
   private async fetchHtml(url: string): Promise<string> {
@@ -184,8 +198,10 @@ export class PosterFetcher {
         return { success: false, error: 'No poster found' };
       }
 
-      // Download and save poster
-      const localPath = await this.downloadPoster(posterUrl, movie.driveId, `movie-${movie.id}`);
+      // Download and save poster with descriptive filename
+      const sanitizedTitle = this.sanitizeFilename(movie.title);
+      const filename = `movie-${sanitizedTitle}-${movie.id}`;
+      const localPath = await this.downloadPoster(posterUrl, movie.driveId, filename);
 
       if (!localPath) {
         return { success: false, error: 'Failed to download poster' };
@@ -235,7 +251,10 @@ export class PosterFetcher {
         return { success: false, error: 'No poster found' };
       }
 
-      const localPath = await this.downloadPoster(posterUrl, show.driveId, `show-${show.id}`);
+      // Download and save poster with descriptive filename
+      const sanitizedTitle = this.sanitizeFilename(show.title);
+      const filename = `show-${sanitizedTitle}-${show.id}`;
+      const localPath = await this.downloadPoster(posterUrl, show.driveId, filename);
 
       if (!localPath) {
         return { success: false, error: 'Failed to download poster' };

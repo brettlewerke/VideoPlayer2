@@ -80,6 +80,32 @@ function MediaCard({ item, onClick }: MediaCardProps) {
     return '';
   };
 
+  // Get the poster path, prioritizing Rotten Tomatoes poster
+  const getPosterPath = () => {
+    const rtPoster = ('rottenTomatoesPosterPath' in item && item.rottenTomatoesPosterPath);
+    const regularPoster = ('posterPath' in item && item.posterPath);
+    const posterPath = rtPoster || regularPoster;
+    
+    if (!posterPath) {
+      return null;
+    }
+    
+    // Use custom poster:// protocol for local file access
+    // Convert Windows backslashes to forward slashes for URL
+    const normalizedPath = posterPath.replace(/\\/g, '/');
+    const finalUrl = `poster:///${normalizedPath}`;
+    
+    console.log(`[MediaGrid] ${item.title}:`, {
+      rtPoster,
+      regularPoster,
+      posterPath,
+      normalizedPath,
+      finalUrl
+    });
+    
+    return finalUrl;
+  };
+
   return (
     <div
       onClick={onClick}
@@ -91,12 +117,16 @@ function MediaCard({ item, onClick }: MediaCardProps) {
     >
       {/* Poster */}
       <div className="relative aspect-[2/3] bg-slate-800 rounded-lg overflow-hidden mb-2">
-        {('posterPath' in item && item.posterPath) ? (
+        {getPosterPath() ? (
           <img
-            src={`file://${item.posterPath}`}
+            src={getPosterPath()!}
             alt={item.title}
             className="w-full h-full object-cover"
             loading="lazy"
+            onError={(e) => {
+              // Hide broken image and show placeholder
+              e.currentTarget.style.display = 'none';
+            }}
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center text-slate-500">

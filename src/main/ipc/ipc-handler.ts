@@ -7,6 +7,7 @@ import { DatabaseManager } from '../database/database.js';
 import { PlayerFactory } from '../player/player-factory.js';
 import { DriveManager } from '../services/drive-manager.js';
 import { MediaScanner } from '../services/media-scanner.js';
+import { PosterFetcher } from '../services/poster-fetcher.js';
 import { IPlayer } from '../../shared/player.js';
 import { IPC_CHANNELS, createIpcResponse, validatePath, validateVolume, validatePosition, validateTrackId } from '../../shared/ipc.js';
 import type { PlaybackProgress } from '../../shared/types.js';
@@ -21,7 +22,8 @@ export class IpcHandler {
     private database: DatabaseManager,
     private playerFactory: PlayerFactory,
     private driveManager: DriveManager,
-    private mediaScanner: MediaScanner
+    private mediaScanner: MediaScanner,
+    private posterFetcher: PosterFetcher
   ) {}
 
   setupHandlers(): void {
@@ -361,6 +363,10 @@ export class IpcHandler {
     try {
       const movies = await this.database.getMovies(driveId);
       console.log(`[IPC] getMovies returned ${movies.length} movies`);
+      // Debug: Log first movie to see if rottenTomatoesPosterPath is present
+      if (movies.length > 0) {
+        console.log('[IPC] Sample movie data:', JSON.stringify(movies[0], null, 2));
+      }
       return createIpcResponse(event.frameId.toString(), movies);
     } catch (error) {
       console.error('[IPC] getMovies error:', error);
@@ -372,6 +378,10 @@ export class IpcHandler {
     try {
       const shows = await this.database.getShows(driveId);
       console.log(`[IPC] getShows returned ${shows.length} shows`);
+      // Debug: Log first show to see if rottenTomatoesPosterPath is present
+      if (shows.length > 0) {
+        console.log('[IPC] Sample show data:', JSON.stringify(shows[0], null, 2));
+      }
       return createIpcResponse(event.frameId.toString(), shows);
     } catch (error) {
       console.error('[IPC] getShows error:', error);
@@ -456,6 +466,15 @@ export class IpcHandler {
   private async handleDeleteMovie(event: Electron.IpcMainInvokeEvent, movieId: string) {
     try {
       console.log(`[IPC] Deleting movie: ${movieId}`);
+      
+      // Get the movie first to delete its poster
+      const movies = await this.database.getMovies();
+      const movie = movies.find(m => m.id === movieId);
+      
+      if (movie) {
+        await this.posterFetcher.deleteMoviePoster(movie);
+      }
+      
       await this.database.deleteMovie(movieId);
       // Also delete any progress for this movie
       await this.database.deleteProgress(movieId);
@@ -469,6 +488,14 @@ export class IpcHandler {
   private async handleDeleteShow(event: Electron.IpcMainInvokeEvent, showId: string) {
     try {
       console.log(`[IPC] Deleting show: ${showId}`);
+      
+      // Get the show first to delete its poster
+      const shows = await this.database.getShows();
+      const show = shows.find(s => s.id === showId);
+      
+      if (show) {
+        await this.posterFetcher.deleteShowPoster(show);
+      }
       
       // Get all episodes for this show to delete their progress
       const episodes = await this.database.getEpisodes(showId);
