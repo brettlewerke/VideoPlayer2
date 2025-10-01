@@ -67,6 +67,7 @@ export function PlayerPage() {
   const codecCheckTimerRef = React.useRef<number | null>(null);
   const hasAttemptedFallbackRef = React.useRef<boolean>(false);
   const [fallbackNotification, setFallbackNotification] = React.useState<string | null>(null);
+  const [codecWarning, setCodecWarning] = React.useState<string | null>(null);
 
   // Helper function to save progress
   const saveProgress = React.useCallback(async (currentPosition: number, totalDuration: number) => {

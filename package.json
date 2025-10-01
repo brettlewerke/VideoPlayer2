@@ -4,7 +4,7 @@
   "description": "Hoser Video – local desktop video player for Movies & TV Shows on plugged-in drives (no network services)",
   "main": "dist/main/main/main.js",
   "scripts": {
-    "postinstall": "node scripts/install-ffmpeg.js",
+    "postinstall": "node scripts/install-ffmpeg.js && node scripts/install-ffprobe.js && node scripts/install-mpv.js",
     "setup": "node scripts/setup.js",
     "rebuild": "electron-rebuild -f -w better-sqlite3",
     "dev": "npm run rebuild && concurrently \"npm run dev:renderer\" \"npm run dev:main\"",
@@ -79,6 +79,7 @@
   },
   "dependencies": {
     "better-sqlite3": "^12.4.1",
+    "fluent-ffmpeg": "^2.1.3",
     "jsdom": "^24.1.3",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
