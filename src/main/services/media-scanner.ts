@@ -178,7 +178,7 @@ export class MediaScanner extends EventEmitter {
       }
 
       // Save results to database
-      await this.saveResults(result);
+      await this.saveResults(result, drive);
       
       this.currentScanProgress.isComplete = true;
       this.emit('scanProgress', this.currentScanProgress);
@@ -508,8 +508,13 @@ export class MediaScanner extends EventEmitter {
     return episodes;
   }
 
-  private async saveResults(result: ScanResult): Promise<void> {
+  private async saveResults(result: ScanResult, drive: Drive): Promise<void> {
     try {
+      // Clear all existing media for this drive before inserting new scan results
+      // This prevents accumulating duplicate entries on each scan
+      await this.database.clearAllMediaForDrive(drive.id);
+      console.log(`[Scanner] Cleared old media for drive ${drive.id}`);
+      
       // Save results (each insert goes to the correct per-drive database)
       // No need for transaction since data is on separate drive databases
       

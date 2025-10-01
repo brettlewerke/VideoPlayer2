@@ -1126,6 +1126,36 @@ export class DatabaseManager {
     }
   }
 
+  /**
+   * Clear all media (movies, shows, seasons, episodes) for a specific drive before rescanning.
+   * This ensures we don't accumulate duplicate entries on each scan.
+   */
+  async clearAllMediaForDrive(driveId: string): Promise<void> {
+    const drives = await this.getDrives();
+    const drive = drives.find(d => d.id === driveId);
+    
+    if (!drive || !drive.isConnected) {
+      console.warn(`[Database] Cannot clear media for disconnected drive ${driveId}`);
+      return;
+    }
+
+    try {
+      const db = this.getOrCreateDriveDb(drive.mountPath);
+      
+      // Delete in reverse order to respect foreign keys (even though CASCADE is enabled)
+      // Episodes first, then seasons, then shows, then movies
+      db.prepare('DELETE FROM episodes').run();
+      db.prepare('DELETE FROM seasons').run();
+      db.prepare('DELETE FROM shows').run();
+      db.prepare('DELETE FROM movies').run();
+      
+      console.log(`[Database] Cleared all media for drive ${driveId}`);
+    } catch (error) {
+      console.error(`[Database] Error clearing media for drive ${driveId}:`, error);
+      throw error;
+    }
+  }
+
   async getEpisodesBySeason(seasonId: string): Promise<Episode[]> {
     // Search for episodes for this season across all drives
     const drives = await this.getDrives();
