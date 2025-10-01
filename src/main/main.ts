@@ -2,14 +2,16 @@
  * Main Electron process
  */
 
-import { app, BrowserWindow, Menu, globalShortcut, nativeTheme, dialog } from 'electron';
+import { app, BrowserWindow, Menu, globalShortcut, nativeTheme, dialog, protocol } from 'electron';
 import { join } from 'path';
 import { platform } from 'os';
-import { existsSync, mkdirSync, readdirSync, copyFileSync, statSync } from 'fs';
+import { existsSync, mkdirSync, readdirSync, copyFileSync, statSync, readFileSync } from 'fs';
 import { request } from 'http';
 import { DatabaseManager } from './database/database.js';
 import { DriveManager } from './services/drive-manager.js';
 import { MediaScanner } from './services/media-scanner.js';
+import { FileWatcher } from './services/file-watcher.js';
+import { PosterFetcher } from './services/poster-fetcher.js';
 import { PlayerFactory } from './player/player-factory.js';
 import { IpcHandler } from './ipc/ipc-handler.js';
 import { DEFAULT_SETTINGS } from '../shared/constants.js';
@@ -21,13 +23,17 @@ class VideoPlayerApp {
   private ipcHandler: IpcHandler;
   private driveManager: DriveManager;
   private mediaScanner: MediaScanner;
+  private fileWatcher: FileWatcher;
+  private posterFetcher: PosterFetcher;
 
   constructor() {
     this.database = new DatabaseManager();
     this.playerFactory = new PlayerFactory();
     this.driveManager = new DriveManager(this.database);
     this.mediaScanner = new MediaScanner(this.database);
-    this.ipcHandler = new IpcHandler(this.database, this.playerFactory, this.driveManager, this.mediaScanner);
+    this.fileWatcher = new FileWatcher();
+    this.posterFetcher = new PosterFetcher(this.database);
+    this.ipcHandler = new IpcHandler(this.database, this.playerFactory, this.driveManager, this.mediaScanner, this.posterFetcher);
   }
 
   async initialize(): Promise<void> {
@@ -49,6 +55,23 @@ class VideoPlayerApp {
     
     // Start drive monitoring
     this.driveManager.startMonitoring();
+    
+    // Start file system watching
+    await this.startFileWatching();
+    
+    // Start poster fetching (runs once on startup)
+    await this.startPosterFetching();
+    
+    // Listen to drive events to update file watcher
+    this.driveManager.on('driveConnected', (drive) => {
+      console.log(`[Main] Drive connected: ${drive.label}, updating file watcher`);
+      this.fileWatcher.addDrive(drive);
+    });
+
+    this.driveManager.on('driveDisconnected', (drive) => {
+      console.log(`[Main] Drive disconnected: ${drive.label}, updating file watcher`);
+      this.fileWatcher.removeDrive(drive.id);
+    });
     
     console.log('Hoser Video application initialized successfully');
   }
@@ -374,6 +397,65 @@ class VideoPlayerApp {
     }
   }
 
+  /**
+   * Start file system watching for automatic media library updates
+   */
+  private async startFileWatching(): Promise<void> {
+    try {
+      // Get all connected drives
+      const drives = await this.database.getDrives();
+      const connectedDrives = drives.filter(d => d.isConnected);
+
+      // Start watching
+      this.fileWatcher.startWatching(connectedDrives);
+
+      // Listen for rescan requests from file watcher
+      this.fileWatcher.on('rescan-needed', async ({ driveId, type }) => {
+        console.log(`[FileWatcher] Rescan triggered for drive ${driveId} (${type})`);
+        
+        try {
+          // Find the drive
+          const drive = await this.database.getDrives().then(drives => 
+            drives.find(d => d.id === driveId)
+          );
+
+          if (drive && drive.isConnected) {
+            console.log(`[FileWatcher] Starting rescan of drive: ${drive.label}`);
+            await this.mediaScanner.scanDrive(drive);
+            
+            // Notify renderer to refresh the media list
+            this.ipcHandler.sendToRenderer('media:updated', { driveId, type });
+            console.log(`[FileWatcher] Rescan completed for drive: ${drive.label}`);
+          }
+        } catch (error) {
+          console.error(`[FileWatcher] Rescan failed:`, error);
+        }
+      });
+
+      console.log('[FileWatcher] File system monitoring started');
+    } catch (error) {
+      console.error('[FileWatcher] Failed to start file watching:', error);
+      // Non-fatal - app can continue without file watching
+    }
+  }
+
+  /**
+   * Start poster fetching from Rotten Tomatoes for movies/shows without posters
+   */
+  private async startPosterFetching(): Promise<void> {
+    try {
+      console.log('[PosterFetcher] Starting poster fetch for media without posters...');
+      
+      // Fetch posters for all media that doesn't have one yet
+      await this.posterFetcher.fetchAllMissingPosters();
+      
+      console.log('[PosterFetcher] Poster fetching completed');
+    } catch (error) {
+      console.error('[PosterFetcher] Failed to fetch posters:', error);
+      // Non-fatal - app can continue without posters
+    }
+  }
+
   private createMenu(): void {
     const template: Electron.MenuItemConstructorOptions[] = [
       {
@@ -573,15 +655,17 @@ class VideoPlayerApp {
 
   async cleanup(): Promise<void> {
     try {
+      // Stop file watcher
+      this.fileWatcher.stopAll();
+      
       // Stop monitoring
       this.driveManager.stopMonitoring();
       
       // Cleanup IPC handlers
       this.ipcHandler.cleanup();
       
-      // Close and delete database to force fresh scan on next startup
-      // This ensures new movies/shows are detected when drives are reconnected
-      this.database.closeAndDelete();
+      // Close database (don't delete - we want to keep the data now with file watching)
+      // The file watcher will keep the database updated
       
       console.log('Application cleanup completed');
     } catch (error) {
@@ -593,9 +677,40 @@ class VideoPlayerApp {
 // Global app instance
 let videoPlayerApp: VideoPlayerApp | null = null;
 
+// Register custom protocol for serving local poster files
+// This must be done before app.whenReady()
+protocol.registerSchemesAsPrivileged([
+  {
+    scheme: 'poster',
+    privileges: {
+      secure: true,
+      supportFetchAPI: true,
+      bypassCSP: true,
+      corsEnabled: false,
+      stream: true
+    }
+  }
+]);
+
 // Electron app event handlers
 app.whenReady().then(async () => {
   try {
+    // Register the poster:// protocol handler
+    protocol.registerFileProtocol('poster', (request, callback) => {
+      // Convert poster://C:/path/to/file.jpg to C:\path\to\file.jpg
+      const url = request.url.replace('poster:///', '');
+      const filePath = decodeURIComponent(url).replace(/\//g, '\\');
+      
+      console.log(`[Protocol] Serving poster: ${filePath}`);
+      
+      if (existsSync(filePath)) {
+        callback({ path: filePath });
+      } else {
+        console.error(`[Protocol] Poster file not found: ${filePath}`);
+        callback({ error: -6 }); // FILE_NOT_FOUND
+      }
+    });
+    
     videoPlayerApp = new VideoPlayerApp();
     await videoPlayerApp.initialize();
     await videoPlayerApp.createMainWindow();

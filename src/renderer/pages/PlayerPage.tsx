@@ -27,21 +27,118 @@ export function PlayerPage() {
 
   const currentMedia = currentMovie || currentEpisode;
 
+  console.log('[PlayerPage] Render:', { 
+    currentMedia: currentMedia?.title, 
+    useExternalPlayer, 
+    videoPath,
+    isPlayerLoading 
+  });
+
   // HTML5 video ref
   const videoRef = React.useRef<HTMLVideoElement>(null);
+  const lastSavedPositionRef = React.useRef<number>(0);
+
+  // Helper function to save progress
+  const saveProgress = React.useCallback(async (currentPosition: number, totalDuration: number) => {
+    if (!currentMedia || !currentPosition || !totalDuration) return;
+    
+    // Don't save if position hasn't changed much (less than 2 seconds)
+    if (Math.abs(currentPosition - lastSavedPositionRef.current) < 2) {
+      return;
+    }
+
+    const percentage = (currentPosition / totalDuration) * 100;
+    const isCompleted = percentage >= 90; // Consider completed if 90% or more watched
+
+    const progressData = {
+      id: currentMedia.id, // Use media ID as progress ID
+      mediaId: currentMedia.id,
+      mediaType: currentMovie ? 'movie' : 'episode' as 'movie' | 'episode',
+      position: currentPosition,
+      duration: totalDuration,
+      percentage,
+      isCompleted,
+      lastWatched: new Date().toISOString(),
+    };
+
+    console.log('[PlayerPage] Saving progress:', progressData);
+    
+    try {
+      await (window as any).HPlayerAPI.progress.save(progressData);
+      lastSavedPositionRef.current = currentPosition;
+      console.log('[PlayerPage] Progress saved successfully');
+    } catch (error) {
+      console.error('[PlayerPage] Failed to save progress:', error);
+    }
+  }, [currentMedia, currentMovie]);
+
+  // Separate effect to handle initial seek to resume position
+  const hasSeenRef = React.useRef(false);
+  React.useEffect(() => {
+    const video = videoRef.current;
+    if (!video || useExternalPlayer || !videoPath) return;
+    
+    // Reset the flag when videoPath changes (new video loaded)
+    hasSeenRef.current = false;
+    
+    // Wait for video to be loaded before seeking
+    const handleLoadedMetadata = () => {
+      if (position > 0 && Math.abs(video.currentTime - position) > 1 && !hasSeenRef.current) {
+        console.log('[PlayerPage] Seeking to resume position:', position);
+        video.currentTime = position;
+        hasSeenRef.current = true;
+      }
+    };
+    
+    if (video.readyState >= 1) {
+      // Metadata already loaded
+      handleLoadedMetadata();
+    } else {
+      video.addEventListener('loadedmetadata', handleLoadedMetadata, { once: true });
+      return () => video.removeEventListener('loadedmetadata', handleLoadedMetadata);
+    }
+  }, [useExternalPlayer, videoPath, position]);
 
   // Handle HTML5 video events
   React.useEffect(() => {
     const video = videoRef.current;
-    if (!video || useExternalPlayer || !videoPath) return;
+    if (!video || useExternalPlayer || !videoPath) {
+      console.log('[PlayerPage] Skipping HTML5 setup:', { video: !!video, useExternalPlayer, videoPath });
+      return;
+    }
 
-    const handlePlay = () => setIsPlaying(true);
-    const handlePause = () => setIsPlaying(false);
-    const handleTimeUpdate = () => setPosition(video.currentTime);
-    const handleDurationChange = () => setDuration(video.duration);
+    console.log('[PlayerPage] Setting up HTML5 video:', videoPath);
+
+    const handlePlay = () => {
+      console.log('[PlayerPage] HTML5 video playing');
+      setIsPlaying(true);
+    };
+    
+    const handlePause = () => {
+      console.log('[PlayerPage] HTML5 video paused');
+      setIsPlaying(false);
+      // Save progress when video pauses
+      if (video.currentTime > 0 && video.duration) {
+        saveProgress(video.currentTime, video.duration);
+      }
+    };
+    
+    const handleTimeUpdate = () => {
+      setPosition(video.currentTime);
+    };
+    
+    const handleDurationChange = () => {
+      console.log('[PlayerPage] HTML5 duration changed:', video.duration);
+      setDuration(video.duration);
+    };
+    
     const handleVolumeChange = () => {
       setVolume(video.volume * 100);
       setIsMuted(video.muted);
+    };
+    
+    const handleError = (e: Event) => {
+      console.error('[PlayerPage] HTML5 video error:', (e.target as HTMLVideoElement).error);
     };
 
     video.addEventListener('play', handlePlay);
@@ -49,15 +146,42 @@ export function PlayerPage() {
     video.addEventListener('timeupdate', handleTimeUpdate);
     video.addEventListener('durationchange', handleDurationChange);
     video.addEventListener('volumechange', handleVolumeChange);
+    video.addEventListener('error', handleError);
+
+    // Auto-play
+    video.play().catch(err => console.error('[PlayerPage] Auto-play failed:', err));
 
     return () => {
+      // Save progress when unmounting (navigating away)
+      if (video.currentTime > 0 && video.duration) {
+        console.log('[PlayerPage] Saving progress on unmount');
+        saveProgress(video.currentTime, video.duration);
+      }
+      
       video.removeEventListener('play', handlePlay);
       video.removeEventListener('pause', handlePause);
       video.removeEventListener('timeupdate', handleTimeUpdate);
       video.removeEventListener('durationchange', handleDurationChange);
       video.removeEventListener('volumechange', handleVolumeChange);
+      video.removeEventListener('error', handleError);
     };
-  }, [useExternalPlayer, videoPath, setIsPlaying, setPosition, setDuration, setVolume, setIsMuted]);
+  }, [useExternalPlayer, videoPath, setIsPlaying, setPosition, setDuration, setVolume, setIsMuted, saveProgress]);
+
+  // Periodic progress saving (every 5 seconds during playback)
+  React.useEffect(() => {
+    if (!isPlaying || !duration || !currentMedia) return;
+
+    const interval = setInterval(() => {
+      if (videoRef.current) {
+        const currentTime = videoRef.current.currentTime;
+        if (currentTime > 0) {
+          saveProgress(currentTime, duration);
+        }
+      }
+    }, 5000); // Save every 5 seconds
+
+    return () => clearInterval(interval);
+  }, [isPlaying, duration, currentMedia, saveProgress]);
 
   // Helper functions for controls
   const handlePlayPause = () => {

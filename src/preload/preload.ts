@@ -33,6 +33,11 @@ const IPC_CHANNELS = {
   LIBRARY_SEARCH: 'library:search',
   LIBRARY_GET_PROGRESS: 'library:getProgress',
   LIBRARY_SET_PROGRESS: 'library:setProgress',
+  LIBRARY_DELETE_PROGRESS: 'library:deleteProgress',
+  LIBRARY_DELETE_MOVIE: 'library:deleteMovie',
+  LIBRARY_DELETE_SHOW: 'library:deleteShow',
+  LIBRARY_DELETE_SEASON: 'library:deleteSeason',
+  LIBRARY_DELETE_EPISODE: 'library:deleteEpisode',
   DRIVES_GET_ALL: 'drives:getAll',
   DRIVES_SCAN: 'drives:scan',
   DRIVES_SCAN_PROGRESS: 'drives:scanProgress',
@@ -93,6 +98,22 @@ const hplayerAPI = {
     },
     scanMedia: () => ipcRenderer.invoke(IPC_CHANNELS.DRIVES_SCAN).catch(() => {}),
     addPath: (path: string) => ipcRenderer.invoke('library:addPath', path).catch(() => {}),
+    deleteMovie: async (movieId: string) => {
+      const res = await ipcRenderer.invoke(IPC_CHANNELS.LIBRARY_DELETE_MOVIE, movieId);
+      return res?.data;
+    },
+    deleteShow: async (showId: string) => {
+      const res = await ipcRenderer.invoke(IPC_CHANNELS.LIBRARY_DELETE_SHOW, showId);
+      return res?.data;
+    },
+    deleteSeason: async (seasonId: string) => {
+      const res = await ipcRenderer.invoke(IPC_CHANNELS.LIBRARY_DELETE_SEASON, seasonId);
+      return res?.data;
+    },
+    deleteEpisode: async (episodeId: string) => {
+      const res = await ipcRenderer.invoke(IPC_CHANNELS.LIBRARY_DELETE_EPISODE, episodeId);
+      return res?.data;
+    },
   },
 
   scanner: {
@@ -104,6 +125,10 @@ const hplayerAPI = {
 
   player: {
     start: (path: string, options?: { start?: number }) => ipcRenderer.invoke(IPC_CHANNELS.PLAYER_START, { path, ...options }).catch(() => {}),
+    restart: async (path: string) => {
+      // Restart means start from 0 seconds
+      return ipcRenderer.invoke(IPC_CHANNELS.PLAYER_START, { path, start: 0 }).catch(() => {});
+    },
     play: () => ipcRenderer.invoke(IPC_CHANNELS.PLAYER_PLAY).catch(() => {}),
     pause: () => ipcRenderer.invoke(IPC_CHANNELS.PLAYER_PAUSE).catch(() => {}),
     stop: () => ipcRenderer.invoke(IPC_CHANNELS.PLAYER_STOP).catch(() => {}),
@@ -121,7 +146,10 @@ const hplayerAPI = {
       return res?.data || null;
     },
     save: (progress: any) => ipcRenderer.invoke(IPC_CHANNELS.LIBRARY_SET_PROGRESS, progress).catch(() => {}),
-    delete: (mediaId: string) => ipcRenderer.invoke('progress:delete', mediaId).catch(() => {}),
+    delete: async (mediaId: string) => {
+      const res = await ipcRenderer.invoke(IPC_CHANNELS.LIBRARY_DELETE_PROGRESS, mediaId);
+      return res?.data;
+    },
   },
 
   settings: {
@@ -164,6 +192,9 @@ const hplayerAPI = {
       'drive-added',
       'drive-removed',
       'drive-changed',
+      'drive-readonly',
+      'media:updated',
+      'app:fullscreen-changed',
       'window-focus',
       'global-shortcut',
       'menu-action',
@@ -186,6 +217,7 @@ const hplayerAPI = {
       'drive-added',
       'drive-removed',
       'drive-changed',
+      'drive-readonly',
       'window-focus',
       'global-shortcut',
       'menu-action',

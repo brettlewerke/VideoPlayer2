@@ -178,7 +178,7 @@ export class MediaScanner extends EventEmitter {
       }
 
       // Save results to database
-      await this.saveResults(result);
+      await this.saveResults(result, drive);
       
       this.currentScanProgress.isComplete = true;
       this.emit('scanProgress', this.currentScanProgress);
@@ -253,8 +253,10 @@ export class MediaScanner extends EventEmitter {
         extension: extname(primaryVideoPath),
       };
 
+      // Movie ID should be based on the folder path only for consistent IDs across scans
+      // This ensures the same movie entry is reused when rescanning
       const movie: Movie = {
-        id: generateMediaId(drive.id, folderPath, stats.size, stats.mtimeMs),
+        id: generateMediaId(drive.id, folderPath, 0, 0), // Use 0 for consistent IDs
         title,
         year,
         path: normalizePath(folderPath),
@@ -322,7 +324,7 @@ export class MediaScanner extends EventEmitter {
     const artwork = findArtworkFiles(showFolderPath, showFiles);
     
     const show: Show = {
-      id: generateMediaId(drive.id, showFolderPath, 0, Date.now()),
+      id: generateMediaId(drive.id, showFolderPath, 0, 0), // Use 0 for consistent IDs across scans
       title: showFolderName,
       path: normalizePath(showFolderPath),
       driveId: drive.id,
@@ -374,7 +376,7 @@ export class MediaScanner extends EventEmitter {
     if (looseVideoFiles.length > 0) {
       const defaultSeasonPath = showFolderPath;
       const defaultSeason: Season = {
-        id: generateMediaId(drive.id, defaultSeasonPath + '/season1', 0, Date.now()),
+        id: generateMediaId(drive.id, defaultSeasonPath + '/season1', 0, 0), // Use 0 for consistent IDs
         showId: show.id,
         seasonNumber: 1,
         title: 'Season 1',
@@ -413,7 +415,7 @@ export class MediaScanner extends EventEmitter {
     const artwork = findArtworkFiles(seasonPath, seasonFiles);
     
     const season: Season = {
-      id: generateMediaId(drive.id, seasonPath, 0, Date.now()),
+      id: generateMediaId(drive.id, seasonPath, 0, 0), // Use 0 for consistent IDs
       showId: show.id,
       seasonNumber,
       title: seasonName,
@@ -505,8 +507,13 @@ export class MediaScanner extends EventEmitter {
     return episodes;
   }
 
-  private async saveResults(result: ScanResult): Promise<void> {
+  private async saveResults(result: ScanResult, drive: Drive): Promise<void> {
     try {
+      // Clear all existing media for this drive before inserting new scan results
+      // This prevents accumulating duplicate entries on each scan
+      await this.database.clearAllMediaForDrive(drive.id);
+      console.log(`[Scanner] Cleared old media for drive ${drive.id}`);
+      
       // Save results (each insert goes to the correct per-drive database)
       // No need for transaction since data is on separate drive databases
       

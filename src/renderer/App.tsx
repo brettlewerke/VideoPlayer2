@@ -10,6 +10,8 @@ import { ShowsPage } from './pages/ShowsPage.js';
 import { PlayerPage } from './pages/PlayerPage.js';
 import { SearchPage } from './pages/SearchPage.js';
 import { SettingsPage } from './pages/SettingsPage.js';
+import { MovieDetailPage } from './pages/MovieDetailPage.js';
+import { ShowDetailPage } from './pages/ShowDetailPage.js';
 import { Sidebar } from './components/Sidebar.js';
 import { LoadingScreen } from './components/LoadingScreen.js';
 
@@ -17,6 +19,7 @@ export function App() {
   const { currentView, isLoading, isSidebarOpen, loadLibrary } = useAppStore();
   const [bridgeReady, setBridgeReady] = useState(false);
   const [bridgeError, setBridgeError] = useState<string | null>(null);
+  const [showReadOnlyBanner, setShowReadOnlyBanner] = useState(false);
 
   // Check if preload bridge is available
   useEffect(() => {
@@ -51,6 +54,41 @@ export function App() {
       loadLibrary();
     }
   }, [bridgeReady, loadLibrary]);
+
+  // Listen for media updates from file watcher
+  useEffect(() => {
+    const api = (window as any).HPlayerAPI;
+    if (!api || !bridgeReady) return;
+
+    const handleMediaUpdate = ({ driveId, type }: { driveId: string; type: string }) => {
+      console.log(`[App] Media updated on drive ${driveId} (${type}), refreshing library...`);
+      loadLibrary();
+    };
+
+    // Listen for media update events from file watcher
+    api.on?.('media:updated', handleMediaUpdate);
+
+    return () => {
+      api.off?.('media:updated', handleMediaUpdate);
+    };
+  }, [bridgeReady, loadLibrary]);
+
+  // Listen for read-only drive warnings
+  useEffect(() => {
+    const api = (window as any).HPlayerAPI;
+    if (!api) return;
+
+    const handleReadOnlyWarning = () => {
+      setShowReadOnlyBanner(true);
+    };
+
+    // Listen for read-only events (if implemented in main process)
+    api.on?.('drive-readonly', handleReadOnlyWarning);
+
+    return () => {
+      api.off?.('drive-readonly', handleReadOnlyWarning);
+    };
+  }, [bridgeReady]);
 
   // Show bridge error if preload failed
   if (bridgeError) {
@@ -96,6 +134,10 @@ export function App() {
         return <PlayerPage />;
       case 'settings':
         return <SettingsPage />;
+      case 'movie-detail':
+        return <MovieDetailPage />;
+      case 'show-detail':
+        return <ShowDetailPage />;
       default:
         return <HomePage />;
     }
@@ -105,6 +147,25 @@ export function App() {
     <div className="h-screen bg-gradient-to-br from-black via-gray-900 to-green-900 text-white overflow-hidden">
       {/* Background accent */}
       <div className="absolute inset-0 bg-gradient-to-br from-green-900/20 via-black to-green-800/10" />
+      
+      {/* Read-Only Drive Warning Banner */}
+      {showReadOnlyBanner && (
+        <div className="fixed top-0 left-0 right-0 z-50 bg-yellow-600/90 backdrop-blur-sm border-b border-yellow-500/50 px-4 py-3 flex items-center justify-between shadow-lg">
+          <div className="flex items-center gap-3">
+            <span className="text-2xl">⚠️</span>
+            <div>
+              <p className="font-semibold text-white">Drive is Read-Only</p>
+              <p className="text-xs text-yellow-100">Progress won't be saved to this drive. Using fallback storage.</p>
+            </div>
+          </div>
+          <button
+            onClick={() => setShowReadOnlyBanner(false)}
+            className="px-3 py-1 bg-yellow-700 hover:bg-yellow-800 rounded text-sm font-medium transition-colors"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
       
       {/* Main layout */}
       <div className="relative z-10 flex h-full">

@@ -34,6 +34,11 @@ export const IPC_CHANNELS = {
   LIBRARY_SEARCH: 'library:search',
   LIBRARY_GET_PROGRESS: 'library:getProgress',
   LIBRARY_SET_PROGRESS: 'library:setProgress',
+  LIBRARY_DELETE_PROGRESS: 'library:deleteProgress',
+  LIBRARY_DELETE_MOVIE: 'library:deleteMovie',
+  LIBRARY_DELETE_SHOW: 'library:deleteShow',
+  LIBRARY_DELETE_SEASON: 'library:deleteSeason',
+  LIBRARY_DELETE_EPISODE: 'library:deleteEpisode',
   
   // Drive and scanning
   DRIVES_GET_ALL: 'drives:getAll',

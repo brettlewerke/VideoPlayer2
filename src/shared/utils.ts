@@ -12,13 +12,13 @@ import {
   ARTWORK_FILENAMES,
   IGNORE_PATTERNS 
 } from './constants.js';
+import { isPlayablePath } from '../common/media/extensions.js';
 
 /**
- * Check if a file has a video extension
+ * Check if a file has a video extension (uses centralized playable extensions)
  */
 export function isVideoFile(filename: string): boolean {
-  const ext = path.extname(filename).toLowerCase();
-  return VIDEO_EXTENSIONS.includes(ext as any);
+  return isPlayablePath(filename);
 }
 
 /**
@@ -201,9 +201,24 @@ export function findPrimaryVideoFile(files: string[]): string | null {
     return videoFiles[0];
   }
   
-  // In a real implementation, we would check file sizes
-  // For now, just return the first one alphabetically
-  return videoFiles.sort()[0];
+  // Find the largest video file by checking file sizes
+  const fs = require('fs');
+  let largestFile: string | null = null;
+  let largestSize = 0;
+  
+  for (const file of videoFiles) {
+    try {
+      const stats = fs.statSync(file);
+      if (stats.size > largestSize) {
+        largestSize = stats.size;
+        largestFile = file;
+      }
+    } catch (error) {
+      console.warn(`Cannot stat file ${file}:`, error);
+    }
+  }
+  
+  return largestFile || videoFiles[0]; // Fallback to first file if stats fail
 }
 
 /**

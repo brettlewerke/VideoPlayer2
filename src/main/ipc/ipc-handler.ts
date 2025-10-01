@@ -7,6 +7,7 @@ import { DatabaseManager } from '../database/database.js';
 import { PlayerFactory } from '../player/player-factory.js';
 import { DriveManager } from '../services/drive-manager.js';
 import { MediaScanner } from '../services/media-scanner.js';
+import { PosterFetcher } from '../services/poster-fetcher.js';
 import { IPlayer } from '../../shared/player.js';
 import { IPC_CHANNELS, createIpcResponse, validatePath, validateVolume, validatePosition, validateTrackId } from '../../shared/ipc.js';
 import type { PlaybackProgress } from '../../shared/types.js';
@@ -21,7 +22,8 @@ export class IpcHandler {
     private database: DatabaseManager,
     private playerFactory: PlayerFactory,
     private driveManager: DriveManager,
-    private mediaScanner: MediaScanner
+    private mediaScanner: MediaScanner,
+    private posterFetcher: PosterFetcher
   ) {}
 
   setupHandlers(): void {
@@ -48,6 +50,11 @@ export class IpcHandler {
     ipcMain.handle(IPC_CHANNELS.LIBRARY_SEARCH, this.handleLibrarySearch.bind(this));
     ipcMain.handle(IPC_CHANNELS.LIBRARY_GET_PROGRESS, this.handleGetProgress.bind(this));
     ipcMain.handle(IPC_CHANNELS.LIBRARY_SET_PROGRESS, this.handleSetProgress.bind(this));
+    ipcMain.handle(IPC_CHANNELS.LIBRARY_DELETE_PROGRESS, this.handleDeleteProgress.bind(this));
+    ipcMain.handle(IPC_CHANNELS.LIBRARY_DELETE_MOVIE, this.handleDeleteMovie.bind(this));
+    ipcMain.handle(IPC_CHANNELS.LIBRARY_DELETE_SHOW, this.handleDeleteShow.bind(this));
+    ipcMain.handle(IPC_CHANNELS.LIBRARY_DELETE_SEASON, this.handleDeleteSeason.bind(this));
+    ipcMain.handle(IPC_CHANNELS.LIBRARY_DELETE_EPISODE, this.handleDeleteEpisode.bind(this));
 
     // Drive handlers
     ipcMain.handle(IPC_CHANNELS.DRIVES_GET_ALL, this.handleGetDrives.bind(this));
@@ -356,6 +363,10 @@ export class IpcHandler {
     try {
       const movies = await this.database.getMovies(driveId);
       console.log(`[IPC] getMovies returned ${movies.length} movies`);
+      // Debug: Log first movie to see if rottenTomatoesPosterPath is present
+      if (movies.length > 0) {
+        console.log('[IPC] Sample movie data:', JSON.stringify(movies[0], null, 2));
+      }
       return createIpcResponse(event.frameId.toString(), movies);
     } catch (error) {
       console.error('[IPC] getMovies error:', error);
@@ -367,6 +378,10 @@ export class IpcHandler {
     try {
       const shows = await this.database.getShows(driveId);
       console.log(`[IPC] getShows returned ${shows.length} shows`);
+      // Debug: Log first show to see if rottenTomatoesPosterPath is present
+      if (shows.length > 0) {
+        console.log('[IPC] Sample show data:', JSON.stringify(shows[0], null, 2));
+      }
       return createIpcResponse(event.frameId.toString(), shows);
     } catch (error) {
       console.error('[IPC] getShows error:', error);
@@ -435,6 +450,102 @@ export class IpcHandler {
       await this.database.setProgress(progress);
       return createIpcResponse(event.frameId.toString(), undefined);
     } catch (error) {
+      return createIpcResponse(event.frameId.toString(), undefined, error instanceof Error ? error.message : 'Unknown error');
+    }
+  }
+
+  private async handleDeleteProgress(event: Electron.IpcMainInvokeEvent, mediaId: string) {
+    try {
+      await this.database.deleteProgress(mediaId);
+      return createIpcResponse(event.frameId.toString(), { success: true });
+    } catch (error) {
+      return createIpcResponse(event.frameId.toString(), undefined, error instanceof Error ? error.message : 'Unknown error');
+    }
+  }
+
+  private async handleDeleteMovie(event: Electron.IpcMainInvokeEvent, movieId: string) {
+    try {
+      console.log(`[IPC] Deleting movie: ${movieId}`);
+      
+      // Get the movie first to delete its poster
+      const movies = await this.database.getMovies();
+      const movie = movies.find(m => m.id === movieId);
+      
+      if (movie) {
+        await this.posterFetcher.deleteMoviePoster(movie);
+      }
+      
+      await this.database.deleteMovie(movieId);
+      // Also delete any progress for this movie
+      await this.database.deleteProgress(movieId);
+      return createIpcResponse(event.frameId.toString(), { success: true });
+    } catch (error) {
+      console.error('[IPC] Delete movie error:', error);
+      return createIpcResponse(event.frameId.toString(), undefined, error instanceof Error ? error.message : 'Unknown error');
+    }
+  }
+
+  private async handleDeleteShow(event: Electron.IpcMainInvokeEvent, showId: string) {
+    try {
+      console.log(`[IPC] Deleting show: ${showId}`);
+      
+      // Get the show first to delete its poster
+      const shows = await this.database.getShows();
+      const show = shows.find(s => s.id === showId);
+      
+      if (show) {
+        await this.posterFetcher.deleteShowPoster(show);
+      }
+      
+      // Get all episodes for this show to delete their progress
+      const episodes = await this.database.getEpisodes(showId);
+      for (const episode of episodes) {
+        await this.database.deleteProgress(episode.id);
+      }
+      
+      // Delete the show (this will cascade to seasons and episodes)
+      await this.database.deleteShow(showId);
+      
+      return createIpcResponse(event.frameId.toString(), { success: true });
+    } catch (error) {
+      console.error('[IPC] Delete show error:', error);
+      return createIpcResponse(event.frameId.toString(), undefined, error instanceof Error ? error.message : 'Unknown error');
+    }
+  }
+
+  private async handleDeleteSeason(event: Electron.IpcMainInvokeEvent, seasonId: string) {
+    try {
+      console.log(`[IPC] Deleting season: ${seasonId}`);
+      
+      // Get all episodes for this season to delete their progress
+      const episodes = await this.database.getEpisodesBySeason(seasonId);
+      for (const episode of episodes) {
+        await this.database.deleteProgress(episode.id);
+      }
+      
+      // Delete the season (this will cascade to episodes)
+      await this.database.deleteSeason(seasonId);
+      
+      return createIpcResponse(event.frameId.toString(), { success: true });
+    } catch (error) {
+      console.error('[IPC] Delete season error:', error);
+      return createIpcResponse(event.frameId.toString(), undefined, error instanceof Error ? error.message : 'Unknown error');
+    }
+  }
+
+  private async handleDeleteEpisode(event: Electron.IpcMainInvokeEvent, episodeId: string) {
+    try {
+      console.log(`[IPC] Deleting episode: ${episodeId}`);
+      
+      // Delete episode progress
+      await this.database.deleteProgress(episodeId);
+      
+      // Delete the episode
+      await this.database.deleteEpisode(episodeId);
+      
+      return createIpcResponse(event.frameId.toString(), { success: true });
+    } catch (error) {
+      console.error('[IPC] Delete episode error:', error);
       return createIpcResponse(event.frameId.toString(), undefined, error instanceof Error ? error.message : 'Unknown error');
     }
   }

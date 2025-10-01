@@ -2,21 +2,11 @@
  * Application constants and configuration
  */
 
-// Supported video file extensions (case-insensitive)
-export const VIDEO_EXTENSIONS = [
-  '.mkv',
-  '.mp4',
-  '.m4v',
-  '.mov',
-  '.avi',
-  '.ts',
-  '.mts',
-  '.m2ts',
-  '.wmv',
-  '.flv',
-  '.webm',
-  '.hevc',
-] as const;
+// Import from centralized media extensions module
+import { VIDEO_EXTENSIONS as PLAYABLE_EXTENSIONS_ARRAY } from '../common/media/extensions.js';
+
+// Re-export for backwards compatibility
+export const VIDEO_EXTENSIONS = PLAYABLE_EXTENSIONS_ARRAY;
 
 // Supported subtitle file extensions (case-insensitive)
 export const SUBTITLE_EXTENSIONS = [
