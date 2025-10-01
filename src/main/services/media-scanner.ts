@@ -253,11 +253,10 @@ export class MediaScanner extends EventEmitter {
         extension: extname(primaryVideoPath),
       };
 
-      // Movie ID should be based on the folder only, not the video file
-      // This ensures the same movie entry is updated when files change
-      const folderStats = statSync(folderPath);
+      // Movie ID should be based on the folder path only for consistent IDs across scans
+      // This ensures the same movie entry is reused when rescanning
       const movie: Movie = {
-        id: generateMediaId(drive.id, folderPath, 0, folderStats.mtimeMs),
+        id: generateMediaId(drive.id, folderPath, 0, 0), // Use 0 for consistent IDs
         title,
         year,
         path: normalizePath(folderPath),
@@ -325,7 +324,7 @@ export class MediaScanner extends EventEmitter {
     const artwork = findArtworkFiles(showFolderPath, showFiles);
     
     const show: Show = {
-      id: generateMediaId(drive.id, showFolderPath, 0, Date.now()),
+      id: generateMediaId(drive.id, showFolderPath, 0, 0), // Use 0 for consistent IDs across scans
       title: showFolderName,
       path: normalizePath(showFolderPath),
       driveId: drive.id,
@@ -377,7 +376,7 @@ export class MediaScanner extends EventEmitter {
     if (looseVideoFiles.length > 0) {
       const defaultSeasonPath = showFolderPath;
       const defaultSeason: Season = {
-        id: generateMediaId(drive.id, defaultSeasonPath + '/season1', 0, Date.now()),
+        id: generateMediaId(drive.id, defaultSeasonPath + '/season1', 0, 0), // Use 0 for consistent IDs
         showId: show.id,
         seasonNumber: 1,
         title: 'Season 1',
@@ -416,7 +415,7 @@ export class MediaScanner extends EventEmitter {
     const artwork = findArtworkFiles(seasonPath, seasonFiles);
     
     const season: Season = {
-      id: generateMediaId(drive.id, seasonPath, 0, Date.now()),
+      id: generateMediaId(drive.id, seasonPath, 0, 0), // Use 0 for consistent IDs
       showId: show.id,
       seasonNumber,
       title: seasonName,

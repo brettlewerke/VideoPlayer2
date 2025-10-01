@@ -233,7 +233,7 @@ export const useAppStore = create<AppStore>()(
       
       // Async Actions
       loadLibrary: async () => {
-        const { setLoading, setMovies, setShows, setContinueWatching, setRecentlyAdded, setDrives } = get();
+        const { setLoading, setMovies, setShows, setSeasons, setEpisodes, setContinueWatching, setRecentlyAdded, setDrives } = get();
         const api = getAPI();
         
         if (!api) {
@@ -269,6 +269,40 @@ export const useAppStore = create<AppStore>()(
           
           setMovies(moviesRes || []);
           setShows(showsRes || []);
+          
+          // Load all seasons and episodes for all shows
+          const allSeasons: Season[] = [];
+          const allEpisodes: Episode[] = [];
+          
+          if (showsRes && showsRes.length > 0) {
+            console.log(`[Store] Loading seasons/episodes for ${showsRes.length} shows...`);
+            for (const show of showsRes) {
+              try {
+                const seasons = await api.library.getSeasons(show.id);
+                if (seasons && seasons.length > 0) {
+                  allSeasons.push(...seasons);
+                  
+                  // Load episodes for each season
+                  for (const season of seasons) {
+                    try {
+                      const episodes = await api.library.getEpisodes(season.id);
+                      if (episodes && episodes.length > 0) {
+                        allEpisodes.push(...episodes);
+                      }
+                    } catch (error) {
+                      console.error(`[Store] Failed to load episodes for season ${season.id}:`, error);
+                    }
+                  }
+                }
+              } catch (error) {
+                console.error(`[Store] Failed to load seasons for show ${show.id}:`, error);
+              }
+            }
+            console.log(`[Store] Loaded ${allSeasons.length} seasons and ${allEpisodes.length} episodes`);
+          }
+          
+          setSeasons(allSeasons);
+          setEpisodes(allEpisodes);
           setContinueWatching(continueWatchingRes || []);
           setRecentlyAdded(recentlyAddedRes || []);
           
@@ -282,7 +316,7 @@ export const useAppStore = create<AppStore>()(
             set({ status: 'idle', isLoading: false });
           }
           
-          console.log(`[Store] Loaded library: ${(drivesRes || []).length} drives, ${(moviesRes || []).length} movies, ${(showsRes || []).length} shows`);
+          console.log(`[Store] Loaded library: ${(drivesRes || []).length} drives, ${(moviesRes || []).length} movies, ${(showsRes || []).length} shows, ${allSeasons.length} seasons, ${allEpisodes.length} episodes`);
         } catch (error) {
           console.error('[Store] Failed to load library:', error);
           set({ status: 'error', errorMessage: String(error), isLoading: false });
