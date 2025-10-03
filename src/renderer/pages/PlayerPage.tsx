@@ -34,9 +34,40 @@ export function PlayerPage() {
     isPlayerLoading 
   });
 
+  // Log when video path changes
+  React.useEffect(() => {
+    if (videoPath) {
+      console.log('[PlayerPage] 🎬 Video path set:', videoPath);
+      console.log('[PlayerPage] 📝 Expected file protocol URL:', `file://${videoPath}`);
+      
+      // Check codec support
+      if (typeof MediaSource !== 'undefined' && MediaSource.isTypeSupported) {
+        console.group('[PlayerPage] 🔍 Codec Support Check');
+        const codecs = [
+          { name: 'H.264 + AAC', mime: 'video/mp4; codecs="avc1.42E01E, mp4a.40.2"' },
+          { name: 'H.264 + AC3', mime: 'video/mp4; codecs="avc1.42E01E, ac-3"' },
+          { name: 'H.264 + E-AC3', mime: 'video/mp4; codecs="avc1.42E01E, ec-3"' },
+          { name: 'AC3 Audio Only', mime: 'audio/mp4; codecs="ac-3"' },
+          { name: 'E-AC3 Audio Only', mime: 'audio/mp4; codecs="ec-3"' },
+          { name: 'AAC Audio Only', mime: 'audio/mp4; codecs="mp4a.40.2"' },
+        ];
+        
+        codecs.forEach(({ name, mime }) => {
+          const supported = MediaSource.isTypeSupported(mime);
+          console.log(`${supported ? '✅' : '❌'} ${name}: ${mime}`);
+        });
+        console.groupEnd();
+      }
+    }
+  }, [videoPath]);
+
   // HTML5 video ref
   const videoRef = React.useRef<HTMLVideoElement>(null);
   const lastSavedPositionRef = React.useRef<number>(0);
+  const codecCheckTimerRef = React.useRef<number | null>(null);
+  const hasAttemptedFallbackRef = React.useRef<boolean>(false);
+  const [fallbackNotification, setFallbackNotification] = React.useState<string | null>(null);
+  const [codecWarning, setCodecWarning] = React.useState<string | null>(null);
 
   // Helper function to save progress
   const saveProgress = React.useCallback(async (currentPosition: number, totalDuration: number) => {
@@ -71,6 +102,141 @@ export function PlayerPage() {
       console.error('[PlayerPage] Failed to save progress:', error);
     }
   }, [currentMedia, currentMovie]);
+
+  // Function to fallback to external player
+  const fallbackToExternalPlayer = React.useCallback(async (reason: string) => {
+    if (hasAttemptedFallbackRef.current || !videoPath || !currentMedia) {
+      return;
+    }
+
+    console.warn('[PlayerPage] 🔄 Codec issue detected, falling back to external player');
+    console.warn('[PlayerPage] Reason:', reason);
+    
+    hasAttemptedFallbackRef.current = true;
+
+    // Show notification to user
+    setFallbackNotification('Codec not supported. Launching external player...');
+
+    try {
+      // Stop HTML5 video
+      const video = videoRef.current;
+      if (video) {
+        video.pause();
+        video.src = '';
+      }
+
+      // Get current position for resume
+      const currentPosition = position || 0;
+
+      console.log('[PlayerPage] Launching external player with position:', currentPosition);
+      
+      // Call player.start with forceExternal flag
+      const result = await (window as any).HPlayerAPI.player.start({
+        path: videoPath,
+        forceExternal: true,
+        startOptions: {
+          position: currentPosition,
+          autoplay: true
+        }
+      });
+
+      console.log('[PlayerPage] External player fallback result:', result);
+
+      if (result.success && result.data.useExternalPlayer) {
+        // Update store to reflect external player usage
+        useAppStore.getState().setUseExternalPlayer(true);
+        console.log('[PlayerPage] ✅ Successfully switched to external player');
+        setFallbackNotification('Playing in external player');
+        setTimeout(() => setFallbackNotification(null), 3000);
+      } else {
+        console.error('[PlayerPage] ❌ External player fallback failed:', result);
+        setFallbackNotification('External player not available. Video may not play correctly.');
+        setTimeout(() => setFallbackNotification(null), 5000);
+      }
+    } catch (error) {
+      console.error('[PlayerPage] Failed to fallback to external player:', error);
+      setFallbackNotification('Failed to launch external player');
+      setTimeout(() => setFallbackNotification(null), 5000);
+    }
+  }, [videoPath, currentMedia, position]);
+
+  // Detect codec issues and auto-fallback
+  React.useEffect(() => {
+    const video = videoRef.current;
+    if (!video || useExternalPlayer || !videoPath || hasAttemptedFallbackRef.current) {
+      return;
+    }
+
+    // Reset fallback flag when video changes
+    hasAttemptedFallbackRef.current = false;
+
+    // Check for codec issues after video starts loading
+    const checkCodecIssues = () => {
+      if (codecCheckTimerRef.current) {
+        window.clearTimeout(codecCheckTimerRef.current);
+      }
+
+      codecCheckTimerRef.current = window.setTimeout(() => {
+        if (!video || hasAttemptedFallbackRef.current) return;
+
+        const hasVideo = video.videoWidth > 0 && video.videoHeight > 0;
+        const webkitAudioDecodedByteCount = (video as any).webkitAudioDecodedByteCount;
+        const mozHasAudio = (video as any).mozHasAudio;
+        
+        // Check if we're trying to play but have issues
+        const hasAudio = mozHasAudio !== false && (webkitAudioDecodedByteCount === undefined || webkitAudioDecodedByteCount > 0);
+        const hasValidDuration = video.duration && video.duration > 0 && !isNaN(video.duration);
+
+        console.log('[PlayerPage] 🔍 Codec check:', {
+          hasVideo,
+          hasAudio,
+          hasValidDuration,
+          videoWidth: video.videoWidth,
+          videoHeight: video.videoHeight,
+          webkitAudioDecodedByteCount,
+          mozHasAudio,
+          duration: video.duration,
+          readyState: video.readyState,
+          networkState: video.networkState
+        });
+
+        // Determine if there's a codec issue
+        let codecIssue = false;
+        let reason = '';
+
+        if (hasValidDuration && video.readyState >= 1) {
+          // Video has loaded metadata
+          if (!hasVideo) {
+            codecIssue = true;
+            reason = 'No video stream detected - video codec may not be supported';
+          } else if (!hasAudio && webkitAudioDecodedByteCount === 0) {
+            codecIssue = true;
+            reason = 'No audio stream detected - audio codec may not be supported';
+          }
+        }
+
+        if (codecIssue) {
+          console.warn('[PlayerPage] ⚠️ Codec issue detected:', reason);
+          fallbackToExternalPlayer(reason);
+        }
+      }, 2000); // Wait 2 seconds after canplay event
+    };
+
+    // Listen for canplay event to check codecs
+    const handleCanPlayCheck = () => {
+      console.log('[PlayerPage] 🎬 Can play event - scheduling codec check');
+      checkCodecIssues();
+    };
+
+    video.addEventListener('canplay', handleCanPlayCheck);
+
+    return () => {
+      video.removeEventListener('canplay', handleCanPlayCheck);
+      if (codecCheckTimerRef.current) {
+        window.clearTimeout(codecCheckTimerRef.current);
+      }
+    };
+  }, [videoPath, useExternalPlayer, fallbackToExternalPlayer]);
 
   // Separate effect to handle initial seek to resume position
   const hasSeenRef = React.useRef(false);
@@ -141,12 +307,110 @@ export function PlayerPage() {
       console.error('[PlayerPage] HTML5 video error:', (e.target as HTMLVideoElement).error);
     };
 
+    // Log audio and video track information
+    const logMediaTracks = () => {
+      console.group('[PlayerPage] 🎬 Media Track Analysis');
+      console.log('Video Path:', videoPath);
+      console.log('Video Element:', video);
+      
+      // Video track info (using any to access videoTracks - not all browsers fully support this API)
+      const videoTracks = (video as any).videoTracks;
+      console.log('🎥 Video Tracks Count:', videoTracks?.length || 0);
+      if (videoTracks && videoTracks.length > 0) {
+        for (let i = 0; i < videoTracks.length; i++) {
+          const track = videoTracks[i];
+          console.log(`  Video Track ${i}:`, {
+            id: track.id,
+            kind: track.kind,
+            label: track.label,
+            language: track.language,
+            selected: track.selected
+          });
+        }
+      } else {
+        console.warn('⚠️ NO VIDEO TRACKS DETECTED (or API not supported)');
+      }
+      
+      // Audio track info
+      const audioTracks = (video as any).audioTracks;
+      console.log('🔊 Audio Tracks Count:', audioTracks?.length || 0);
+      if (audioTracks && audioTracks.length > 0) {
+        for (let i = 0; i < audioTracks.length; i++) {
+          const track = audioTracks[i];
+          console.log(`  Audio Track ${i}:`, {
+            id: track.id,
+            kind: track.kind,
+            label: track.label,
+            language: track.language,
+            enabled: track.enabled
+          });
+        }
+      } else {
+        console.warn('⚠️ NO AUDIO TRACKS DETECTED (or API not supported)');
+      }
+      
+      // Video element properties
+      console.log('📊 Video Element Properties:', {
+        duration: video.duration,
+        videoWidth: video.videoWidth,
+        videoHeight: video.videoHeight,
+        readyState: video.readyState,
+        networkState: video.networkState,
+        currentSrc: video.currentSrc,
+        muted: video.muted,
+        volume: video.volume,
+        paused: video.paused
+      });
+      
+      // Check for actual video/audio rendering
+      console.log('🖼️ Video Dimensions:', {
+        videoWidth: video.videoWidth,
+        videoHeight: video.videoHeight,
+        hasVideo: video.videoWidth > 0 && video.videoHeight > 0
+      });
+      
+      // Media source info
+      if (video.currentSrc) {
+        console.log('📁 Media Source:', video.currentSrc);
+      }
+      
+      // Check if video has audio by attempting to read mozHasAudio or webkitAudioDecodedByteCount
+      const mozHasAudio = (video as any).mozHasAudio;
+      const webkitAudioDecodedByteCount = (video as any).webkitAudioDecodedByteCount;
+      if (mozHasAudio !== undefined) {
+        console.log('🔊 Has Audio (Mozilla):', mozHasAudio);
+      }
+      if (webkitAudioDecodedByteCount !== undefined) {
+        console.log('🔊 Audio Decoded Bytes (WebKit):', webkitAudioDecodedByteCount);
+      }
+      
+      console.groupEnd();
+    };
+
+    const handleLoadedMetadata = () => {
+      console.log('[PlayerPage] 📺 Video metadata loaded');
+      logMediaTracks();
+    };
+
+    const handleLoadedData = () => {
+      console.log('[PlayerPage] 📦 Video data loaded (can render first frame)');
+      logMediaTracks();
+    };
+
+    const handleCanPlay = () => {
+      console.log('[PlayerPage] ✅ Video can start playing');
+      logMediaTracks();
+    };
+
     video.addEventListener('play', handlePlay);
     video.addEventListener('pause', handlePause);
     video.addEventListener('timeupdate', handleTimeUpdate);
     video.addEventListener('durationchange', handleDurationChange);
     video.addEventListener('volumechange', handleVolumeChange);
     video.addEventListener('error', handleError);
+    video.addEventListener('loadedmetadata', handleLoadedMetadata);
+    video.addEventListener('loadeddata', handleLoadedData);
+    video.addEventListener('canplay', handleCanPlay);
 
     // Auto-play
     video.play().catch(err => console.error('[PlayerPage] Auto-play failed:', err));
@@ -164,6 +428,9 @@ export function PlayerPage() {
       video.removeEventListener('durationchange', handleDurationChange);
       video.removeEventListener('volumechange', handleVolumeChange);
       video.removeEventListener('error', handleError);
+      video.removeEventListener('loadedmetadata', handleLoadedMetadata);
+      video.removeEventListener('loadeddata', handleLoadedData);
+      video.removeEventListener('canplay', handleCanPlay);
     };
   }, [useExternalPlayer, videoPath, setIsPlaying, setPosition, setDuration, setVolume, setIsMuted, saveProgress]);
 
@@ -304,6 +571,16 @@ export function PlayerPage() {
 
   return (
     <div className="h-full bg-black relative group">
+      {/* Fallback Notification */}
+      {fallbackNotification && (
+        <div className="absolute top-20 left-1/2 transform -translate-x-1/2 z-50 
+          bg-blue-600 text-white px-6 py-3 rounded-lg shadow-lg
+          animate-fade-in flex items-center space-x-3">
+          <div className="text-2xl">🔄</div>
+          <div className="font-semibold">{fallbackNotification}</div>
+        </div>
+      )}
+
       {/* Loading Overlay */}
       {isPlayerLoading && (
         <div className="absolute inset-0 bg-black/80 flex items-center justify-center z-50">

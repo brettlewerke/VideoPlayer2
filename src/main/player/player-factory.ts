@@ -82,9 +82,18 @@ export class PlayerFactory {
   }
 
   private registerFactories(): void {
-    // Get vendor binary paths from manifest
-    const vendorPath = join(process.cwd(), 'vendor');
+    // Get vendor binary paths - check both development and production locations
+    const devVendorPath = join(process.cwd(), 'vendor');
+    const prodVendorPath = app.isPackaged 
+      ? join(process.resourcesPath, 'vendor')
+      : devVendorPath;
+    
+    const vendorPath = existsSync(prodVendorPath) ? prodVendorPath : devVendorPath;
     const manifestPath = join(vendorPath, 'manifest.json');
+    
+    console.log(`[PlayerFactory] Vendor path: ${vendorPath}`);
+    console.log(`[PlayerFactory] App packaged: ${app.isPackaged}`);
+    console.log(`[PlayerFactory] Resources path: ${process.resourcesPath}`);
     
     let mpvPath: string | undefined;
     let libvlcAvailable = false;

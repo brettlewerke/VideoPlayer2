@@ -93,9 +93,9 @@ export class IpcHandler {
   }
 
   // Player handlers
-  private async handlePlayerStart(event: Electron.IpcMainInvokeEvent, payload: { path: string; start?: number }) {
+  private async handlePlayerStart(event: Electron.IpcMainInvokeEvent, payload: { path: string; start?: number; forceExternal?: boolean }) {
     try {
-      console.log('[IPC] Player start requested:', payload.path);
+      console.log('[IPC] Player start requested:', payload.path, 'forceExternal:', payload.forceExternal);
       
       if (!validatePath(payload.path)) {
         console.error('[IPC] Invalid file path:', payload.path);
@@ -114,40 +114,87 @@ export class IpcHandler {
       this.currentMediaType = media?.type || null;
       console.log('[IPC] Media lookup result:', media);
 
-      try {
-        // Try to create external player first
-        if (this.player) {
-          console.log('[IPC] Cleaning up existing player');
-          await this.player.cleanup();
+      // AUTO-DETECT CODECS - Check if file requires external player
+      let requiresExternalPlayer = payload.forceExternal || false;
+      
+      if (!payload.forceExternal) {
+        console.log('[IPC] 🔍 Detecting codecs...');
+        const { codecDetector } = await import('../services/CodecDetector');
+        const codecInfo = await codecDetector.detectCodecs(payload.path);
+        
+        console.log('[IPC] Codec detection result:', codecInfo);
+        
+        if (codecInfo.requiresExternalPlayer) {
+          console.log(`[IPC] ⚠️  Unsupported codec detected: ${codecInfo.audioCodec}`);
+          console.log('[IPC] 🎯 Auto-switching to external player');
+          requiresExternalPlayer = true;
+        } else {
+          console.log(`[IPC] ✅ Supported codecs: video=${codecInfo.videoCodec}, audio=${codecInfo.audioCodec}`);
+          console.log('[IPC] 🎬 Using HTML5 video player');
         }
-        
-        console.log('[IPC] Creating new player instance');
-        this.player = this.playerFactory.createPlayer();
-        
-        console.log('[IPC] Setting up player events');
-        this.setupPlayerEvents();
-
-        console.log('[IPC] Loading media into player');
-        await this.player.loadMedia(payload.path, { start: payload.start });
-        console.log('[IPC] Player started successfully');
-        
-        return createIpcResponse(event.frameId.toString(), { useExternalPlayer: true });
-      } catch (playerError) {
-        // External player not available, fall back to HTML5 video
-        const errorMessage = playerError instanceof Error ? playerError.message : 'Unknown player error';
-        console.log('[IPC] External player not available, using HTML5 video:', errorMessage);
-        
-        // Send the video path to renderer for HTML5 playback
-        const videoData = {
-          useExternalPlayer: false,
-          videoPath: payload.path,
-          startTime: payload.start || 0,
-          mediaId: this.currentMediaId,
-          mediaType: this.currentMediaType
-        };
-        
-        return createIpcResponse(event.frameId.toString(), videoData);
       }
+
+      // If forceExternal is true OR codecs require it, try external player
+      if (requiresExternalPlayer) {
+        console.log('[IPC] External player required for unsupported codec');
+        
+        try {
+          if (this.player) {
+            console.log('[IPC] Cleaning up existing player');
+            await this.player.cleanup();
+          }
+          
+          console.log('[IPC] Creating new external player instance');
+          this.player = this.playerFactory.createPlayer();
+          
+          console.log('[IPC] Setting up player events');
+          this.setupPlayerEvents();
+
+          console.log('[IPC] Loading media into external player');
+          await this.player.loadMedia(payload.path, { start: payload.start });
+          console.log('[IPC] ✅ External player started successfully');
+          
+          return createIpcResponse(event.frameId.toString(), { useExternalPlayer: true });
+        } catch (externalPlayerError) {
+          // External player not available, fall back to HTML5 with warning
+          const errorMessage = externalPlayerError instanceof Error ? externalPlayerError.message : 'Unknown error';
+          console.warn('[IPC] ⚠️  External player not available:', errorMessage);
+          console.warn('[IPC] ⚠️  Falling back to HTML5 video - file may play without audio!');
+          console.warn('[IPC] 💡 Install MPV (https://mpv.io/) or VLC to enable full codec support');
+          
+          // Send notification to renderer
+          const { codecDetector } = await import('../services/CodecDetector');
+          const codecInfo = await codecDetector.detectCodecs(payload.path);
+          const codecName = codecInfo.audioCodec?.toUpperCase() || 'unsupported';
+          
+          // Return HTML5 fallback with warning message
+          const videoData = {
+            useExternalPlayer: false,
+            videoPath: payload.path,
+            startTime: payload.start || 0,
+            mediaId: this.currentMediaId,
+            mediaType: this.currentMediaType,
+            codecWarning: `This video uses ${codecName} audio which is not supported. Video will play without audio. Install MPV (https://mpv.io/) for full codec support.`
+          };
+          
+          return createIpcResponse(event.frameId.toString(), videoData);
+        }
+      }
+
+      // Codecs are supported - use HTML5 video player
+      // OR external player failed - use HTML5 as fallback
+      console.log('[IPC] Using HTML5 video player for supported codecs');
+      
+      // Send the video path to renderer for HTML5 playback
+      const videoData = {
+        useExternalPlayer: false,
+        videoPath: payload.path,
+        startTime: payload.start || 0,
+        mediaId: this.currentMediaId,
+        mediaType: this.currentMediaType
+      };
+      
+      return createIpcResponse(event.frameId.toString(), videoData);
     } catch (error) {
       console.error('[IPC] Player start failed:', error);
       return createIpcResponse(event.frameId.toString(), undefined, error instanceof Error ? error.message : 'Unknown error');
