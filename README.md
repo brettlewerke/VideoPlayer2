@@ -38,7 +38,7 @@ Hoser Video can be run in multiple ways depending on your needs. Choose the meth
 **Best for**: Permanent installation with shortcuts and uninstaller
 
 #### Windows - NSIS Installer
-1. **Download**: `Hoser-Video-Setup-1.2.0.exe`
+1. **Download**: `Hoser-Video-Setup-x.x.x.exe`
 2. **Install**: 
    - Run the installer executable
    - Follow the installation wizard
@@ -49,7 +49,7 @@ Hoser Video can be run in multiple ways depending on your needs. Choose the meth
 4. **Uninstall**: Via Windows Settings or Start Menu uninstaller
 
 #### macOS - DMG Package
-1. **Download**: `Hoser-Video-1.2.0.dmg` (choose x64 or arm64 for Apple Silicon)
+1. **Download**: `Hoser-Video-x.x.x.dmg` (choose x64 or arm64 for Apple Silicon)
 2. **Install**:
    - Open the DMG file
    - Drag Hoser Video to the Applications folder
@@ -58,10 +58,10 @@ Hoser Video can be run in multiple ways depending on your needs. Choose the meth
 4. **Uninstall**: Drag Hoser Video to Trash from Applications folder
 
 #### Linux - DEB Package (Debian/Ubuntu)
-1. **Download**: `hoser-video-1.2.0-x64.deb`
+1. **Download**: `hoser-video-x.x.x-x64.deb`
 2. **Install**: 
    ```bash
-   sudo dpkg -i hoser-video-1.2.0-x64.deb
+   sudo dpkg -i hoser-video-x.x.x-x64.deb
    # Or double-click in file manager
    ```
 3. **Launch**: Find Hoser Video in application menu
@@ -71,11 +71,11 @@ Hoser Video can be run in multiple ways depending on your needs. Choose the meth
    ```
 
 #### Linux - AppImage (Universal)
-1. **Download**: `hoser-video-1.2.0-x64.AppImage`
+1. **Download**: `hoser-video-x.x.x-x64.AppImage`
 2. **Run**:
    ```bash
-   chmod +x hoser-video-1.2.0-x64.AppImage
-   ./hoser-video-1.2.0-x64.AppImage
+   chmod +x hoser-video-x.x.x-x64.AppImage
+   ./hoser-video-x.x.x-x64.AppImage
    ```
 3. No installation needed - single executable file
 
@@ -296,9 +296,11 @@ npm run rebuild            # Rebuilds better-sqlite3 for Electron
 
 ```bash
 # Start development mode (hot reload)
-npm run dev                # Starts both renderer (Vite) and main process
+npm run dev                # Starts ONLY Vite dev server (safer, less resource-intensive)
+npm run dev:full           # Starts both renderer (Vite) AND Electron (resource-intensive)
 npm run dev:renderer       # Start only Vite dev server (port 3000)
-npm run dev:main           # Start only Electron main process
+npm run dev:main           # Compile TypeScript + start Electron main process
+npm run dev:electron       # Start Electron only (requires TypeScript already compiled)
 
 # Test playback with a video file
 npm run dev:play           # Interactive playback test

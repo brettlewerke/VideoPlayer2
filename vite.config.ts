@@ -22,5 +22,7 @@ export default defineConfig({
   },
   server: {
     port: 3000,
+    host: '127.0.0.1', // Explicitly bind to IPv4 localhost
+    strictPort: true,   // Fail if port 3000 is already in use
   },
 });

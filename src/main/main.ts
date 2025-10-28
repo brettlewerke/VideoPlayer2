@@ -319,16 +319,17 @@ class VideoPlayerApp {
       const req = request({
         hostname: '127.0.0.1', // Use IPv4 explicitly instead of 'localhost'
         port: port,
-        path: '/',
+        path: '/index.html', // Request index.html instead of root
         method: 'GET',
         timeout: 1000,
         family: 4 // Force IPv4
       }, (res) => {
         console.log(`[dev] Port ${port} returned status ${res.statusCode}`);
         
-        // Accept successful responses and some dev server specific codes
+        // Accept successful responses, 404 (Vite serves specific routes), and some dev server specific codes
         if (res.statusCode && (
           (res.statusCode >= 200 && res.statusCode < 300) || 
+          res.statusCode === 404 || // Vite returns 404 for / but is still running
           res.statusCode === 426 || // Upgrade Required - common with Vite dev server
           res.statusCode === 304    // Not Modified
         )) {
