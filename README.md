@@ -137,11 +137,18 @@ Hoser Video automatically scans for media in `Movies/` and `TV Shows/` folders o
 
 ```
 Any Drive/
+├── .hoser-video/                      # Auto-created database & cache folder
+│   ├── media.db                       # Media library database
+│   └── posters/                       # Downloaded movie/show posters
+│       ├── Movie_Title_2023/
+│       │   └── poster.jpg
+│       └── Show_Name/
+│           └── poster.jpg
 ├── Movies/
 │   ├── Movie Title (2023)/
 │   │   ├── Movie Title (2023).mkv
-│   │   ├── poster.jpg          # Optional artwork
-│   │   └── backdrop.jpg        # Optional backdrop
+│   │   ├── poster.jpg                 # Optional local artwork
+│   │   └── backdrop.jpg               # Optional local backdrop
 │   └── Another Movie (2022)/
 │       └── Another Movie (2022).mp4
 └── TV Shows/
@@ -149,12 +156,31 @@ Any Drive/
     │   ├── Season 1/
     │   │   ├── S01E01 - Episode Title.mkv
     │   │   └── S01E02 - Episode Title.mkv
-    │   ├── poster.jpg
-    │   └── backdrop.jpg
+    │   ├── poster.jpg                 # Optional local artwork
+    │   └── backdrop.jpg               # Optional local backdrop
     └── Another Show/
         ├── S01E01.mkv
         └── S01E02.mkv
 ```
+
+**Note:** 
+- The `.hoser-video` folder is automatically created on each drive
+- Posters are automatically downloaded from OMDb API and stored in `.hoser-video/posters/`
+- Each movie/show gets its own folder inside `posters/` for organization
+- Local artwork (poster.jpg, backdrop.jpg) in movie/show folders is still supported as a fallback
+- The `.hoser-video` folder also contains the SQLite database for that drive's media
+
+### The `.hoser-video` Folder
+
+Hoser Video creates a hidden `.hoser-video` folder on each drive to store:
+
+- **`media.db`** - SQLite database containing metadata for movies and shows on this drive
+- **`posters/`** - Automatically downloaded movie and TV show posters from OMDb API
+  - Each movie/show gets its own subfolder (e.g., `Inception_2010/poster.jpg`)
+  - Posters are cached locally to avoid re-downloading
+  - Only fetches posters when missing (respects OMDb's 1,000 requests/day limit)
+
+This folder is automatically managed and can be safely deleted if you want to reset the database or clear cached posters. The app will recreate it and rescan your media on the next launch.
 
 ### Supported Formats
 
@@ -282,8 +308,11 @@ npm run dev:play <path>    # Test specific video file
 #### Building & Packaging
 
 ```bash
+# Clean old builds (automatically runs before build)
+npm run clean              # Remove all build artifacts and old packages
+
 # Build everything (renderer + main + package)
-npm run build              # Full production build with installer
+npm run build              # Full production build with installer (auto-cleans first)
 
 # Build individual components
 npm run build:renderer     # Build React frontend only (Vite)
@@ -291,7 +320,7 @@ npm run build:main         # Build Electron main process only (TypeScript)
 npm run package            # Package into executable (requires build first)
 
 # Build with version update (combined command)
-npm run build:version 1.5.0  # Updates version AND builds
+npm run build:version 1.5.0  # Updates version AND builds (auto-cleans first)
 npm run set-version 1.5.0    # Updates version numbers only (no build)
 
 # Distribution builds
@@ -360,6 +389,7 @@ npm run generate-icons     # Generate app icons from source
 | Task | Command | Output |
 |------|---------|--------|
 | **Start dev mode** | `npm run dev` | Opens Electron with hot reload |
+| **Clean old builds** | `npm run clean` | Removes all build artifacts |
 | **Build installer** | `npm run build` | `dist-packages/Hoser-Video-Setup-X.X.X.exe` |
 | **Update version & build** | `npm run build:version 1.5.0` | Updates all version numbers + builds |
 | **Just update version** | `npm run set-version 1.5.0` | Updates version numbers only |
