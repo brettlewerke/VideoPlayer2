@@ -1,11 +1,10 @@
 /**
  * Poster Fetcher Service
- * Automatically fetches movie and TV show posters from Rotten Tomatoes
- * Downloads and stores them locally on each drive
+ * Automatically fetches movie and TV show posters from OMDb API
+ * Downloads and stores them locally on each drive in individual folders per movie/show
  */
 
-import { JSDOM } from 'jsdom';
-import { createWriteStream, existsSync, mkdirSync, unlinkSync } from 'fs';
+import { createWriteStream, existsSync, mkdirSync, unlinkSync, rmdirSync, readdirSync } from 'fs';
 import { join, basename } from 'path';
 import { get as httpsGet } from 'https';
 import { pipeline } from 'stream/promises';
@@ -20,7 +19,17 @@ interface PosterFetchResult {
   error?: string;
 }
 
+interface OMDbResponse {
+  Title: string;
+  Year: string;
+  Poster: string;
+  Response: string;
+  Error?: string;
+}
+
 export class PosterFetcher {
+  private readonly OMDB_API_KEY = '9eb1750b';
+  private readonly OMDB_BASE_URL = 'https://www.omdbapi.com/';
   private readonly USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
   private fetchQueue: Map<string, Promise<PosterFetchResult>> = new Map();
 
@@ -41,15 +50,13 @@ export class PosterFetcher {
   }
 
   /**
-   * Make an HTTPS GET request and return the response body as a string
+   * Make an HTTPS GET request and return the response body as JSON
    */
-  private async fetchHtml(url: string): Promise<string> {
+  private async fetchJson(url: string): Promise<any> {
     return new Promise((resolve, reject) => {
       httpsGet(url, {
         headers: {
           'User-Agent': this.USER_AGENT,
-          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-          'Accept-Language': 'en-US,en;q=0.5',
         }
       }, (response: IncomingMessage) => {
         // Handle redirects
@@ -61,7 +68,7 @@ export class PosterFetcher {
               const urlObj = new URL(url);
               redirectUrl = `${urlObj.protocol}//${urlObj.host}${redirectUrl}`;
             }
-            this.fetchHtml(redirectUrl).then(resolve).catch(reject);
+            this.fetchJson(redirectUrl).then(resolve).catch(reject);
             return;
           }
         }
@@ -77,7 +84,11 @@ export class PosterFetcher {
           data += chunk;
         });
         response.on('end', () => {
-          resolve(data);
+          try {
+            resolve(JSON.parse(data));
+          } catch (error) {
+            reject(new Error('Failed to parse JSON response'));
+          }
         });
       }).on('error', reject);
     });
@@ -135,7 +146,7 @@ export class PosterFetcher {
     console.log('[PosterFetcher] Starting to fetch missing posters...');
 
     try {
-      // Get all movies without rotten tomatoes posters
+      // Get all movies without posters
       const movies = await this.database.getMovies();
       const moviesNeedingPosters = movies.filter(m => !m.rottenTomatoesPosterPath);
 
@@ -143,8 +154,8 @@ export class PosterFetcher {
 
       for (const movie of moviesNeedingPosters) {
         await this.fetchMoviePoster(movie);
-        // Small delay to avoid overwhelming Rotten Tomatoes
-        await this.delay(1000);
+        // Small delay to respect API rate limits
+        await this.delay(250);
       }
 
       // Get all shows without posters
@@ -155,7 +166,7 @@ export class PosterFetcher {
 
       for (const show of showsNeedingPosters) {
         await this.fetchShowPoster(show);
-        await this.delay(1000);
+        await this.delay(250);
       }
 
       console.log('[PosterFetcher] Finished fetching posters');
@@ -189,19 +200,18 @@ export class PosterFetcher {
     try {
       console.log(`[PosterFetcher] Fetching poster for movie: ${movie.title}${movie.year ? ` (${movie.year})` : ''}`);
 
-      // Search Rotten Tomatoes
-      const searchUrl = this.buildRottenTomatoesUrl(movie.title, movie.year);
-      const posterUrl = await this.scrapePosterFromPage(searchUrl);
+      // Query OMDb API
+      const posterUrl = await this.fetchPosterFromOMDb(movie.title, movie.year, 'movie');
 
       if (!posterUrl) {
         console.log(`[PosterFetcher] No poster found for: ${movie.title}`);
         return { success: false, error: 'No poster found' };
       }
 
-      // Download and save poster with descriptive filename
+      // Download and save poster in movie-specific folder
       const sanitizedTitle = this.sanitizeFilename(movie.title);
-      const filename = `movie-${sanitizedTitle}-${movie.id}`;
-      const localPath = await this.downloadPoster(posterUrl, movie.driveId, filename);
+      const folderName = movie.year ? `${sanitizedTitle}_${movie.year}` : sanitizedTitle;
+      const localPath = await this.downloadPoster(posterUrl, movie.driveId, folderName, 'poster');
 
       if (!localPath) {
         return { success: false, error: 'Failed to download poster' };
@@ -242,19 +252,18 @@ export class PosterFetcher {
     try {
       console.log(`[PosterFetcher] Fetching poster for show: ${show.title}`);
 
-      // For TV shows, use /tv/ path instead of /m/
-      const searchUrl = this.buildRottenTomatoesTVUrl(show.title);
-      const posterUrl = await this.scrapePosterFromPage(searchUrl);
+      // Query OMDb API for TV series (shows don't have year in the type)
+      const posterUrl = await this.fetchPosterFromOMDb(show.title, undefined, 'series');
 
       if (!posterUrl) {
         console.log(`[PosterFetcher] No poster found for: ${show.title}`);
         return { success: false, error: 'No poster found' };
       }
 
-      // Download and save poster with descriptive filename
+      // Download and save poster in show-specific folder
       const sanitizedTitle = this.sanitizeFilename(show.title);
-      const filename = `show-${sanitizedTitle}-${show.id}`;
-      const localPath = await this.downloadPoster(posterUrl, show.driveId, filename);
+      const folderName = sanitizedTitle;
+      const localPath = await this.downloadPoster(posterUrl, show.driveId, folderName, 'poster');
 
       if (!localPath) {
         return { success: false, error: 'Failed to download poster' };
@@ -271,88 +280,50 @@ export class PosterFetcher {
   }
 
   /**
-   * Build Rotten Tomatoes URL for a movie
+   * Fetch poster URL from OMDb API
    */
-  private buildRottenTomatoesUrl(title: string, year?: number): string {
-    // Convert title to Rotten Tomatoes URL format
-    // Example: "Interstellar" -> "interstellar"
-    // Example: "The Matrix" -> "the_matrix"
-    const slug = title
-      .toLowerCase()
-      .replace(/[^a-z0-9\s]/g, '') // Remove special characters
-      .trim()
-      .replace(/\s+/g, '_'); // Replace spaces with underscores
-
-    return `https://www.rottentomatoes.com/m/${slug}`;
-  }
-
-  /**
-   * Build Rotten Tomatoes URL for a TV show
-   */
-  private buildRottenTomatoesTVUrl(title: string): string {
-    const slug = title
-      .toLowerCase()
-      .replace(/[^a-z0-9\s]/g, '')
-      .trim()
-      .replace(/\s+/g, '_');
-
-    return `https://www.rottentomatoes.com/tv/${slug}`;
-  }
-
-  /**
-   * Scrape poster URL from Rotten Tomatoes page
-   */
-  private async scrapePosterFromPage(url: string): Promise<string | null> {
+  private async fetchPosterFromOMDb(title: string, year?: number, type?: 'movie' | 'series'): Promise<string | null> {
     try {
-      console.log(`[PosterFetcher] Scraping: ${url}`);
-
-      const html = await this.fetchHtml(url);
-      const dom = new JSDOM(html);
-      const document = dom.window.document;
-
-      // Look for the poster image in rt-img element
-      const posterImg = document.querySelector('rt-img[slot="posterImage"]')?.getAttribute('src');
+      // Build OMDb API URL
+      let apiUrl = `${this.OMDB_BASE_URL}?apikey=${this.OMDB_API_KEY}&t=${encodeURIComponent(title)}`;
       
-      if (posterImg) {
-        console.log(`[PosterFetcher] Found poster via rt-img: ${posterImg}`);
-        return posterImg;
+      if (year) {
+        apiUrl += `&y=${year}`;
+      }
+      
+      if (type) {
+        apiUrl += `&type=${type}`;
       }
 
-      // Fallback: Look for other common poster selectors
-      const fallbackSelectors = [
-        'img[data-qa="poster-image"]',
-        'img.posterImage',
-        'img[alt*="poster"]',
-        '.poster img',
-        '[data-qa="poster"] img',
-      ];
+      console.log(`[PosterFetcher] Querying OMDb API for: ${title}`);
 
-      for (const selector of fallbackSelectors) {
-        const img = document.querySelector(selector)?.getAttribute('src');
-        if (img && img.includes('flixster')) {
-          console.log(`[PosterFetcher] Found poster via ${selector}: ${img}`);
-          return img;
-        }
+      const response = await this.fetchJson(apiUrl) as OMDbResponse;
+
+      if (response.Response === 'False') {
+        console.log(`[PosterFetcher] OMDb API error: ${response.Error || 'Unknown error'}`);
+        return null;
       }
 
-      console.log(`[PosterFetcher] No poster found on page: ${url}`);
-      return null;
+      if (!response.Poster || response.Poster === 'N/A') {
+        console.log(`[PosterFetcher] No poster available for: ${title}`);
+        return null;
+      }
+
+      console.log(`[PosterFetcher] Found poster via OMDb API: ${response.Poster}`);
+      return response.Poster;
     } catch (error: any) {
-      if (error.message?.includes('404')) {
-        console.log(`[PosterFetcher] Page not found (404): ${url}`);
-      } else {
-        console.error(`[PosterFetcher] Error scraping ${url}:`, error);
-      }
+      console.error(`[PosterFetcher] Error fetching from OMDb API:`, error);
       return null;
     }
   }
 
   /**
-   * Download poster image and save to drive
+   * Download poster image and save to drive in a dedicated folder
    */
   private async downloadPoster(
     posterUrl: string,
     driveId: string,
+    folderName: string,
     filename: string
   ): Promise<string | null> {
     try {
@@ -365,15 +336,15 @@ export class PosterFetcher {
         return null;
       }
 
-      // Create posters directory
-      const postersDir = join(drive.mountPath, '.hoser-video', 'posters');
-      if (!existsSync(postersDir)) {
-        mkdirSync(postersDir, { recursive: true });
+      // Create movie/show-specific directory inside .hoser-video/posters/
+      const posterDir = join(drive.mountPath, '.hoser-video', 'posters', folderName);
+      if (!existsSync(posterDir)) {
+        mkdirSync(posterDir, { recursive: true });
       }
 
       // Determine file extension from URL
       const ext = posterUrl.includes('.jpg') || posterUrl.includes('jpeg') ? '.jpg' : '.png';
-      const filePath = join(postersDir, `${filename}${ext}`);
+      const filePath = join(posterDir, `${filename}${ext}`);
 
       console.log(`[PosterFetcher] Downloading poster to: ${filePath}`);
 
@@ -389,29 +360,49 @@ export class PosterFetcher {
   }
 
   /**
-   * Delete poster file for a movie
+   * Delete poster folder for a movie
    */
   async deleteMoviePoster(movie: Movie): Promise<void> {
     if (movie.rottenTomatoesPosterPath && existsSync(movie.rottenTomatoesPosterPath)) {
       try {
-        unlinkSync(movie.rottenTomatoesPosterPath);
-        console.log(`[PosterFetcher] Deleted poster: ${movie.rottenTomatoesPosterPath}`);
+        // Get the parent folder (the movie-specific folder)
+        const posterFolder = join(movie.rottenTomatoesPosterPath, '..');
+        
+        // Delete the entire folder
+        if (existsSync(posterFolder)) {
+          const files = readdirSync(posterFolder);
+          for (const file of files) {
+            unlinkSync(join(posterFolder, file));
+          }
+          rmdirSync(posterFolder);
+          console.log(`[PosterFetcher] Deleted poster folder: ${posterFolder}`);
+        }
       } catch (error) {
-        console.error(`[PosterFetcher] Error deleting poster:`, error);
+        console.error(`[PosterFetcher] Error deleting poster folder:`, error);
       }
     }
   }
 
   /**
-   * Delete poster file for a show
+   * Delete poster folder for a show
    */
   async deleteShowPoster(show: Show): Promise<void> {
     if (show.rottenTomatoesPosterPath && existsSync(show.rottenTomatoesPosterPath)) {
       try {
-        unlinkSync(show.rottenTomatoesPosterPath);
-        console.log(`[PosterFetcher] Deleted poster: ${show.rottenTomatoesPosterPath}`);
+        // Get the parent folder (the show-specific folder)
+        const posterFolder = join(show.rottenTomatoesPosterPath, '..');
+        
+        // Delete the entire folder
+        if (existsSync(posterFolder)) {
+          const files = readdirSync(posterFolder);
+          for (const file of files) {
+            unlinkSync(join(posterFolder, file));
+          }
+          rmdirSync(posterFolder);
+          console.log(`[PosterFetcher] Deleted poster folder: ${posterFolder}`);
+        }
       } catch (error) {
-        console.error(`[PosterFetcher] Error deleting poster:`, error);
+        console.error(`[PosterFetcher] Error deleting poster folder:`, error);
       }
     }
   }

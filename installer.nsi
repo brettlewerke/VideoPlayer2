@@ -111,6 +111,10 @@ Section "Uninstall"
   Delete "$DESKTOP\H Player.lnk"
   RMDir /r "$SMPROGRAMS\H Player"
 
+  ; Remove .hoser-video database folders from all drives
+  DetailPrint "Removing database folders from all drives..."
+  nsExec::ExecToLog 'powershell -Command "Get-PSDrive -PSProvider FileSystem | Where-Object { $_.Root -match ''^[A-Z]:\\$$'' } | ForEach-Object { $path = Join-Path $_.Root ''.hoser-video''; if (Test-Path $path) { Remove-Item $path -Recurse -Force; Write-Host \"Removed $path\" } }"'
+
   ; Remove user data (optional - ask user)
   MessageBox MB_YESNO "Remove user data and settings?" IDNO skipUserData
   DetailPrint "Removing user data..."

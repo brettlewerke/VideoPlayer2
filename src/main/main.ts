@@ -279,33 +279,30 @@ class VideoPlayerApp {
     
     console.log(`[dev] Searching for Vite dev server on ports: ${candidates.join(', ')}`);
     
-    // First, try all ports once
-    for (const port of candidates) {
-      try {
-        console.log(`[dev] Testing port ${port}...`);
-        const isVite = await this.testPort(port);
-        if (isVite) {
-          console.log(`[dev] ✓ Found Vite dev server at http://localhost:${port}`);
-          return `http://localhost:${port}`;
-        }
-      } catch (err) {
-        console.log(`[dev] Port ${port} test failed: ${err}`);
+    // Try up to 5 times with increasing delays
+    const maxAttempts = 5;
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      if (attempt > 1) {
+        const delay = attempt * 1500; // 1.5s, 3s, 4.5s, 6s
+        console.log(`[dev] Attempt ${attempt}/${maxAttempts} - waiting ${delay}ms before retry...`);
+        await new Promise(r => setTimeout(r, delay));
       }
-    }
-    
-    // If nothing found, wait a bit and try again (Vite might still be starting)
-    console.log(`[dev] No Vite server found on first pass, waiting and retrying...`);
-    await new Promise(r => setTimeout(r, 1000));
-    
-    for (const port of candidates) {
-      try {
-        const isVite = await this.testPort(port);
-        if (isVite) {
-          console.log(`[dev] ✓ Found Vite dev server at http://localhost:${port} (retry)`);
-          return `http://localhost:${port}`;
+      
+      for (const port of candidates) {
+        try {
+          if (attempt === 1) {
+            console.log(`[dev] Testing port ${port}...`);
+          }
+          const isVite = await this.testPort(port);
+          if (isVite) {
+            console.log(`[dev] ✓ Found Vite dev server at http://localhost:${port}`);
+            return `http://localhost:${port}`;
+          }
+        } catch (err) {
+          if (attempt === 1) {
+            console.log(`[dev] Port ${port} test failed: ${err}`);
+          }
         }
-      } catch (err) {
-        // Silent retry
       }
     }
     
