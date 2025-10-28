@@ -7,7 +7,7 @@
 
 ; General Configuration
 Name "H Player"
-OutFile "H-Player-Setup-1.2.0.exe"
+OutFile "H-Player-Setup-2.1.0.exe"
 Unicode True
 InstallDir "$PROGRAMFILES\H Player"
 InstallDirRegKey HKCU "Software\H Player" ""
@@ -38,12 +38,12 @@ RequestExecutionLevel admin
 !insertmacro MUI_LANGUAGE "English"
 
 ; Version Information
-VIProductVersion "1.2.0.0"
+VIProductVersion "2.1.0.0"
 VIAddVersionKey "ProductName" "H Player"
 VIAddVersionKey "CompanyName" "H Player Project"
 VIAddVersionKey "LegalCopyright" "Copyright (c) 2024 H Player Project"
-VIAddVersionKey "FileVersion" "1.2.0.0"
-VIAddVersionKey "ProductVersion" "1.2.0.0"
+VIAddVersionKey "FileVersion" "2.1.0.0"
+VIAddVersionKey "ProductVersion" "2.1.0.0"
 VIAddVersionKey "FileDescription" "H Player - Local Desktop Video Player"
 
 ; Installer Section
@@ -81,7 +81,7 @@ Section "H Player" SecApp
   WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\H Player" "InstallLocation" "$INSTDIR"
   WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\H Player" "DisplayIcon" "$INSTDIR\resources\app\build\icon.ico"
   WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\H Player" "Publisher" "H Player Project"
-  WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\H Player" "DisplayVersion" "1.2.0"
+  WriteRegStr HKLM "Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\H Player" "DisplayVersion" "2.1.0"
   ${GetSize} "$INSTDIR" "/S=0K" $0 $1 $2
   IntFmt $0 "0x%08X" $0
   WriteRegDWORD HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\H Player" "EstimatedSize" "$0"

@@ -249,75 +249,213 @@ npm run dev
 
 Hoser Video supports multiple distribution formats. Choose based on your target platform:
 
-#### Development Commands
+## 🛠️ Development & Build Commands
+
+### NPM Commands Reference
+
+#### Setup & Installation
+
 ```bash
-# Run development server (Vite + Electron)
+# First-time setup - installs dependencies and downloads binaries
+npm install                # Runs postinstall automatically (downloads MPV, FFmpeg, FFprobe)
+
+# Manual setup (if needed)
+npm run setup              # Interactive setup wizard
+
+# Rebuild native modules for Electron
+npm run rebuild            # Rebuilds better-sqlite3 for Electron
+```
+
+#### Development Commands
+
+```bash
+# Start development mode (hot reload)
+npm run dev                # Starts both renderer (Vite) and main process
+npm run dev:renderer       # Start only Vite dev server (port 3000)
+npm run dev:main           # Start only Electron main process
+
+# Test playback with a video file
+npm run dev:play           # Interactive playback test
+npm run dev:play <path>    # Test specific video file
+```
+
+#### Building & Packaging
+
+```bash
+# Build everything (renderer + main + package)
+npm run build              # Full production build with installer
+
+# Build individual components
+npm run build:renderer     # Build React frontend only (Vite)
+npm run build:main         # Build Electron main process only (TypeScript)
+npm run package            # Package into executable (requires build first)
+
+# Build with version update (combined command)
+npm run build:version 1.5.0  # Updates version AND builds
+npm run set-version 1.5.0    # Updates version numbers only (no build)
+
+# Distribution builds
+npm run dist               # Build for current platform (same as build)
+npm run dist:all           # Build for Windows + macOS + Linux
+```
+
+#### Platform-Specific Packaging
+
+```bash
+# Windows
+npm run build              # Creates NSIS installer (Hoser-Video-Setup-X.X.X.exe)
+npm run pack:manual        # Creates manual package (fallback method)
+
+# Cross-platform portable bundles
+npm run pack:portable      # Creates portable ZIP/tar.gz for current platform
+```
+
+#### Testing & Quality
+
+```bash
+# Unit tests
+npm run test               # Run Jest tests once
+npm run test:watch         # Run tests in watch mode
+
+# End-to-end tests
+npm run test:e2e           # Run Playwright E2E tests
+
+# Code quality
+npm run lint               # Check code for errors
+npm run lint:fix           # Auto-fix linting issues
+npm run type-check         # TypeScript type checking (no output)
+
+# Smoke test
+npm run smoke-test         # Quick functionality test
+```
+
+#### Versioning & Releases
+
+```bash
+# Automatic version bumping (analyzes git commits)
+npm run release            # Auto-bump based on commit messages
+npm run release:patch      # Bump patch version (1.0.0 → 1.0.1)
+npm run release:minor      # Bump minor version (1.0.0 → 1.1.0)
+npm run release:major      # Bump major version (1.0.0 → 2.0.0)
+
+# Manual version update
+npm run set-version 1.5.0  # Update version in all files
+npm run build:version 1.5.0  # Update version AND build
+
+# Commit helper (Conventional Commits format)
+npm run commit feat "new feature"     # feat: new feature
+npm run commit fix "bug fix"          # fix: bug fix
+npm run commit docs "documentation"   # docs: documentation
+```
+
+#### Utilities
+
+```bash
+# Icon generation
+npm run generate-icons     # Generate app icons from source
+```
+
+### Quick Reference Table
+
+| Task | Command | Output |
+|------|---------|--------|
+| **Start dev mode** | `npm run dev` | Opens Electron with hot reload |
+| **Build installer** | `npm run build` | `dist-packages/Hoser-Video-Setup-X.X.X.exe` |
+| **Update version & build** | `npm run build:version 1.5.0` | Updates all version numbers + builds |
+| **Just update version** | `npm run set-version 1.5.0` | Updates version numbers only |
+| **Run tests** | `npm run test` | Test results in console |
+| **Check code quality** | `npm run lint` | Shows lint errors |
+| **Fix code style** | `npm run lint:fix` | Auto-fixes formatting |
+| **Type check** | `npm run type-check` | TypeScript validation |
+| **Test a video** | `npm run dev:play path/to/video.mp4` | Opens video in player |
+
+### Common Workflows
+
+#### Building a New Version
+
+```bash
+# Method 1: All-in-one (recommended)
+npm run build:version 1.5.0
+
+# Method 2: Step-by-step
+npm run set-version 1.5.0
+npm run build
+```
+
+#### Development Workflow
+
+```bash
+# Start development
 npm run dev
 
-# Build renderer (React/Vite)
-npm run build:renderer
+# In another terminal, run tests
+npm run test:watch
 
-# Build main process (TypeScript)
-npm run build:main
-
-# Type checking
-npm run type-check
-
-# Linting
-npm run lint
+# Fix linting issues
 npm run lint:fix
+
+# Commit changes
+npm run commit feat "add new feature"
 ```
 
-#### Production Build Commands
+#### Release Workflow
 
-**All Platforms (using electron-builder)**
 ```bash
-# Build for current platform only
-npm run build              # Windows: Creates NSIS installer
-npm run dist               # Alternative: same as build
+# Make your changes and commit
+npm run commit feat "add amazing feature"
 
-# Build for ALL platforms (Windows, macOS, Linux)
-npm run dist:all           # Requires platform-specific dependencies
+# Bump version and generate changelog
+npm run release
+
+# Build the release
+npm run build
+
+# Push to GitHub
+git push --follow-tags origin main
 ```
 
-**Windows-Specific**
+### Output Locations
+
+After building, find your packages in:
+
+```
+dist-packages/
+├── Hoser-Video-Setup-X.X.X.exe        # Windows NSIS installer
+├── Hoser-Video-Setup-X.X.X.exe.blockmap
+├── latest.yml                          # Auto-update metadata
+├── win-unpacked/                       # Unpacked Windows build
+│   └── Hoser Video.exe                # Run directly without install
+└── win-ia32-unpacked/                 # 32-bit build (if built)
+
+dist-portable/
+└── Hoser-Video-Portable-win32-x64.zip # Portable bundle
+
+dist-manual/
+└── Hoser-Video-Manual-X.X.X.zip       # Manual packaging output
+```
+
+### Build Requirements
+
+- **Node.js** 18+ and npm 9+
+- **TypeScript** 5.2+
+- **Electron** 27+
+- **Windows Build Tools** (Windows only)
+  - Visual Studio Build Tools or Visual Studio 2019+
+- **macOS Xcode Command Line Tools** (macOS only)
+- **build-essential** (Linux only)
+
+### Environment Variables
+
 ```bash
-# NSIS Installer (recommended)
-npm run build              # Creates Hoser-Video-Setup-1.2.0.exe
-                          # - Full installation wizard
-                          # - Desktop & Start Menu shortcuts
-                          # - Add/Remove Programs integration
-                          # - Professional uninstaller
+# Vite dev server port (default: 3000)
+VITE_DEV_PORT=3001
 
-# Portable Bundle
-npm run pack:portable      # Creates Hoser-Video-Portable-win32-x64.zip
-                          # - No installation needed
-                          # - Run from any folder/USB drive
-                          # - Auto-creates desktop shortcut
+# Node environment
+NODE_ENV=development  # or production
 
-# Manual Packaging (fallback)
-npm run pack:manual        # Creates Hoser-Video-Manual-1.2.0.zip
-                          # - Alternative to electron-builder
-                          # - Useful if electron-builder fails
-                          # - Includes FFmpeg DLLs directly
+# Electron debugging
+ELECTRON_ENABLE_LOGGING=1
 ```
-
-**macOS-Specific**
-```bash
-npm run dist               # Creates .dmg installer
-npm run pack:portable      # Creates portable .tar.gz bundle
-```
-
-**Linux-Specific**
-```bash
-npm run dist               # Creates AppImage and DEB packages
-npm run pack:portable      # Creates portable .tar.gz bundle
-```
-
-#### Output Locations
-
-All distribution packages are created in:
-- `dist-packages/` - electron-builder outputs (NSIS, DMG, AppImage, DEB)
 - `dist-portable/` - Portable bundles (ZIP, tar.gz)
 - `dist-manual/` - Manual packaging output
 ```
