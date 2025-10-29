@@ -25,6 +25,9 @@ export interface Movie {
   duration?: number;
   createdAt: Date;
   updatedAt: Date;
+  // MVP project metadata (optional)
+  mvpProjectPath?: string; // Path to the MVP project file if video was extracted from one
+  mvpProjectName?: string; // Name of the MVP project
 }
 
 export interface Show {

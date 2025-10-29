@@ -26,6 +26,10 @@ export const PLAYABLE_EXTENSIONS = new Set([
   '.m4p',
   '.m4b',
   
+  // MAGIX formats
+  '.mvd',  // MAGIX Video file (playable)
+  '.mvp',  // MAGIX Video Project (will extract references)
+  
   // Transport streams
   '.ts',
   '.mts',

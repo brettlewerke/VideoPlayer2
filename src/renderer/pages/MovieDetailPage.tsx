@@ -295,6 +295,12 @@ export function MovieDetailPage() {
                 <span className="bg-slate-800/80 px-3 py-1 rounded text-sm font-medium">
                   {formatFileSize(currentMovie.videoFile.size)}
                 </span>
+                {currentMovie.mvpProjectName && (
+                  <span className="bg-purple-900/60 px-3 py-1 rounded text-sm font-medium flex items-center gap-1">
+                    <span>🎬</span>
+                    <span>MVP: {currentMovie.mvpProjectName}</span>
+                  </span>
+                )}
               </div>
 
               {/* Progress Bar */}

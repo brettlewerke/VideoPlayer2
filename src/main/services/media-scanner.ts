@@ -6,6 +6,7 @@ import { EventEmitter } from 'events';
 import { readdirSync, statSync, existsSync } from 'fs';
 import { join, basename, dirname, extname } from 'path';
 import { DatabaseManager } from '../database/database.js';
+import { mvpParser } from './MvpParser.js';
 import { 
   isVideoFile, 
   shouldIgnore, 
@@ -229,6 +230,41 @@ export class MediaScanner extends EventEmitter {
     const filesInFolder = this.getFilesInDirectory(folderPath);
     const videoFiles = filesInFolder.filter(isVideoFile);
     
+    // Track MVP metadata
+    let mvpProjectPath: string | undefined;
+    let mvpProjectName: string | undefined;
+    
+    // Check for MVP project files and extract video references
+    const mvpFiles = filesInFolder.filter(f => f.toLowerCase().endsWith('.mvp'));
+    if (mvpFiles.length > 0) {
+      console.log(`[Scanner] Found ${mvpFiles.length} MVP project file(s) in ${folderName}`);
+      
+      for (const mvpFile of mvpFiles) {
+        try {
+          const projectInfo = await mvpParser.parseFile(mvpFile);
+          const existingRefs = projectInfo.videoReferences.filter(ref => ref.exists);
+          
+          console.log(`[Scanner] MVP file ${basename(mvpFile)} references ${existingRefs.length} existing video files`);
+          
+          // Store MVP metadata for the first project file found
+          if (!mvpProjectPath) {
+            mvpProjectPath = mvpFile;
+            mvpProjectName = projectInfo.projectName;
+          }
+          
+          // Add referenced videos to the list
+          for (const ref of existingRefs) {
+            if (!videoFiles.includes(ref.path)) {
+              videoFiles.push(ref.path);
+              console.log(`[Scanner]   Added from MVP: ${ref.filename}`);
+            }
+          }
+        } catch (error) {
+          console.error(`[Scanner] Failed to parse MVP file ${mvpFile}:`, error);
+        }
+      }
+    }
+    
     if (videoFiles.length === 0) {
       return null;
     }
@@ -264,6 +300,8 @@ export class MediaScanner extends EventEmitter {
         videoFile,
         posterPath: artwork.poster ? normalizePath(artwork.poster) : undefined,
         backdropPath: artwork.backdrop ? normalizePath(artwork.backdrop) : undefined,
+        mvpProjectPath: mvpProjectPath ? normalizePath(mvpProjectPath) : undefined,
+        mvpProjectName,
         createdAt: new Date(),
         updatedAt: new Date(),
       };
