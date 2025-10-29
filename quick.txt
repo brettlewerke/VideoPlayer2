@@ -1,0 +1,24 @@
+Hoser Video - Version 3.0.1 Update Notes
+========================================
+
+This update includes several important changes and new features:
+
+• Deleting old database (.hoser-video) files when reinstalling
+  When you reinstall the program, it automatically deletes all .hoser-video folders from multiple drives
+
+• Full screen video playback with auto-hiding controls
+  The player now goes full screen with a 3 second delay from input - meaning the UI controls automatically 
+  hide after 3 seconds of no mouse movement
+
+• Everytime you reinstall the program it wipes all video progress data (timestamps)
+  Due to the automatic cleanup of .hoser-video folders, all your viewing progress is reset on each reinstall
+
+• You can move the window around and it's not fixed
+  The application window is now freely moveable and not locked to a specific position
+
+• Webscraping from Rotten Tomatoes has been moved to OMDB API
+  This runs in the background and no longer runs before the application runs. This is used for the poster 
+  pictures. This is a free API with 1000 requests per month. If no WiFi connection is detected it will 
+  silently fail and not display a poster. However, the .jpg images are stored in the .hoser-video folder 
+  at the root of each folder respective to which drive has movies. So if you are hard on space, you can 
+  remove these images (if you're offline). Each poster .jpg is in the respective movie name folder.
