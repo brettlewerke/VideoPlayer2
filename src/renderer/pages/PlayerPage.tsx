@@ -86,11 +86,15 @@ export function PlayerPage() {
 
   // HTML5 video ref
   const videoRef = React.useRef<HTMLVideoElement>(null);
+  const containerRef = React.useRef<HTMLDivElement>(null);
   const lastSavedPositionRef = React.useRef<number>(0);
   const codecCheckTimerRef = React.useRef<number | null>(null);
   const hasAttemptedFallbackRef = React.useRef<boolean>(false);
+  const hideControlsTimerRef = React.useRef<number | null>(null);
   const [fallbackNotification, setFallbackNotification] = React.useState<string | null>(null);
   const [codecWarning, setCodecWarning] = React.useState<string | null>(null);
+  const [isFullscreen, setIsFullscreen] = React.useState<boolean>(false);
+  const [showControls, setShowControls] = React.useState<boolean>(true);
 
   // Helper function to save progress
   const saveProgress = React.useCallback(async (currentPosition: number, totalDuration: number) => {
@@ -525,6 +529,65 @@ export function PlayerPage() {
     }
   };
 
+  const handleFullscreenToggle = () => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    if (!document.fullscreenElement) {
+      // Enter fullscreen
+      container.requestFullscreen().then(() => {
+        setIsFullscreen(true);
+        console.log('[PlayerPage] Entered fullscreen mode');
+      }).catch(err => {
+        console.error('[PlayerPage] Error entering fullscreen:', err);
+      });
+    } else {
+      // Exit fullscreen
+      document.exitFullscreen().then(() => {
+        setIsFullscreen(false);
+        console.log('[PlayerPage] Exited fullscreen mode');
+      }).catch(err => {
+        console.error('[PlayerPage] Error exiting fullscreen:', err);
+      });
+    }
+  };
+
+  // Listen for fullscreen changes (e.g., ESC key)
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+    };
+  }, []);
+
+  // Auto-hide controls after 3 seconds of no mouse movement
+  const handleMouseMove = () => {
+    setShowControls(true);
+    
+    // Clear existing timer
+    if (hideControlsTimerRef.current) {
+      clearTimeout(hideControlsTimerRef.current);
+    }
+
+    // Set new timer to hide controls after 3 seconds
+    hideControlsTimerRef.current = window.setTimeout(() => {
+      setShowControls(false);
+    }, 3000);
+  };
+
+  // Cleanup timer on unmount
+  useEffect(() => {
+    return () => {
+      if (hideControlsTimerRef.current) {
+        clearTimeout(hideControlsTimerRef.current);
+      }
+    };
+  }, []);
+
   useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
       switch (e.code) {
@@ -534,6 +597,10 @@ export function PlayerPage() {
           break;
         case 'KeyM':
           handleMuteToggle();
+          break;
+        case 'KeyF':
+          e.preventDefault();
+          handleFullscreenToggle();
           break;
         case 'ArrowLeft':
           e.preventDefault();
@@ -590,7 +657,12 @@ export function PlayerPage() {
   }
 
   return (
-    <div className="h-full bg-black relative group">
+    <div 
+      ref={containerRef}
+      className="h-full bg-black relative"
+      onMouseMove={handleMouseMove}
+      onMouseEnter={() => setShowControls(true)}
+    >
       {/* Fallback Notification */}
       {fallbackNotification && (
         <div className="absolute top-20 left-1/2 transform -translate-x-1/2 z-50 
@@ -638,8 +710,8 @@ export function PlayerPage() {
       </div>
 
       {/* Controls Overlay */}
-      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent 
-        opacity-0 group-hover:opacity-100 transition-opacity duration-300 p-6">
+      <div className={`absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent 
+        transition-opacity duration-300 p-6 ${showControls ? 'opacity-100' : 'opacity-0'}`}>
         
         {/* Progress Bar */}
         <div className="mb-4">
@@ -712,6 +784,16 @@ export function PlayerPage() {
               ← Back
             </button>
 
+            {/* Fullscreen button */}
+            <button 
+              onClick={handleFullscreenToggle}
+              className="text-white hover:text-blue-400 transition-colors text-xl
+                focus:outline-none focus:ring-2 focus:ring-blue-500/50 rounded px-3 py-1"
+              title={isFullscreen ? 'Exit Fullscreen (F)' : 'Fullscreen (F)'}
+            >
+              {isFullscreen ? '⛶' : '⛶'}
+            </button>
+
             {/* Settings placeholder */}
             <button className="text-white hover:text-blue-400 transition-colors
               focus:outline-none focus:ring-2 focus:ring-blue-500/50 rounded px-3 py-1">
@@ -722,9 +804,10 @@ export function PlayerPage() {
       </div>
 
       {/* Help Text */}
-      <div className="absolute top-4 right-4 text-slate-400 text-sm opacity-0 group-hover:opacity-100 transition-opacity">
+      <div className={`absolute top-4 right-4 text-slate-400 text-sm transition-opacity duration-300 ${showControls ? 'opacity-100' : 'opacity-0'}`}>
         <div className="bg-black/60 rounded-lg p-3 space-y-1">
           <div>Space: Play/Pause</div>
+          <div>F: Fullscreen</div>
           <div>M: Mute</div>
           <div>←/→: Seek ±10s</div>
           <div>↑/↓: Volume ±5</div>
