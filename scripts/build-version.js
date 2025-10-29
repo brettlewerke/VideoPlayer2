@@ -63,8 +63,7 @@ try {
   console.log('\n' + '='.repeat(60));
   console.log(`✅ Build completed successfully!`);
   console.log('='.repeat(60) + '\n');
-  console.log(`📦 Custom installer: Hoser-Video-Setup-${newVersion}.exe`);
-  console.log(`📦 Standard installer: dist-packages\\Hoser-Video-Setup-${newVersion}.exe`);
+  console.log(`📦 NSIS Installer: Hoser-Video-Setup-${newVersion}.exe`);
   console.log(`📁 Unpacked build: dist-packages\\win-unpacked\\Hoser Video.exe`);
   console.log('\n💡 Ready to distribute!\n');
 
