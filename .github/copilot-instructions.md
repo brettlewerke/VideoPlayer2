@@ -1,1 +1,3 @@
 Do not make a .md file for changes using copilot. Ignore this step and give the context in the chat.
+
+An MVP file is a proprietary video project created by MAGIX Movie Studio and Video Pro X, movie editing applications. It stores references to one or more .MVD movies, edits, effects, titles, and other project settings. Movie Studio and Video Pro X users save projects as MVP files, then export them to common video formats, upload them online, or burn them to DVDs or Blu-ray discs.
