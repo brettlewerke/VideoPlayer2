@@ -227,8 +227,8 @@ export function MovieDetailPage() {
       {/* Back Button */}
       <button
         onClick={handleBack}
-        className={`fixed top-16 z-10 px-4 py-2 bg-slate-800/80 hover:bg-slate-700/80 backdrop-blur-sm text-white rounded-lg transition-all border border-slate-600/50 flex items-center gap-2 ${
-          isSidebarOpen ? 'left-72' : 'left-20'
+        className={`fixed top-10 z-10 px-4 py-2 bg-slate-800/80 hover:bg-slate-700/80 backdrop-blur-sm text-white rounded-lg transition-all border border-slate-600/50 flex items-center gap-2 ${
+          isSidebarOpen ? 'left-[268px]' : 'left-[68px]'
         }`}
       >
         <span>←</span>
@@ -257,20 +257,23 @@ export function MovieDetailPage() {
             {/* Poster */}
             <div className="flex-shrink-0">
               <div className="w-48 aspect-[2/3] bg-slate-700 rounded-lg overflow-hidden shadow-2xl">
-                {currentMovie.posterPath ? (
-                  <img
-                    src={`file://${currentMovie.posterPath}`}
-                    alt={currentMovie.title}
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-slate-500">
-                    <div className="text-center">
-                      <div className="text-4xl mb-2">🎬</div>
-                      <div className="text-xs">No Poster</div>
+                {(() => {
+                  const posterPath = currentMovie.rottenTomatoesPosterPath || currentMovie.posterPath;
+                  return posterPath ? (
+                    <img
+                      src={`poster:///${posterPath.replace(/\\/g, '/')}`}
+                      alt={currentMovie.title}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-slate-500">
+                      <div className="text-center">
+                        <div className="text-4xl mb-2">🎬</div>
+                        <div className="text-xs">No Poster</div>
+                      </div>
                     </div>
-                  </div>
-                )}
+                  );
+                })()}
               </div>
             </div>
 
