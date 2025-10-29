@@ -94,12 +94,30 @@ FunctionEnd
 Section "H Player" SecApp
   SectionIn RO
 
-  SetOutPath "$INSTDIR"
-  
   ; Enable detailed file extraction logging with filenames
   SetDetailsPrint listonly
   
-  DetailPrint "Installing H Player..."
+  DetailPrint "Preparing for installation..."
+  DetailPrint " "
+  
+  ; Stop any running Hoser Video processes first
+  DetailPrint "Stopping any running Hoser Video processes..."
+  nsExec::Exec 'taskkill /f /im "Hoser Video.exe" /t'
+  nsExec::Exec 'taskkill /f /im "electron.exe" /fi "WINDOWTITLE eq Hoser Video" /t'
+  Sleep 500
+  
+  ; Remove old shortcuts before installation
+  DetailPrint "Removing existing shortcuts..."
+  Delete "$DESKTOP\Hoser Video.lnk"
+  Delete "$SMPROGRAMS\Hoser Video\Hoser Video.lnk"
+  Delete "$SMPROGRAMS\Hoser Video\Uninstall.lnk"
+  Delete "$APPDATA\Microsoft\Internet Explorer\Quick Launch\User Pinned\TaskBar\Hoser Video.lnk"
+  RMDir "$SMPROGRAMS\Hoser Video"
+
+  SetOutPath "$INSTDIR"
+  
+  DetailPrint " "
+  DetailPrint "Installing Hoser Video..."
   DetailPrint " "
   DetailPrint "Copying application files..."
 
