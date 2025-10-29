@@ -4,10 +4,11 @@
 !include "MUI2.nsh"
 !include "FileFunc.nsh"
 !include "LogicLib.nsh"
+!include "nsDialogs.nsh"
 
 ; General Configuration
 Name "Hoser Video"
-OutFile "Hoser-Video-Setup-2.1.1.exe"
+OutFile "Hoser-Video-Setup-2.2.1.exe"
 Unicode True
 InstallDir "$PROGRAMFILES\Hoser Video"
 InstallDirRegKey HKCU "Software\Hoser Video" ""
@@ -17,10 +18,6 @@ RequestExecutionLevel admin
 !define MUI_ABORTWARNING
 !define MUI_ICON "build\icon.ico"
 !define MUI_UNICON "build\icon.ico"
-!define MUI_HEADERIMAGE
-!define MUI_HEADERIMAGE_BITMAP "build\icons\256x256.bmp"
-!define MUI_WELCOMEFINISHPAGE_BITMAP "build\icons\256x256.bmp"
-!define MUI_UNWELCOMEFINISHPAGE_BITMAP "build\icons\256x256.bmp"
 
 ; Detailed progress bar
 !define MUI_INSTFILESPAGE_PROGRESSBAR "smooth"
@@ -28,6 +25,7 @@ RequestExecutionLevel admin
 
 ; Variables for user choices
 Var CreateDesktopShortcut
+Var CreateStartMenuShortcut
 Var PinToTaskbar
 
 ; Pages
@@ -50,12 +48,12 @@ Page custom ShortcutsPage ShortcutsPageLeave
 !insertmacro MUI_LANGUAGE "English"
 
 ; Version Information
-VIProductVersion "2.1.2.0"
+VIProductVersion "2.2.1.0"
 VIAddVersionKey "ProductName" "Hoser Video"
 VIAddVersionKey "CompanyName" "Hoser Video Project"
 VIAddVersionKey "LegalCopyright" "Copyright (c) 2024 Hoser Video Project"
-VIAddVersionKey "FileVersion" "2.1.2.0"
-VIAddVersionKey "ProductVersion" "2.1.2.0"
+VIAddVersionKey "FileVersion" "2.2.1.0"
+VIAddVersionKey "ProductVersion" "2.2.1.0"
 VIAddVersionKey "FileDescription" "Hoser Video - Local Desktop Video Player"
 
 ; Custom page for shortcuts selection
@@ -73,17 +71,23 @@ Function ShortcutsPage
   Pop $1
   ${NSD_SetState} $1 ${BST_CHECKED}
   
-  ; Taskbar pin checkbox  
-  ${NSD_CreateCheckbox} 0 30u 100% 12u "Pin to &taskbar"
+  ; Start Menu shortcut checkbox  
+  ${NSD_CreateCheckbox} 0 30u 100% 12u "Create a &Start Menu shortcut"
   Pop $2
   ${NSD_SetState} $2 ${BST_CHECKED}
+  
+  ; Taskbar pin checkbox  
+  ${NSD_CreateCheckbox} 0 50u 100% 12u "Pin to &taskbar"
+  Pop $3
+  ${NSD_SetState} $3 ${BST_CHECKED}
   
   nsDialogs::Show
 FunctionEnd
 
 Function ShortcutsPageLeave
   ${NSD_GetState} $1 $CreateDesktopShortcut
-  ${NSD_GetState} $2 $PinToTaskbar
+  ${NSD_GetState} $2 $CreateStartMenuShortcut
+  ${NSD_GetState} $3 $PinToTaskbar
 FunctionEnd
 
 ; Installer Section
@@ -113,19 +117,25 @@ Section "H Player" SecApp
   ; Create desktop shortcut if selected
   ${If} $CreateDesktopShortcut == ${BST_CHECKED}
     DetailPrint "Creating desktop shortcut..."
-    CreateShortCut "$DESKTOP\Hoser Video.lnk" "$INSTDIR\Hoser Video.exe" "" "$INSTDIR\resources\app.asar.unpacked\build\icon.ico"
+    CreateShortCut "$DESKTOP\Hoser Video.lnk" "$INSTDIR\Hoser Video.exe"
   ${EndIf}
 
-  ; Create start menu entries
-  DetailPrint "Creating Start Menu shortcuts..."
-  CreateDirectory "$SMPROGRAMS\Hoser Video"
-  CreateShortCut "$SMPROGRAMS\Hoser Video\Hoser Video.lnk" "$INSTDIR\Hoser Video.exe" "" "$INSTDIR\resources\app.asar.unpacked\build\icon.ico"
-  CreateShortCut "$SMPROGRAMS\Hoser Video\Uninstall.lnk" "$INSTDIR\Uninstall.exe"
+  ; Create start menu entries if selected
+  ${If} $CreateStartMenuShortcut == ${BST_CHECKED}
+    DetailPrint "Creating Start Menu shortcuts..."
+    CreateDirectory "$SMPROGRAMS\Hoser Video"
+    CreateShortCut "$SMPROGRAMS\Hoser Video\Hoser Video.lnk" "$INSTDIR\Hoser Video.exe"
+    CreateShortCut "$SMPROGRAMS\Hoser Video\Uninstall.lnk" "$INSTDIR\Uninstall.exe"
+  ${Else}
+    ; Always create uninstaller shortcut in a minimal location
+    CreateDirectory "$SMPROGRAMS\Hoser Video"
+    CreateShortCut "$SMPROGRAMS\Hoser Video\Uninstall.lnk" "$INSTDIR\Uninstall.exe"
+  ${EndIf}
   
   ; Pin to taskbar if selected (Windows 10/11)
   ${If} $PinToTaskbar == ${BST_CHECKED}
     DetailPrint "Pinning to taskbar..."
-    nsExec::Exec 'powershell -WindowStyle Hidden -Command "$s=(New-Object -COM WScript.Shell).CreateShortcut(\"$env:APPDATA\\Microsoft\\Internet Explorer\\Quick Launch\\User Pinned\\TaskBar\\Hoser Video.lnk\"); $s.TargetPath=\"$INSTDIR\\Hoser Video.exe\"; $s.IconLocation=\"$INSTDIR\\resources\\app.asar.unpacked\\build\\icon.ico\"; $s.Save()"'
+    nsExec::Exec 'powershell -WindowStyle Hidden -Command "$s=(New-Object -COM WScript.Shell).CreateShortcut(\"$env:APPDATA\\Microsoft\\Internet Explorer\\Quick Launch\\User Pinned\\TaskBar\\Hoser Video.lnk\"); $s.TargetPath=\"$INSTDIR\\Hoser Video.exe\"; $s.Save()"'
   ${EndIf}
 
   ; Registry entries for Add/Remove Programs
@@ -134,9 +144,9 @@ Section "H Player" SecApp
   WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\Hoser Video" "UninstallString" "$INSTDIR\Uninstall.exe"
   WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\Hoser Video" "QuietUninstallString" "$INSTDIR\Uninstall.exe /S"
   WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\Hoser Video" "InstallLocation" "$INSTDIR"
-  WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\Hoser Video" "DisplayIcon" "$INSTDIR\\resources\\app.asar.unpacked\\build\\icon.ico"
+  WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\Hoser Video" "DisplayIcon" "$INSTDIR\\Hoser Video.exe,0"
   WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\Hoser Video" "Publisher" "Hoser Video Project"
-  WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\Hoser Video" "DisplayVersion" "2.1.1"
+  WriteRegStr HKLM "Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Hoser Video" "DisplayVersion" "2.2.0"
   ${GetSize} "$INSTDIR" "/S=0K" $0 $1 $2
   IntFmt $0 "0x%08X" $0
   WriteRegDWORD HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\Hoser Video" "EstimatedSize" "$0"

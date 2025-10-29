@@ -44,10 +44,10 @@ console.log('📦 Updating installer.nsi...');
 const installerPath = path.join(rootDir, 'installer.nsi');
 let installerContent = fs.readFileSync(installerPath, 'utf8');
 
-// Update OutFile
+// Update OutFile (now uses Hoser-Video)
 installerContent = installerContent.replace(
-  /OutFile "H-Player-Setup-.*\.exe"/,
-  `OutFile "H-Player-Setup-${newVersion}.exe"`
+  /OutFile "Hoser-Video-Setup-.*\.exe"/,
+  `OutFile "Hoser-Video-Setup-${newVersion}.exe"`
 );
 
 // Update VIProductVersion (needs 4 parts: 1.2.0.0)
@@ -68,10 +68,10 @@ installerContent = installerContent.replace(
   `VIAddVersionKey "ProductVersion" "${newVersion}.0"`
 );
 
-// Update DisplayVersion
+// Update DisplayVersion (now uses Hoser Video)
 installerContent = installerContent.replace(
-  /WriteRegStr HKLM "Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\H Player" "DisplayVersion" "\d+\.\d+\.\d+"/,
-  `WriteRegStr HKLM "Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Uninstall\\\\H Player" "DisplayVersion" "${newVersion}"`
+  /WriteRegStr HKLM "Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Hoser Video" "DisplayVersion" "\d+\.\d+\.\d+"/,
+  `WriteRegStr HKLM "Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Uninstall\\\\Hoser Video" "DisplayVersion" "${newVersion}"`
 );
 
 fs.writeFileSync(installerPath, installerContent, 'utf8');

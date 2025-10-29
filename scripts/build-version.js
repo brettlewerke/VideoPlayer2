@@ -39,16 +39,32 @@ try {
   });
 
   // Step 2: Build
-  console.log('\n📋 Step 2/2: Building project...\n');
+  console.log('\n📋 Step 2/3: Building project...\n');
   execSync('npm run build', { 
     stdio: 'inherit',
     cwd: path.join(__dirname, '..')
   });
 
+  // Step 3: Compile custom NSIS installer
+  console.log('\n📋 Step 3/3: Compiling custom NSIS installer...\n');
+  try {
+    execSync('& "C:\\Program Files (x86)\\NSIS\\makensis.exe" installer.nsi', { 
+      stdio: 'inherit',
+      cwd: path.join(__dirname, '..'),
+      shell: 'powershell.exe'
+    });
+  } catch (nsisError) {
+    console.warn('\n⚠️  Warning: NSIS compiler not found or failed.');
+    console.warn('   The electron-builder installer was created successfully.');
+    console.warn('   To create the custom installer with shortcuts page:');
+    console.warn('   Run: & "C:\\Program Files (x86)\\NSIS\\makensis.exe" installer.nsi\n');
+  }
+
   console.log('\n' + '='.repeat(60));
   console.log(`✅ Build completed successfully!`);
   console.log('='.repeat(60) + '\n');
-  console.log(`📦 Installer created: dist-packages\\Hoser-Video-Setup-${newVersion}.exe`);
+  console.log(`📦 Custom installer: Hoser-Video-Setup-${newVersion}.exe`);
+  console.log(`📦 Standard installer: dist-packages\\Hoser-Video-Setup-${newVersion}.exe`);
   console.log(`📁 Unpacked build: dist-packages\\win-unpacked\\Hoser Video.exe`);
   console.log('\n💡 Ready to distribute!\n');
 
