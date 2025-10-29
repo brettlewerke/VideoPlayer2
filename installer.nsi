@@ -16,8 +16,6 @@ RequestExecutionLevel admin
 
 ; Modern UI Configuration
 !define MUI_ABORTWARNING
-!define MUI_ICON "build\icon.ico"
-!define MUI_UNICON "build\icon.ico"
 
 ; Detailed progress bar
 !define MUI_INSTFILESPAGE_PROGRESSBAR "smooth"
@@ -94,12 +92,54 @@ FunctionEnd
 Section "H Player" SecApp
   SectionIn RO
 
-  SetOutPath "$INSTDIR"
-  
   ; Enable detailed file extraction logging with filenames
   SetDetailsPrint listonly
   
-  DetailPrint "Installing H Player..."
+  DetailPrint "Preparing for clean installation..."
+  DetailPrint " "
+  
+  ; Stop any running Hoser Video processes first
+  DetailPrint "Stopping any running Hoser Video processes..."
+  nsExec::Exec 'taskkill /f /im "Hoser Video.exe" /t'
+  nsExec::Exec 'taskkill /f /im "electron.exe" /fi "WINDOWTITLE eq Hoser Video" /t'
+  Sleep 1000
+  
+  ; Remove old shortcuts before installation
+  DetailPrint "Removing existing shortcuts..."
+  Delete "$DESKTOP\Hoser Video.lnk"
+  Delete "$SMPROGRAMS\Hoser Video\Hoser Video.lnk"
+  Delete "$SMPROGRAMS\Hoser Video\Uninstall.lnk"
+  Delete "$APPDATA\Microsoft\Internet Explorer\Quick Launch\User Pinned\TaskBar\Hoser Video.lnk"
+  RMDir "$SMPROGRAMS\Hoser Video"
+  
+  ; Remove old installation directory if it exists
+  DetailPrint "Removing previous installation..."
+  ${If} ${FileExists} "$INSTDIR\*.*"
+    RMDir /r "$INSTDIR"
+  ${EndIf}
+  
+  ; Remove .hoser-video database folders from all drives for clean install
+  DetailPrint "Removing old database folders from all drives..."
+  nsExec::Exec 'powershell -WindowStyle Hidden -Command "Get-PSDrive -PSProvider FileSystem | Where-Object { $$_.Root -match \"^[A-Z]:\\$$\" } | ForEach-Object { $$p = Join-Path $$_.Root \".hoser-video\"; if (Test-Path $$p) { Remove-Item $$p -Recurse -Force } }"'
+  
+  ; Remove old user data for fresh install
+  DetailPrint "Removing old user settings..."
+  ${If} ${FileExists} "$APPDATA\hoser-video\*.*"
+    RMDir /r "$APPDATA\hoser-video"
+  ${EndIf}
+  ${If} ${FileExists} "$LOCALAPPDATA\hoser-video\*.*"
+    RMDir /r "$LOCALAPPDATA\hoser-video"
+  ${EndIf}
+  
+  ; Clean up any old registry entries
+  DetailPrint "Cleaning old registry entries..."
+  DeleteRegKey HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\Hoser Video"
+  DeleteRegKey HKCU "Software\Hoser Video"
+
+  SetOutPath "$INSTDIR"
+  
+  DetailPrint " "
+  DetailPrint "Installing Hoser Video..."
   DetailPrint " "
   DetailPrint "Copying application files..."
 
@@ -146,7 +186,7 @@ Section "H Player" SecApp
   WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\Hoser Video" "InstallLocation" "$INSTDIR"
   WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\Hoser Video" "DisplayIcon" "$INSTDIR\\Hoser Video.exe,0"
   WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\Hoser Video" "Publisher" "Brett Lewerke"
-  WriteRegStr HKLM "Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Hoser Video" "DisplayVersion" "2.2.0"
+  WriteRegStr HKLM "Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Hoser Video" "DisplayVersion" "3.2.0"
   ${GetSize} "$INSTDIR" "/S=0K" $0 $1 $2
   IntFmt $0 "0x%08X" $0
   WriteRegDWORD HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\Hoser Video" "EstimatedSize" "$0"
@@ -201,7 +241,7 @@ Section "Uninstall"
   ; Remove user data (optional - ask user)
   MessageBox MB_YESNO "Remove user data and settings?" IDNO skipUserData
   DetailPrint "Removing user data..."
-  RMDir /r "$APPDATA\Hoser Video"
+  RMDir /r "$APPDATA\hoser-video"
   skipUserData:
 
   ; Remove registry entries
