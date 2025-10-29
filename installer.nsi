@@ -8,7 +8,7 @@
 
 ; General Configuration
 Name "Hoser Video"
-OutFile "Hoser-Video-Setup-4.1.9.exe"
+OutFile "Hoser-Video-Setup-3.2.11.exe"
 Unicode True
 InstallDir "$PROGRAMFILES\Hoser Video"
 InstallDirRegKey HKCU "Software\Hoser Video" ""
@@ -46,12 +46,12 @@ Page custom ShortcutsPage ShortcutsPageLeave
 !insertmacro MUI_LANGUAGE "English"
 
 ; Version Information
-VIProductVersion "4.1.9.0"
+VIProductVersion "3.2.11.0"
 VIAddVersionKey "ProductName" "Hoser Video"
 VIAddVersionKey "CompanyName" "Hoser Video Project"
 VIAddVersionKey "LegalCopyright" "Copyright (c) 2024 Hoser Video Project"
-VIAddVersionKey "FileVersion" "4.1.9.0"
-VIAddVersionKey "ProductVersion" "4.1.9.0"
+VIAddVersionKey "FileVersion" "3.2.11.0"
+VIAddVersionKey "ProductVersion" "3.2.11.0"
 VIAddVersionKey "FileDescription" "Hoser Video - Local Desktop Video Player"
 
 ; Custom page for shortcuts selection
@@ -120,7 +120,110 @@ Section "H Player" SecApp
   
   ; Remove .hoser-video database folders from all drives for clean install
   DetailPrint "Removing old database folders from all drives..."
-  nsExec::Exec 'powershell -WindowStyle Hidden -Command "Get-PSDrive -PSProvider FileSystem | Where-Object { $$_.Root -match \"^[A-Z]:\\$$\" } | ForEach-Object { $$p = Join-Path $$_.Root \".hoser-video\"; if (Test-Path $$p) { Remove-Item $$p -Recurse -Force } }"'
+  ${If} ${FileExists} "A:\.hoser-video\*.*"
+    DetailPrint "Removing A:\.hoser-video..."
+    RMDir /r "A:\.hoser-video"
+  ${EndIf}
+  ${If} ${FileExists} "B:\.hoser-video\*.*"
+    DetailPrint "Removing B:\.hoser-video..."
+    RMDir /r "B:\.hoser-video"
+  ${EndIf}
+  ${If} ${FileExists} "C:\.hoser-video\*.*"
+    DetailPrint "Removing C:\.hoser-video..."
+    RMDir /r "C:\.hoser-video"
+  ${EndIf}
+  ${If} ${FileExists} "D:\.hoser-video\*.*"
+    DetailPrint "Removing D:\.hoser-video..."
+    RMDir /r "D:\.hoser-video"
+  ${EndIf}
+  ${If} ${FileExists} "E:\.hoser-video\*.*"
+    DetailPrint "Removing E:\.hoser-video..."
+    RMDir /r "E:\.hoser-video"
+  ${EndIf}
+  ${If} ${FileExists} "F:\.hoser-video\*.*"
+    DetailPrint "Removing F:\.hoser-video..."
+    RMDir /r "F:\.hoser-video"
+  ${EndIf}
+  ${If} ${FileExists} "G:\.hoser-video\*.*"
+    DetailPrint "Removing G:\.hoser-video..."
+    RMDir /r "G:\.hoser-video"
+  ${EndIf}
+  ${If} ${FileExists} "H:\.hoser-video\*.*"
+    DetailPrint "Removing H:\.hoser-video..."
+    RMDir /r "H:\.hoser-video"
+  ${EndIf}
+  ${If} ${FileExists} "I:\.hoser-video\*.*"
+    DetailPrint "Removing I:\.hoser-video..."
+    RMDir /r "I:\.hoser-video"
+  ${EndIf}
+  ${If} ${FileExists} "J:\.hoser-video\*.*"
+    DetailPrint "Removing J:\.hoser-video..."
+    RMDir /r "J:\.hoser-video"
+  ${EndIf}
+  ${If} ${FileExists} "K:\.hoser-video\*.*"
+    DetailPrint "Removing K:\.hoser-video..."
+    RMDir /r "K:\.hoser-video"
+  ${EndIf}
+  ${If} ${FileExists} "L:\.hoser-video\*.*"
+    DetailPrint "Removing L:\.hoser-video..."
+    RMDir /r "L:\.hoser-video"
+  ${EndIf}
+  ${If} ${FileExists} "M:\.hoser-video\*.*"
+    DetailPrint "Removing M:\.hoser-video..."
+    RMDir /r "M:\.hoser-video"
+  ${EndIf}
+  ${If} ${FileExists} "N:\.hoser-video\*.*"
+    DetailPrint "Removing N:\.hoser-video..."
+    RMDir /r "N:\.hoser-video"
+  ${EndIf}
+  ${If} ${FileExists} "O:\.hoser-video\*.*"
+    DetailPrint "Removing O:\.hoser-video..."
+    RMDir /r "O:\.hoser-video"
+  ${EndIf}
+  ${If} ${FileExists} "P:\.hoser-video\*.*"
+    DetailPrint "Removing P:\.hoser-video..."
+    RMDir /r "P:\.hoser-video"
+  ${EndIf}
+  ${If} ${FileExists} "Q:\.hoser-video\*.*"
+    DetailPrint "Removing Q:\.hoser-video..."
+    RMDir /r "Q:\.hoser-video"
+  ${EndIf}
+  ${If} ${FileExists} "R:\.hoser-video\*.*"
+    DetailPrint "Removing R:\.hoser-video..."
+    RMDir /r "R:\.hoser-video"
+  ${EndIf}
+  ${If} ${FileExists} "S:\.hoser-video\*.*"
+    DetailPrint "Removing S:\.hoser-video..."
+    RMDir /r "S:\.hoser-video"
+  ${EndIf}
+  ${If} ${FileExists} "T:\.hoser-video\*.*"
+    DetailPrint "Removing T:\.hoser-video..."
+    RMDir /r "T:\.hoser-video"
+  ${EndIf}
+  ${If} ${FileExists} "U:\.hoser-video\*.*"
+    DetailPrint "Removing U:\.hoser-video..."
+    RMDir /r "U:\.hoser-video"
+  ${EndIf}
+  ${If} ${FileExists} "V:\.hoser-video\*.*"
+    DetailPrint "Removing V:\.hoser-video..."
+    RMDir /r "V:\.hoser-video"
+  ${EndIf}
+  ${If} ${FileExists} "W:\.hoser-video\*.*"
+    DetailPrint "Removing W:\.hoser-video..."
+    RMDir /r "W:\.hoser-video"
+  ${EndIf}
+  ${If} ${FileExists} "X:\.hoser-video\*.*"
+    DetailPrint "Removing X:\.hoser-video..."
+    RMDir /r "X:\.hoser-video"
+  ${EndIf}
+  ${If} ${FileExists} "Y:\.hoser-video\*.*"
+    DetailPrint "Removing Y:\.hoser-video..."
+    RMDir /r "Y:\.hoser-video"
+  ${EndIf}
+  ${If} ${FileExists} "Z:\.hoser-video\*.*"
+    DetailPrint "Removing Z:\.hoser-video..."
+    RMDir /r "Z:\.hoser-video"
+  ${EndIf}
   
   ; Remove old user data for fresh install
   DetailPrint "Removing old user settings..."
@@ -236,7 +339,110 @@ Section "Uninstall"
   ; Remove .hoser-video database folders from all drives
   DetailPrint " "
   DetailPrint "Removing database folders from all drives..."
-  nsExec::Exec 'powershell -WindowStyle Hidden -Command "Get-PSDrive -PSProvider FileSystem | Where-Object { $$_.Root -match \"^[A-Z]:\\$$\" } | ForEach-Object { $$p = Join-Path $$_.Root \".hoser-video\"; if (Test-Path $$p) { Remove-Item $$p -Recurse -Force } }"'
+  ${If} ${FileExists} "A:\.hoser-video\*.*"
+    DetailPrint "Removing A:\.hoser-video..."
+    RMDir /r "A:\.hoser-video"
+  ${EndIf}
+  ${If} ${FileExists} "B:\.hoser-video\*.*"
+    DetailPrint "Removing B:\.hoser-video..."
+    RMDir /r "B:\.hoser-video"
+  ${EndIf}
+  ${If} ${FileExists} "C:\.hoser-video\*.*"
+    DetailPrint "Removing C:\.hoser-video..."
+    RMDir /r "C:\.hoser-video"
+  ${EndIf}
+  ${If} ${FileExists} "D:\.hoser-video\*.*"
+    DetailPrint "Removing D:\.hoser-video..."
+    RMDir /r "D:\.hoser-video"
+  ${EndIf}
+  ${If} ${FileExists} "E:\.hoser-video\*.*"
+    DetailPrint "Removing E:\.hoser-video..."
+    RMDir /r "E:\.hoser-video"
+  ${EndIf}
+  ${If} ${FileExists} "F:\.hoser-video\*.*"
+    DetailPrint "Removing F:\.hoser-video..."
+    RMDir /r "F:\.hoser-video"
+  ${EndIf}
+  ${If} ${FileExists} "G:\.hoser-video\*.*"
+    DetailPrint "Removing G:\.hoser-video..."
+    RMDir /r "G:\.hoser-video"
+  ${EndIf}
+  ${If} ${FileExists} "H:\.hoser-video\*.*"
+    DetailPrint "Removing H:\.hoser-video..."
+    RMDir /r "H:\.hoser-video"
+  ${EndIf}
+  ${If} ${FileExists} "I:\.hoser-video\*.*"
+    DetailPrint "Removing I:\.hoser-video..."
+    RMDir /r "I:\.hoser-video"
+  ${EndIf}
+  ${If} ${FileExists} "J:\.hoser-video\*.*"
+    DetailPrint "Removing J:\.hoser-video..."
+    RMDir /r "J:\.hoser-video"
+  ${EndIf}
+  ${If} ${FileExists} "K:\.hoser-video\*.*"
+    DetailPrint "Removing K:\.hoser-video..."
+    RMDir /r "K:\.hoser-video"
+  ${EndIf}
+  ${If} ${FileExists} "L:\.hoser-video\*.*"
+    DetailPrint "Removing L:\.hoser-video..."
+    RMDir /r "L:\.hoser-video"
+  ${EndIf}
+  ${If} ${FileExists} "M:\.hoser-video\*.*"
+    DetailPrint "Removing M:\.hoser-video..."
+    RMDir /r "M:\.hoser-video"
+  ${EndIf}
+  ${If} ${FileExists} "N:\.hoser-video\*.*"
+    DetailPrint "Removing N:\.hoser-video..."
+    RMDir /r "N:\.hoser-video"
+  ${EndIf}
+  ${If} ${FileExists} "O:\.hoser-video\*.*"
+    DetailPrint "Removing O:\.hoser-video..."
+    RMDir /r "O:\.hoser-video"
+  ${EndIf}
+  ${If} ${FileExists} "P:\.hoser-video\*.*"
+    DetailPrint "Removing P:\.hoser-video..."
+    RMDir /r "P:\.hoser-video"
+  ${EndIf}
+  ${If} ${FileExists} "Q:\.hoser-video\*.*"
+    DetailPrint "Removing Q:\.hoser-video..."
+    RMDir /r "Q:\.hoser-video"
+  ${EndIf}
+  ${If} ${FileExists} "R:\.hoser-video\*.*"
+    DetailPrint "Removing R:\.hoser-video..."
+    RMDir /r "R:\.hoser-video"
+  ${EndIf}
+  ${If} ${FileExists} "S:\.hoser-video\*.*"
+    DetailPrint "Removing S:\.hoser-video..."
+    RMDir /r "S:\.hoser-video"
+  ${EndIf}
+  ${If} ${FileExists} "T:\.hoser-video\*.*"
+    DetailPrint "Removing T:\.hoser-video..."
+    RMDir /r "T:\.hoser-video"
+  ${EndIf}
+  ${If} ${FileExists} "U:\.hoser-video\*.*"
+    DetailPrint "Removing U:\.hoser-video..."
+    RMDir /r "U:\.hoser-video"
+  ${EndIf}
+  ${If} ${FileExists} "V:\.hoser-video\*.*"
+    DetailPrint "Removing V:\.hoser-video..."
+    RMDir /r "V:\.hoser-video"
+  ${EndIf}
+  ${If} ${FileExists} "W:\.hoser-video\*.*"
+    DetailPrint "Removing W:\.hoser-video..."
+    RMDir /r "W:\.hoser-video"
+  ${EndIf}
+  ${If} ${FileExists} "X:\.hoser-video\*.*"
+    DetailPrint "Removing X:\.hoser-video..."
+    RMDir /r "X:\.hoser-video"
+  ${EndIf}
+  ${If} ${FileExists} "Y:\.hoser-video\*.*"
+    DetailPrint "Removing Y:\.hoser-video..."
+    RMDir /r "Y:\.hoser-video"
+  ${EndIf}
+  ${If} ${FileExists} "Z:\.hoser-video\*.*"
+    DetailPrint "Removing Z:\.hoser-video..."
+    RMDir /r "Z:\.hoser-video"
+  ${EndIf}
 
   ; Remove user data (optional - ask user)
   MessageBox MB_YESNO "Remove user data and settings?" IDNO skipUserData
