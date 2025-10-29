@@ -15,51 +15,21 @@ const navItems = [
 ] as const;
 
 export function Sidebar() {
-  const { currentView, isSidebarOpen, setCurrentView, toggleSidebar } = useAppStore();
+  const { currentView, setCurrentView } = useAppStore();
 
   return (
     <>
-      {/* Backdrop for mobile/overlay */}
-      {isSidebarOpen && (
-        <div 
-          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-10 lg:hidden"
-          onClick={toggleSidebar}
-        />
-      )}
-
-      {/* Sidebar */}
-      <div className={`fixed left-0 top-8 h-[calc(100vh-32px)] bg-gradient-to-b from-gray-900 via-black to-gray-900 border-r border-green-800/30 transition-all duration-300 z-20 ${
-        isSidebarOpen ? 'w-64' : 'w-16'
-      }`}>
+      {/* Sidebar - Always expanded */}
+      <div className="fixed left-0 top-8 h-[calc(100vh-32px)] w-64 bg-gradient-to-b from-gray-900 via-black to-gray-900 border-r border-green-800/30 z-20">
         {/* Background accent */}
         <div className="absolute inset-0 bg-gradient-to-b from-green-900/10 via-transparent to-green-900/5" />
         
         <div className="relative flex flex-col h-full">
           {/* Header with Logo */}
           <div className="p-4 border-b border-green-800/20">
-            <div className="flex items-center justify-between">
-              <div className={`transition-opacity duration-300 ${isSidebarOpen ? 'opacity-100' : 'opacity-0'}`}>
-                <Logo size="md" showText={isSidebarOpen} />
-              </div>
-              
-              {/* Collapse/Expand Toggle */}
-              <button
-                onClick={toggleSidebar}
-                className="p-2 rounded-lg bg-gray-800/50 hover:bg-green-800/30 text-green-400 hover:text-green-300 transition-all duration-200 border border-green-700/30 hover:border-green-600/50"
-                title={isSidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}
-              >
-                <span className="text-sm">
-                  {isSidebarOpen ? '◀' : '▶'}
-                </span>
-              </button>
+            <div className="flex items-center justify-center">
+              <Logo size="md" showText={true} />
             </div>
-            
-            {/* When collapsed, show just the logo */}
-            {!isSidebarOpen && (
-              <div className="mt-2 flex justify-center">
-                <Logo size="sm" showText={false} />
-              </div>
-            )}
           </div>
 
           {/* Navigation Items */}
@@ -84,9 +54,7 @@ export function Sidebar() {
                 <span className="text-xl flex-shrink-0">{item.icon}</span>
                 
                 {/* Label and shortcut */}
-                <div className={`ml-3 transition-all duration-300 ${
-                  isSidebarOpen ? 'opacity-100 w-auto' : 'opacity-0 w-0 overflow-hidden'
-                }`}>
+                <div className="ml-3 w-auto">
                   <div className="flex items-center justify-between w-full">
                     <span className="font-medium">{item.label}</span>
                     <span className="text-xs bg-green-600/20 text-green-300 px-2 py-1 rounded border border-green-500/30">
@@ -103,14 +71,12 @@ export function Sidebar() {
 
           {/* Footer */}
           <div className="p-4 border-t border-green-800/20">
-            <div className={`transition-opacity duration-300 ${isSidebarOpen ? 'opacity-100' : 'opacity-0'}`}>
-              <div className="text-xs text-green-300/60 space-y-1">
-                <div className="flex items-center space-x-2">
-                  <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-                  <span>System Ready</span>
-                </div>
-                <div className="text-green-400/40">v1.0.0</div>
+            <div className="text-xs text-green-300/60 space-y-1">
+              <div className="flex items-center space-x-2">
+                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+                <span>System Ready</span>
               </div>
+              <div className="text-green-400/40">v1.0.0</div>
             </div>
           </div>
         </div>

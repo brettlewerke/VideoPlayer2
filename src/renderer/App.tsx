@@ -17,7 +17,7 @@ import { LoadingScreen } from './components/LoadingScreen.js';
 import { TitleBar } from './components/TitleBar.js';
 
 export function App() {
-  const { currentView, isLoading, isSidebarOpen, loadLibrary, updateMoviePoster, updateShowPoster } = useAppStore();
+  const { currentView, isLoading, loadLibrary, updateMoviePoster, updateShowPoster } = useAppStore();
   const [bridgeReady, setBridgeReady] = useState(false);
   const [bridgeError, setBridgeError] = useState<string | null>(null);
   const [showReadOnlyBanner, setShowReadOnlyBanner] = useState(false);
@@ -197,12 +197,8 @@ export function App() {
         {/* Sidebar */}
         <Sidebar />
         
-        {/* Main content area */}
-        <main 
-          className={`flex-1 transition-all duration-300 ${
-            isSidebarOpen ? 'ml-64' : 'ml-16'
-          }`}
-        >
+        {/* Main content area - Always with expanded sidebar margin */}
+        <main className="flex-1 ml-64">
           {renderCurrentPage()}
         </main>
       </div>

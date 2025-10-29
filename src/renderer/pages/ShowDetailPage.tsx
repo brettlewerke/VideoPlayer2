@@ -11,7 +11,6 @@ export function ShowDetailPage() {
     currentShow,
     seasons,
     episodes,
-    isSidebarOpen,
     setCurrentView,
     setCurrentEpisode,
     playMedia,
@@ -227,9 +226,7 @@ export function ShowDetailPage() {
       {/* Back Button */}
       <button
         onClick={handleBack}
-        className={`fixed top-10 z-10 px-4 py-2 bg-slate-800/80 hover:bg-slate-700/80 backdrop-blur-sm text-white rounded-lg transition-all border border-slate-600/50 flex items-center gap-2 ${
-          isSidebarOpen ? 'left-[268px]' : 'left-[68px]'
-        }`}
+        className="fixed top-10 left-[268px] z-10 px-4 py-2 bg-slate-800/80 hover:bg-slate-700/80 backdrop-blur-sm text-white rounded-lg transition-all border border-slate-600/50 flex items-center gap-2"
       >
         <span>←</span>
         <span>Back</span>
