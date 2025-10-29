@@ -10,7 +10,7 @@
     "clean": "node scripts/clean.js",
     "prebuild": "npm run clean",
     "dev": "npm run dev:renderer",
-    "dev:full": "concurrently \"npm run dev:renderer\" \"npm run dev:main\"",
+    "dev:full": "concurrently \"npm run dev:renderer\" \"node scripts/dev-main-delayed.js\"",
     "dev:rebuild": "npm run rebuild && npm run dev",
     "dev:renderer": "vite",
     "dev:main": "tsc -p src/main/tsconfig.json && cross-env NODE_ENV=development electron dist/main/main/main.js",

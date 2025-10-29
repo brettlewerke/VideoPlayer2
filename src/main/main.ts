@@ -200,12 +200,23 @@ class VideoPlayerApp {
 
     // Show window when ready to prevent visual flash
     this.mainWindow.once('ready-to-show', () => {
+      console.log('[Main] Window ready-to-show event fired');
       this.mainWindow?.show();
       
       if (isDevelopment) {
         this.mainWindow?.focus();
+        console.log('[Main] Window shown and focused');
       }
     });
+    
+    // Fallback: Force show after a delay if ready-to-show doesn't fire
+    setTimeout(() => {
+      if (this.mainWindow && !this.mainWindow.isVisible()) {
+        console.log('[Main] Forcing window to show (ready-to-show timeout)');
+        this.mainWindow.show();
+        this.mainWindow.focus();
+      }
+    }, 3000);
 
     // Handle window closed
     this.mainWindow.on('closed', () => {
@@ -674,6 +685,10 @@ class VideoPlayerApp {
 
 // Global app instance
 let videoPlayerApp: VideoPlayerApp | null = null;
+
+// Disable hardware acceleration if GPU process crashes (common in dev mode)
+// Uncomment this line if you experience GPU process errors
+// app.disableHardwareAcceleration();
 
 // Register custom protocol for serving local poster files
 // This must be done before app.whenReady()
