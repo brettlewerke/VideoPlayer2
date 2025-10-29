@@ -27,10 +27,33 @@ export function PlayerPage() {
 
   const currentMedia = currentMovie || currentEpisode;
 
+  // Convert file path to proper media:// URL for video element
+  // Using custom protocol to bypass Electron's file:// security restrictions
+  const getVideoUrl = (path: string | null): string => {
+    if (!path) return '';
+    
+    // Convert Windows backslashes to forward slashes
+    const normalizedPath = path.replace(/\\/g, '/');
+    
+    // Check if it already starts with media://
+    if (normalizedPath.startsWith('media://')) {
+      return normalizedPath;
+    }
+    
+    // For Windows absolute paths (e.g., C:/Users/...)
+    if (/^[a-zA-Z]:/.test(normalizedPath)) {
+      return `media:///${normalizedPath}`;
+    }
+    
+    // For other paths
+    return `media://${normalizedPath}`;
+  };
+
   console.log('[PlayerPage] Render:', { 
     currentMedia: currentMedia?.title, 
     useExternalPlayer, 
     videoPath,
+    videoUrl: getVideoUrl(videoPath),
     isPlayerLoading 
   });
 
@@ -38,7 +61,7 @@ export function PlayerPage() {
   React.useEffect(() => {
     if (videoPath) {
       console.log('[PlayerPage] 🎬 Video path set:', videoPath);
-      console.log('[PlayerPage] 📝 Expected file protocol URL:', `file://${videoPath}`);
+      console.log('[PlayerPage] 📝 Media protocol URL:', getVideoUrl(videoPath));
       
       // Check codec support
       if (typeof MediaSource !== 'undefined' && MediaSource.isTypeSupported) {
@@ -131,13 +154,10 @@ export function PlayerPage() {
       console.log('[PlayerPage] Launching external player with position:', currentPosition);
       
       // Call player.start with forceExternal flag
-      const result = await (window as any).HPlayerAPI.player.start({
-        path: videoPath,
-        forceExternal: true,
-        startOptions: {
-          position: currentPosition,
-          autoplay: true
-        }
+      // Correct signature: player.start(path: string, options?: { start?: number, forceExternal?: boolean })
+      const result = await (window as any).HPlayerAPI.player.start(videoPath, {
+        start: currentPosition,
+        forceExternal: true
       });
 
       console.log('[PlayerPage] External player fallback result:', result);
@@ -598,7 +618,7 @@ export function PlayerPage() {
           /* HTML5 Video Element */
           <video
             ref={videoRef}
-            src={`file://${videoPath}`}
+            src={getVideoUrl(videoPath)}
             className="w-full h-full object-contain"
             controls={false}
             autoPlay

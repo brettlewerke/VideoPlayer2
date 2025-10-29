@@ -1,0 +1,1 @@
+Do not make a .md file for changes using copilot. Ignore this step and give the context in the chat.

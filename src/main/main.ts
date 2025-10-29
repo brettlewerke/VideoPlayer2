@@ -688,7 +688,7 @@ let videoPlayerApp: VideoPlayerApp | null = null;
 // Uncomment this line if you experience GPU process errors
 // app.disableHardwareAcceleration();
 
-// Register custom protocol for serving local poster files
+// Register custom protocols for serving local files
 // This must be done before app.whenReady()
 protocol.registerSchemesAsPrivileged([
   {
@@ -699,6 +699,16 @@ protocol.registerSchemesAsPrivileged([
       bypassCSP: true,
       corsEnabled: false,
       stream: true
+    }
+  },
+  {
+    scheme: 'media',
+    privileges: {
+      secure: true,
+      supportFetchAPI: true,
+      bypassCSP: true,
+      corsEnabled: false,
+      stream: true // Important for video streaming
     }
   }
 ]);
@@ -718,6 +728,22 @@ app.whenReady().then(async () => {
         callback({ path: filePath });
       } else {
         console.error(`[Protocol] Poster file not found: ${filePath}`);
+        callback({ error: -6 }); // FILE_NOT_FOUND
+      }
+    });
+    
+    // Register the media:// protocol handler for video/audio files
+    protocol.registerFileProtocol('media', (request, callback) => {
+      // Convert media://C:/path/to/file.mp4 to C:\path\to\file.mp4
+      const url = request.url.replace('media:///', '');
+      const filePath = decodeURIComponent(url).replace(/\//g, '\\');
+      
+      console.log(`[Protocol] Serving media: ${filePath}`);
+      
+      if (existsSync(filePath)) {
+        callback({ path: filePath });
+      } else {
+        console.error(`[Protocol] Media file not found: ${filePath}`);
         callback({ error: -6 }); // FILE_NOT_FOUND
       }
     });
