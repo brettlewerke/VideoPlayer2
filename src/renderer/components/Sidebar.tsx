@@ -28,7 +28,7 @@ export function Sidebar() {
       )}
 
       {/* Sidebar */}
-      <div className={`fixed left-0 top-0 h-full bg-gradient-to-b from-gray-900 via-black to-gray-900 border-r border-green-800/30 transition-all duration-300 z-20 ${
+      <div className={`fixed left-0 top-8 h-[calc(100vh-32px)] bg-gradient-to-b from-gray-900 via-black to-gray-900 border-r border-green-800/30 transition-all duration-300 z-20 ${
         isSidebarOpen ? 'w-64' : 'w-16'
       }`}>
         {/* Background accent */}

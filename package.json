@@ -1,6 +1,6 @@
 {
   "name": "hoser-video",
-  "version": "2.1.0",
+  "version": "3.2.11",
   "description": "Hoser Video – local desktop video player for Movies & TV Shows on plugged-in drives (no network services)",
   "main": "dist/main/main/main.js",
   "scripts": {
@@ -142,30 +142,12 @@
       "artifactName": "Hoser-Video-Setup-${version}.${ext}",
       "target": [
         {
-          "target": "nsis",
+          "target": "dir",
           "arch": [
-            "x64",
-            "ia32"
+            "x64"
           ]
         }
       ]
-    },
-    "nsis": {
-      "oneClick": false,
-      "allowToChangeInstallationDirectory": true,
-      "createDesktopShortcut": true,
-      "createStartMenuShortcut": true,
-      "shortcutName": "Hoser Video",
-      "deleteAppDataOnUninstall": true,
-      "installerIcon": "build/icon.ico",
-      "uninstallerIcon": "build/icon.ico",
-      "installerHeaderIcon": "build/icon.ico",
-      "installerSidebar": "build/icons/256x256.png",
-      "uninstallerSidebar": "build/icons/256x256.png",
-      "displayLanguageSelector": false,
-      "language": "1033",
-      "include": null,
-      "script": null
     },
     "linux": {
       "category": "AudioVideo",

@@ -19,7 +19,8 @@ export function HomePage() {
     activeMenu,
     drives,
     status,
-    scanDrives
+    scanDrives,
+    setCurrentView
   } = useAppStore();
 
   const featuredMovie = movies[0]; // Use first movie as featured
@@ -43,7 +44,12 @@ export function HomePage() {
           <section>
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-2xl font-bold text-green-100">Movies</h2>
-              <button className="text-green-400 hover:text-green-300 transition-colors">View All →</button>
+              <button 
+                onClick={() => setCurrentView('movies')}
+                className="text-green-400 hover:text-green-300 transition-colors"
+              >
+                View All →
+              </button>
             </div>
             <MediaGrid items={movies.slice(0, 12)} />
           </section>
@@ -53,7 +59,12 @@ export function HomePage() {
           <section>
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-2xl font-bold text-green-100">TV Shows</h2>
-              <button className="text-green-400 hover:text-green-300 transition-colors">View All →</button>
+              <button 
+                onClick={() => setCurrentView('shows')}
+                className="text-green-400 hover:text-green-300 transition-colors"
+              >
+                View All →
+              </button>
             </div>
             <MediaGrid items={shows.slice(0, 12)} />
           </section>
@@ -65,7 +76,12 @@ export function HomePage() {
       <section>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-2xl font-bold text-green-100">TV Shows</h2>
-          <button className="text-green-400 hover:text-green-300 transition-colors">View All →</button>
+          <button 
+            onClick={() => setCurrentView('shows')}
+            className="text-green-400 hover:text-green-300 transition-colors"
+          >
+            View All →
+          </button>
         </div>
         <MediaGrid items={shows.slice(0, 12)} />
       </section>

@@ -68,6 +68,8 @@ export class IpcHandler {
     ipcMain.handle(IPC_CHANNELS.APP_GET_VERSION, this.handleGetVersion.bind(this));
     ipcMain.handle(IPC_CHANNELS.APP_QUIT, this.handleAppQuit.bind(this));
     ipcMain.handle(IPC_CHANNELS.APP_MINIMIZE, this.handleAppMinimize.bind(this));
+    ipcMain.handle(IPC_CHANNELS.APP_MAXIMIZE, this.handleAppMaximize.bind(this));
+    ipcMain.handle(IPC_CHANNELS.APP_CLOSE, this.handleAppClose.bind(this));
     ipcMain.handle(IPC_CHANNELS.APP_TOGGLE_FULLSCREEN, this.handleToggleFullscreen.bind(this));
 
     console.log('IPC handlers set up successfully');
@@ -675,6 +677,34 @@ export class IpcHandler {
       const window = BrowserWindow.fromWebContents(event.sender);
       if (window) {
         window.minimize();
+      }
+      return createIpcResponse(event.frameId.toString(), undefined);
+    } catch (error) {
+      return createIpcResponse(event.frameId.toString(), undefined, error instanceof Error ? error.message : 'Unknown error');
+    }
+  }
+
+  private async handleAppMaximize(event: Electron.IpcMainInvokeEvent) {
+    try {
+      const window = BrowserWindow.fromWebContents(event.sender);
+      if (window) {
+        if (window.isMaximized()) {
+          window.unmaximize();
+        } else {
+          window.maximize();
+        }
+      }
+      return createIpcResponse(event.frameId.toString(), undefined);
+    } catch (error) {
+      return createIpcResponse(event.frameId.toString(), undefined, error instanceof Error ? error.message : 'Unknown error');
+    }
+  }
+
+  private async handleAppClose(event: Electron.IpcMainInvokeEvent) {
+    try {
+      const window = BrowserWindow.fromWebContents(event.sender);
+      if (window) {
+        window.close();
       }
       return createIpcResponse(event.frameId.toString(), undefined);
     } catch (error) {

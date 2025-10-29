@@ -59,8 +59,8 @@ class VideoPlayerApp {
     // Start file system watching
     await this.startFileWatching();
     
-    // Start poster fetching (runs once on startup)
-    await this.startPosterFetching();
+    // Start poster fetching in background (non-blocking)
+    this.startPosterFetching();
     
     // Listen to drive events to update file watcher
     this.driveManager.on('driveConnected', (drive) => {
@@ -208,6 +208,9 @@ class VideoPlayerApp {
         console.log('[Main] Window shown and focused');
       }
     });
+    
+    // Set window reference for poster fetcher to send updates
+    this.posterFetcher.setMainWindow(this.mainWindow);
     
     // Fallback: Force show after a delay if ready-to-show doesn't fire
     setTimeout(() => {
@@ -449,20 +452,15 @@ class VideoPlayerApp {
   }
 
   /**
-   * Start poster fetching from Rotten Tomatoes for movies/shows without posters
+   * Start poster fetching from OMDb API for movies/shows without posters
+   * Runs asynchronously in the background - does not block app startup
    */
-  private async startPosterFetching(): Promise<void> {
-    try {
-      console.log('[PosterFetcher] Starting poster fetch for media without posters...');
-      
-      // Fetch posters for all media that doesn't have one yet
-      await this.posterFetcher.fetchAllMissingPosters();
-      
-      console.log('[PosterFetcher] Poster fetching completed');
-    } catch (error) {
-      console.error('[PosterFetcher] Failed to fetch posters:', error);
-      // Non-fatal - app can continue without posters
-    }
+  private startPosterFetching(): void {
+    // Fire and forget - runs in background
+    this.posterFetcher.fetchAllMissingPosters().catch(error => {
+      // Silent fail - don't let poster fetching errors crash the app
+      console.error('[PosterFetcher] Background poster fetching failed:', error);
+    });
   }
 
   private createMenu(): void {

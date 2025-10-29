@@ -58,6 +58,8 @@ export const IPC_CHANNELS = {
   APP_GET_VERSION: 'app:getVersion',
   APP_QUIT: 'app:quit',
   APP_MINIMIZE: 'app:minimize',
+  APP_MAXIMIZE: 'app:maximize',
+  APP_CLOSE: 'app:close',
   APP_TOGGLE_FULLSCREEN: 'app:toggleFullscreen',
 } as const;
 
