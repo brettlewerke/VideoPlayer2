@@ -8,7 +8,7 @@
 
 ; General Configuration
 Name "Hoser Video"
-OutFile "Hoser-Video-Setup-2.4.0.exe"
+OutFile "Hoser-Video-Setup-2.9.1.exe"
 Unicode True
 InstallDir "$PROGRAMFILES\Hoser Video"
 InstallDirRegKey HKCU "Software\Hoser Video" ""
@@ -48,12 +48,12 @@ Page custom ShortcutsPage ShortcutsPageLeave
 !insertmacro MUI_LANGUAGE "English"
 
 ; Version Information
-VIProductVersion "2.4.0.0"
+VIProductVersion "2.9.1.0"
 VIAddVersionKey "ProductName" "Hoser Video"
 VIAddVersionKey "CompanyName" "Hoser Video Project"
 VIAddVersionKey "LegalCopyright" "Copyright (c) 2024 Hoser Video Project"
-VIAddVersionKey "FileVersion" "2.4.0.0"
-VIAddVersionKey "ProductVersion" "2.4.0.0"
+VIAddVersionKey "FileVersion" "2.9.1.0"
+VIAddVersionKey "ProductVersion" "2.9.1.0"
 VIAddVersionKey "FileDescription" "Hoser Video - Local Desktop Video Player"
 
 ; Custom page for shortcuts selection
