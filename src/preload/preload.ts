@@ -47,6 +47,12 @@ const IPC_CHANNELS = {
   SETTINGS_RESET: 'settings:reset',
   FS_GET_THUMBNAIL: 'fs:getThumbnail',
   FS_GET_ARTWORK: 'fs:getArtwork',
+  APP_GET_VERSION: 'app:getVersion',
+  APP_QUIT: 'app:quit',
+  APP_MINIMIZE: 'app:minimize',
+  APP_MAXIMIZE: 'app:maximize',
+  APP_CLOSE: 'app:close',
+  APP_TOGGLE_FULLSCREEN: 'app:toggleFullscreen',
 } as const;
 
 const IS_DEV = process.env.NODE_ENV === 'development';
@@ -175,15 +181,23 @@ const hplayerAPI = {
   },
 
   app: {
-    minimize: () => ipcRenderer.send('app:minimize'),
-    maximize: () => ipcRenderer.send('app:maximize'),
-    close: () => ipcRenderer.send('app:close'),
-    toggleFullscreen: () => ipcRenderer.send('app:toggle-fullscreen'),
+    minimize: () => ipcRenderer.invoke(IPC_CHANNELS.APP_MINIMIZE).catch(() => {}),
+    maximize: () => ipcRenderer.invoke(IPC_CHANNELS.APP_MAXIMIZE).catch(() => {}),
+    close: () => ipcRenderer.invoke(IPC_CHANNELS.APP_CLOSE).catch(() => {}),
+    toggleFullscreen: () => ipcRenderer.invoke(IPC_CHANNELS.APP_TOGGLE_FULLSCREEN).catch(() => {}),
+    quit: () => ipcRenderer.invoke(IPC_CHANNELS.APP_QUIT).catch(() => {}),
+    getVersion: () => ipcRenderer.invoke(IPC_CHANNELS.APP_GET_VERSION).catch(() => '0.0.0'),
     showOpenDialog: () => ipcRenderer.invoke('app:show-open-dialog').catch(() => null),
     showSaveDialog: () => ipcRenderer.invoke('app:show-save-dialog').catch(() => null),
     openExternal: (url: string) => ipcRenderer.send('app:open-external', url),
-    getVersion: () => ipcRenderer.invoke('app:get-version').catch(() => '0.0.0'),
     getPlatform: () => ipcRenderer.invoke('app:get-platform').catch(() => 'unknown'),
+  },
+
+  // Window control methods (for custom title bar)
+  windowControl: {
+    minimize: () => ipcRenderer.invoke(IPC_CHANNELS.APP_MINIMIZE).catch(() => {}),
+    maximize: () => ipcRenderer.invoke(IPC_CHANNELS.APP_MAXIMIZE).catch(() => {}),
+    close: () => ipcRenderer.invoke(IPC_CHANNELS.APP_CLOSE).catch(() => {}),
   },
 
   on: (channel: string, listener: (...args: any[]) => void) => {

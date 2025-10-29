@@ -149,3 +149,68 @@ button, .no-select {
   -ms-user-select: none;
   user-select: none;
 }
+
+/* Custom Title Bar Styles */
+.title-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 32px;
+  background: rgba(15, 23, 42, 0.95);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(100, 116, 139, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  z-index: 9999;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.title-bar-draggable {
+  flex: 1;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  padding-left: 12px;
+  -webkit-app-region: drag;
+  app-region: drag;
+}
+
+.title-bar-title {
+  font-size: 13px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.9);
+  letter-spacing: 0.02em;
+}
+
+.title-bar-controls {
+  display: flex;
+  height: 100%;
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
+}
+
+.title-bar-button {
+  width: 46px;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.8);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  outline: none;
+}
+
+.title-bar-button:focus-visible {
+  outline: 2px solid var(--color-brand);
+  outline-offset: -2px;
+}
+
+.title-bar-button:active {
+  background: rgba(255, 255, 255, 0.05);
+}

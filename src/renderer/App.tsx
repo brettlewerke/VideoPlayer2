@@ -14,6 +14,7 @@ import { MovieDetailPage } from './pages/MovieDetailPage.js';
 import { ShowDetailPage } from './pages/ShowDetailPage.js';
 import { Sidebar } from './components/Sidebar.js';
 import { LoadingScreen } from './components/LoadingScreen.js';
+import { TitleBar } from './components/TitleBar.js';
 
 export function App() {
   const { currentView, isLoading, isSidebarOpen, loadLibrary, updateMoviePoster, updateShowPoster } = useAppStore();
@@ -166,12 +167,15 @@ export function App() {
 
   return (
     <div className="h-screen bg-gradient-to-br from-black via-gray-900 to-green-900 text-white overflow-hidden">
+      {/* Custom title bar for window dragging */}
+      <TitleBar />
+      
       {/* Background accent */}
       <div className="absolute inset-0 bg-gradient-to-br from-green-900/20 via-black to-green-800/10" />
       
       {/* Read-Only Drive Warning Banner */}
       {showReadOnlyBanner && (
-        <div className="fixed top-0 left-0 right-0 z-50 bg-yellow-600/90 backdrop-blur-sm border-b border-yellow-500/50 px-4 py-3 flex items-center justify-between shadow-lg">
+        <div className="fixed top-8 left-0 right-0 z-50 bg-yellow-600/90 backdrop-blur-sm border-b border-yellow-500/50 px-4 py-3 flex items-center justify-between shadow-lg">
           <div className="flex items-center gap-3">
             <span className="text-2xl">⚠️</span>
             <div>
@@ -189,7 +193,7 @@ export function App() {
       )}
       
       {/* Main layout */}
-      <div className="relative z-10 flex h-full">
+      <div className="relative z-10 flex h-full pt-8">
         {/* Sidebar */}
         <Sidebar />
         
