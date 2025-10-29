@@ -87,6 +87,8 @@ interface AppActions {
   setCurrentShow: (show: Show | null) => void;
   setCurrentSeason: (season: Season | null) => void;
   setCurrentEpisode: (episode: Episode | null) => void;
+  updateMoviePoster: (movieId: string, posterPath: string) => void;
+  updateShowPoster: (showId: string, posterPath: string) => void;
   
   // Player Actions
   setPlayerStatus: (status: PlayerStatus | null) => void;
@@ -201,6 +203,24 @@ export const useAppStore = create<AppStore>()(
       setCurrentShow: (show) => set({ currentShow: show }),
       setCurrentSeason: (season) => set({ currentSeason: season }),
       setCurrentEpisode: (episode) => set({ currentEpisode: episode }),
+      
+      updateMoviePoster: (movieId, posterPath) => set((state) => ({
+        movies: state.movies.map(m => 
+          m.id === movieId ? { ...m, posterPath } : m
+        ),
+        currentMovie: state.currentMovie?.id === movieId 
+          ? { ...state.currentMovie, posterPath }
+          : state.currentMovie
+      })),
+      
+      updateShowPoster: (showId, posterPath) => set((state) => ({
+        shows: state.shows.map(s => 
+          s.id === showId ? { ...s, posterPath } : s
+        ),
+        currentShow: state.currentShow?.id === showId 
+          ? { ...state.currentShow, posterPath }
+          : state.currentShow
+      })),
       
       // Player Actions
       setPlayerStatus: (status) => set({ playerStatus: status }),

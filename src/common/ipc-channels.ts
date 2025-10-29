@@ -34,6 +34,9 @@ export const IPC_CHANNELS = {
   LIBRARY_GET_PROGRESS: 'library:getProgress',
   LIBRARY_SET_PROGRESS: 'library:setProgress',
   
+  // Library events
+  LIBRARY_POSTER_UPDATED: 'library:posterUpdated',
+  
   // Drive and scanning
   DRIVES_GET_ALL: 'drives:getAll',
   DRIVES_SCAN: 'drives:scan',

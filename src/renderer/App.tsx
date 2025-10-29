@@ -16,7 +16,7 @@ import { Sidebar } from './components/Sidebar.js';
 import { LoadingScreen } from './components/LoadingScreen.js';
 
 export function App() {
-  const { currentView, isLoading, isSidebarOpen, loadLibrary } = useAppStore();
+  const { currentView, isLoading, isSidebarOpen, loadLibrary, updateMoviePoster, updateShowPoster } = useAppStore();
   const [bridgeReady, setBridgeReady] = useState(false);
   const [bridgeError, setBridgeError] = useState<string | null>(null);
   const [showReadOnlyBanner, setShowReadOnlyBanner] = useState(false);
@@ -89,6 +89,27 @@ export function App() {
       api.off?.('drive-readonly', handleReadOnlyWarning);
     };
   }, [bridgeReady]);
+
+  // Listen for poster updates from background fetcher
+  useEffect(() => {
+    const api = (window as any).HPlayerAPI;
+    if (!api || !bridgeReady) return;
+
+    const handlePosterUpdate = (_event: any, data: { type: 'movie' | 'show'; id: string; posterPath: string }) => {
+      console.log(`[App] Poster updated for ${data.type} ${data.id}`);
+      if (data.type === 'movie') {
+        updateMoviePoster(data.id, data.posterPath);
+      } else if (data.type === 'show') {
+        updateShowPoster(data.id, data.posterPath);
+      }
+    };
+
+    api.on?.('library:posterUpdated', handlePosterUpdate);
+
+    return () => {
+      api.off?.('library:posterUpdated', handlePosterUpdate);
+    };
+  }, [bridgeReady, updateMoviePoster, updateShowPoster]);
 
   // Show bridge error if preload failed
   if (bridgeError) {

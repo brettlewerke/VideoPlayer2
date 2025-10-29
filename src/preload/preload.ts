@@ -38,6 +38,7 @@ const IPC_CHANNELS = {
   LIBRARY_DELETE_SHOW: 'library:deleteShow',
   LIBRARY_DELETE_SEASON: 'library:deleteSeason',
   LIBRARY_DELETE_EPISODE: 'library:deleteEpisode',
+  LIBRARY_POSTER_UPDATED: 'library:posterUpdated',
   DRIVES_GET_ALL: 'drives:getAll',
   DRIVES_SCAN: 'drives:scan',
   DRIVES_SCAN_PROGRESS: 'drives:scanProgress',
@@ -198,6 +199,7 @@ const hplayerAPI = {
       'window-focus',
       'global-shortcut',
       'menu-action',
+      IPC_CHANNELS.LIBRARY_POSTER_UPDATED,
     ];
     if (validChannels.includes(channel)) {
       ipcRenderer.on(channel, listener);
@@ -221,6 +223,7 @@ const hplayerAPI = {
       'window-focus',
       'global-shortcut',
       'menu-action',
+      IPC_CHANNELS.LIBRARY_POSTER_UPDATED,
     ];
     if (validChannels.includes(channel)) {
       ipcRenderer.once(channel, listener);

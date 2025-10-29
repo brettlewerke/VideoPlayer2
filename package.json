@@ -1,6 +1,6 @@
 {
   "name": "hoser-video",
-  "version": "2.1.0",
+  "version": "2.1.2",
   "description": "Hoser Video – local desktop video player for Movies & TV Shows on plugged-in drives (no network services)",
   "main": "dist/main/main/main.js",
   "scripts": {
@@ -144,8 +144,7 @@
         {
           "target": "nsis",
           "arch": [
-            "x64",
-            "ia32"
+            "x64"
           ]
         }
       ]

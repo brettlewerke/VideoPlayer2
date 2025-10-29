@@ -6,11 +6,11 @@
 !include "LogicLib.nsh"
 
 ; General Configuration
-Name "H Player"
-OutFile "H-Player-Setup-2.1.0.exe"
+Name "Hoser Video"
+OutFile "Hoser-Video-Setup-2.1.1.exe"
 Unicode True
-InstallDir "$PROGRAMFILES\H Player"
-InstallDirRegKey HKCU "Software\H Player" ""
+InstallDir "$PROGRAMFILES\Hoser Video"
+InstallDirRegKey HKCU "Software\Hoser Video" ""
 RequestExecutionLevel admin
 
 ; Modern UI Configuration
@@ -22,10 +22,22 @@ RequestExecutionLevel admin
 !define MUI_WELCOMEFINISHPAGE_BITMAP "build\icons\256x256.bmp"
 !define MUI_UNWELCOMEFINISHPAGE_BITMAP "build\icons\256x256.bmp"
 
+; Detailed progress bar
+!define MUI_INSTFILESPAGE_PROGRESSBAR "smooth"
+!define MUI_INSTFILESPAGE_COLORS "FFFFFF 000000"
+
+; Variables for user choices
+Var CreateDesktopShortcut
+Var PinToTaskbar
+
 ; Pages
 !insertmacro MUI_PAGE_WELCOME
 !insertmacro MUI_PAGE_LICENSE "LICENSE"
 !insertmacro MUI_PAGE_DIRECTORY
+
+; Custom page for shortcuts
+Page custom ShortcutsPage ShortcutsPageLeave
+
 !insertmacro MUI_PAGE_INSTFILES
 !insertmacro MUI_PAGE_FINISH
 
@@ -38,92 +50,156 @@ RequestExecutionLevel admin
 !insertmacro MUI_LANGUAGE "English"
 
 ; Version Information
-VIProductVersion "2.1.0.0"
-VIAddVersionKey "ProductName" "H Player"
-VIAddVersionKey "CompanyName" "H Player Project"
-VIAddVersionKey "LegalCopyright" "Copyright (c) 2024 H Player Project"
-VIAddVersionKey "FileVersion" "2.1.0.0"
-VIAddVersionKey "ProductVersion" "2.1.0.0"
-VIAddVersionKey "FileDescription" "H Player - Local Desktop Video Player"
+VIProductVersion "2.1.2.0"
+VIAddVersionKey "ProductName" "Hoser Video"
+VIAddVersionKey "CompanyName" "Hoser Video Project"
+VIAddVersionKey "LegalCopyright" "Copyright (c) 2024 Hoser Video Project"
+VIAddVersionKey "FileVersion" "2.1.2.0"
+VIAddVersionKey "ProductVersion" "2.1.2.0"
+VIAddVersionKey "FileDescription" "Hoser Video - Local Desktop Video Player"
+
+; Custom page for shortcuts selection
+Function ShortcutsPage
+  !insertmacro MUI_HEADER_TEXT "Additional Icons" "Select where you would like Hoser Video shortcuts to be created"
+  
+  nsDialogs::Create 1018
+  Pop $0
+  ${If} $0 == error
+    Abort
+  ${EndIf}
+  
+  ; Desktop shortcut checkbox
+  ${NSD_CreateCheckbox} 0 10u 100% 12u "Create a &desktop shortcut"
+  Pop $1
+  ${NSD_SetState} $1 ${BST_CHECKED}
+  
+  ; Taskbar pin checkbox  
+  ${NSD_CreateCheckbox} 0 30u 100% 12u "Pin to &taskbar"
+  Pop $2
+  ${NSD_SetState} $2 ${BST_CHECKED}
+  
+  nsDialogs::Show
+FunctionEnd
+
+Function ShortcutsPageLeave
+  ${NSD_GetState} $1 $CreateDesktopShortcut
+  ${NSD_GetState} $2 $PinToTaskbar
+FunctionEnd
 
 ; Installer Section
 Section "H Player" SecApp
   SectionIn RO
 
   SetOutPath "$INSTDIR"
-
-  ; Copy application files from manual packaging (includes FFmpeg DLLs)
+  
+  ; Enable detailed file extraction logging with filenames
+  SetDetailsPrint listonly
+  
   DetailPrint "Installing H Player..."
-  File /r "dist-manual\H Player\*.*"
+  DetailPrint " "
+  DetailPrint "Copying application files..."
 
-  ; Copy electron.exe from node_modules to main directory
-  DetailPrint "Installing Electron runtime..."
-  File "node_modules\electron\dist\electron.exe"
-
-  ; Rename electron.exe to H Player.exe for better branding
-  Rename "$INSTDIR\electron.exe" "$INSTDIR\H Player.exe"
+  ; Copy all files from electron-builder's win-unpacked directory
+  ; This shows each file being copied in the details
+  File /r "dist-packages\win-unpacked\*.*"
+  
+  DetailPrint " "
+  DetailPrint "Configuring application..."
 
   ; Create uninstaller
+  DetailPrint "Creating uninstaller..."
   WriteUninstaller "$INSTDIR\Uninstall.exe"
 
-  ; Create desktop shortcut
-  CreateShortCut "$DESKTOP\H Player.lnk" "$INSTDIR\H Player.exe" "" "$INSTDIR\resources\app\build\icon.ico"
+  ; Create desktop shortcut if selected
+  ${If} $CreateDesktopShortcut == ${BST_CHECKED}
+    DetailPrint "Creating desktop shortcut..."
+    CreateShortCut "$DESKTOP\Hoser Video.lnk" "$INSTDIR\Hoser Video.exe" "" "$INSTDIR\resources\app.asar.unpacked\build\icon.ico"
+  ${EndIf}
 
   ; Create start menu entries
-  CreateDirectory "$SMPROGRAMS\H Player"
-  CreateShortCut "$SMPROGRAMS\H Player\H Player.lnk" "$INSTDIR\H Player.exe" "" "$INSTDIR\resources\app\build\icon.ico"
-  CreateShortCut "$SMPROGRAMS\H Player\Uninstall.lnk" "$INSTDIR\Uninstall.exe"
+  DetailPrint "Creating Start Menu shortcuts..."
+  CreateDirectory "$SMPROGRAMS\Hoser Video"
+  CreateShortCut "$SMPROGRAMS\Hoser Video\Hoser Video.lnk" "$INSTDIR\Hoser Video.exe" "" "$INSTDIR\resources\app.asar.unpacked\build\icon.ico"
+  CreateShortCut "$SMPROGRAMS\Hoser Video\Uninstall.lnk" "$INSTDIR\Uninstall.exe"
+  
+  ; Pin to taskbar if selected (Windows 10/11)
+  ${If} $PinToTaskbar == ${BST_CHECKED}
+    DetailPrint "Pinning to taskbar..."
+    nsExec::Exec 'powershell -WindowStyle Hidden -Command "$s=(New-Object -COM WScript.Shell).CreateShortcut(\"$env:APPDATA\\Microsoft\\Internet Explorer\\Quick Launch\\User Pinned\\TaskBar\\Hoser Video.lnk\"); $s.TargetPath=\"$INSTDIR\\Hoser Video.exe\"; $s.IconLocation=\"$INSTDIR\\resources\\app.asar.unpacked\\build\\icon.ico\"; $s.Save()"'
+  ${EndIf}
 
   ; Registry entries for Add/Remove Programs
-  WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\H Player" "DisplayName" "H Player"
-  WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\H Player" "UninstallString" "$INSTDIR\Uninstall.exe"
-  WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\H Player" "QuietUninstallString" "$INSTDIR\Uninstall.exe /S"
-  WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\H Player" "InstallLocation" "$INSTDIR"
-  WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\H Player" "DisplayIcon" "$INSTDIR\resources\app\build\icon.ico"
-  WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\H Player" "Publisher" "H Player Project"
-  WriteRegStr HKLM "Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\H Player" "DisplayVersion" "2.1.0"
+  DetailPrint "Registering with Windows..."
+  WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\Hoser Video" "DisplayName" "Hoser Video"
+  WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\Hoser Video" "UninstallString" "$INSTDIR\Uninstall.exe"
+  WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\Hoser Video" "QuietUninstallString" "$INSTDIR\Uninstall.exe /S"
+  WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\Hoser Video" "InstallLocation" "$INSTDIR"
+  WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\Hoser Video" "DisplayIcon" "$INSTDIR\\resources\\app.asar.unpacked\\build\\icon.ico"
+  WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\Hoser Video" "Publisher" "Hoser Video Project"
+  WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\Hoser Video" "DisplayVersion" "2.1.1"
   ${GetSize} "$INSTDIR" "/S=0K" $0 $1 $2
   IntFmt $0 "0x%08X" $0
-  WriteRegDWORD HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\H Player" "EstimatedSize" "$0"
-  WriteRegDWORD HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\H Player" "NoModify" 1
-  WriteRegDWORD HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\H Player" "NoRepair" 1
+  WriteRegDWORD HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\Hoser Video" "EstimatedSize" "$0"
+  WriteRegDWORD HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\Hoser Video" "NoModify" 1
+  WriteRegDWORD HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\Hoser Video" "NoRepair" 1
 
   ; Store installation folder
-  WriteRegStr HKCU "Software\H Player" "" $INSTDIR
+  WriteRegStr HKCU "Software\Hoser Video" "" $INSTDIR
+  
+  DetailPrint " "
+  DetailPrint "Installation completed successfully!"
 
 SectionEnd
 
 ; Uninstaller Section
 Section "Uninstall"
+  
+  ; Enable detailed logging for uninstall with filenames
+  SetDetailsPrint listonly
 
-  ; Stop any running H Player processes
-  DetailPrint "Stopping H Player processes..."
-  nsExec::ExecToLog 'taskkill /f /im "H Player.exe" /t'
-  nsExec::ExecToLog 'taskkill /f /im "electron.exe" /fi "WINDOWTITLE eq H Player" /t'
+  ; Stop any running Hoser Video processes
+  DetailPrint "Stopping Hoser Video processes..."
+  nsExec::Exec 'taskkill /f /im "Hoser Video.exe" /t'
+  nsExec::Exec 'taskkill /f /im "electron.exe" /fi "WINDOWTITLE eq Hoser Video" /t'
 
-  ; Remove files
+  ; Remove shortcuts first
+  DetailPrint "Removing desktop shortcut..."
+  Delete "$DESKTOP\Hoser Video.lnk"
+  
+  DetailPrint "Removing Start Menu shortcuts..."
+  Delete "$SMPROGRAMS\Hoser Video\Hoser Video.lnk"
+  Delete "$SMPROGRAMS\Hoser Video\Uninstall.lnk"
+  RMDir "$SMPROGRAMS\Hoser Video"
+  
+  ; Remove taskbar pin
+  DetailPrint "Removing taskbar shortcut..."
+  Delete "$APPDATA\Microsoft\Internet Explorer\Quick Launch\User Pinned\TaskBar\Hoser Video.lnk"
+
+  ; Remove application files
+  DetailPrint " "
   DetailPrint "Removing application files..."
   Delete "$INSTDIR\Uninstall.exe"
+  
+  ; Remove all files and folders
   RMDir /r "$INSTDIR"
 
-  ; Remove shortcuts
-  DetailPrint "Removing shortcuts..."
-  Delete "$DESKTOP\H Player.lnk"
-  RMDir /r "$SMPROGRAMS\H Player"
-
   ; Remove .hoser-video database folders from all drives
+  DetailPrint " "
   DetailPrint "Removing database folders from all drives..."
-  nsExec::ExecToLog 'powershell -Command "Get-PSDrive -PSProvider FileSystem | Where-Object { $_.Root -match ''^[A-Z]:\\$$'' } | ForEach-Object { $path = Join-Path $_.Root ''.hoser-video''; if (Test-Path $path) { Remove-Item $path -Recurse -Force; Write-Host \"Removed $path\" } }"'
+  nsExec::Exec 'powershell -WindowStyle Hidden -Command "Get-PSDrive -PSProvider FileSystem | Where-Object { $_.Root -match ''^[A-Z]:\\$$'' } | ForEach-Object { $path = Join-Path $_.Root ''.hoser-video''; if (Test-Path $path) { Remove-Item $path -Recurse -Force } }"'
 
   ; Remove user data (optional - ask user)
   MessageBox MB_YESNO "Remove user data and settings?" IDNO skipUserData
   DetailPrint "Removing user data..."
-  RMDir /r "$APPDATA\H Player"
+  RMDir /r "$APPDATA\Hoser Video"
   skipUserData:
 
   ; Remove registry entries
   DetailPrint "Cleaning up registry..."
-  DeleteRegKey HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\H Player"
-  DeleteRegKey HKCU "Software\H Player"
+  DeleteRegKey HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\Hoser Video"
+  DeleteRegKey HKCU "Software\Hoser Video"
+  
+  DetailPrint " "
+  DetailPrint "Uninstallation completed successfully!"
 
 SectionEnd

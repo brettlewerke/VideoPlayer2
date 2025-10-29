@@ -9,7 +9,9 @@ import { join, basename } from 'path';
 import { get as httpsGet } from 'https';
 import { pipeline } from 'stream/promises';
 import { IncomingMessage } from 'http';
+import { BrowserWindow } from 'electron';
 import { DatabaseManager } from '../database/database.js';
+import { IPC_CHANNELS } from '../../common/ipc-channels.js';
 import type { Movie, Show, Season, Episode } from '../../shared/types.js';
 
 interface PosterFetchResult {
@@ -31,9 +33,20 @@ export class PosterFetcher {
   private readonly OMDB_API_KEY = '9eb1750b';
   private readonly OMDB_BASE_URL = 'https://www.omdbapi.com/';
   private readonly USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
+  private readonly MAX_CONCURRENT_DOWNLOADS = 3; // Limit concurrent API calls
+  private readonly RETRY_DELAY_MS = 1000; // Delay between batches
   private fetchQueue: Map<string, Promise<PosterFetchResult>> = new Map();
+  private isRunning: boolean = false;
+  private mainWindow: BrowserWindow | null = null;
 
   constructor(private database: DatabaseManager) {}
+  
+  /**
+   * Set the main window reference for sending events
+   */
+  setMainWindow(window: BrowserWindow): void {
+    this.mainWindow = window;
+  }
 
   /**
    * Sanitize a string for use in a filename
@@ -141,9 +154,16 @@ export class PosterFetcher {
 
   /**
    * Fetch posters for all media that doesn't have one yet
+   * Runs in background with concurrency control - does not block
    */
   async fetchAllMissingPosters(): Promise<void> {
-    console.log('[PosterFetcher] Starting to fetch missing posters...');
+    if (this.isRunning) {
+      console.log('[PosterFetcher] Already running, skipping...');
+      return;
+    }
+
+    this.isRunning = true;
+    console.log('[PosterFetcher] Starting background poster fetch...');
 
     try {
       // Get all movies without posters
@@ -152,11 +172,11 @@ export class PosterFetcher {
 
       console.log(`[PosterFetcher] Found ${moviesNeedingPosters.length} movies needing posters`);
 
-      for (const movie of moviesNeedingPosters) {
-        await this.fetchMoviePoster(movie);
-        // Small delay to respect API rate limits
-        await this.delay(250);
-      }
+      // Process movies in batches with concurrency control
+      await this.processBatch(
+        moviesNeedingPosters,
+        (movie) => this.fetchMoviePoster(movie)
+      );
 
       // Get all shows without posters
       const shows = await this.database.getShows();
@@ -164,14 +184,40 @@ export class PosterFetcher {
 
       console.log(`[PosterFetcher] Found ${showsNeedingPosters.length} shows needing posters`);
 
-      for (const show of showsNeedingPosters) {
-        await this.fetchShowPoster(show);
-        await this.delay(250);
-      }
+      // Process shows in batches with concurrency control
+      await this.processBatch(
+        showsNeedingPosters,
+        (show) => this.fetchShowPoster(show)
+      );
 
-      console.log('[PosterFetcher] Finished fetching posters');
+      console.log('[PosterFetcher] Background poster fetch completed');
     } catch (error) {
-      console.error('[PosterFetcher] Error fetching posters:', error);
+      // Silent fail - log but don't throw
+      console.error('[PosterFetcher] Error during background poster fetch:', error);
+    } finally {
+      this.isRunning = false;
+    }
+  }
+
+  /**
+   * Process items in batches with concurrency control
+   */
+  private async processBatch<T>(
+    items: T[],
+    processor: (item: T) => Promise<PosterFetchResult>
+  ): Promise<void> {
+    for (let i = 0; i < items.length; i += this.MAX_CONCURRENT_DOWNLOADS) {
+      const batch = items.slice(i, i + this.MAX_CONCURRENT_DOWNLOADS);
+      
+      // Process batch concurrently
+      await Promise.allSettled(
+        batch.map(item => processor(item))
+      );
+
+      // Small delay between batches to respect API rate limits
+      if (i + this.MAX_CONCURRENT_DOWNLOADS < items.length) {
+        await this.delay(this.RETRY_DELAY_MS);
+      }
     }
   }
 
@@ -198,13 +244,11 @@ export class PosterFetcher {
 
   private async doFetchMoviePoster(movie: Movie): Promise<PosterFetchResult> {
     try {
-      console.log(`[PosterFetcher] Fetching poster for movie: ${movie.title}${movie.year ? ` (${movie.year})` : ''}`);
-
-      // Query OMDb API
+      // Query OMDb API (silently fail on network errors)
       const posterUrl = await this.fetchPosterFromOMDb(movie.title, movie.year, 'movie');
 
       if (!posterUrl) {
-        console.log(`[PosterFetcher] No poster found for: ${movie.title}`);
+        // Silent fail - no logging for missing posters
         return { success: false, error: 'No poster found' };
       }
 
@@ -220,10 +264,21 @@ export class PosterFetcher {
       // Update database
       await this.database.updateMoviePoster(movie.id, localPath);
 
-      console.log(`[PosterFetcher] Successfully fetched poster for: ${movie.title}`);
+      console.log(`[PosterFetcher] ✓ Downloaded poster: ${movie.title}`);
+      
+      // Notify renderer that poster was updated
+      if (this.mainWindow && !this.mainWindow.isDestroyed()) {
+        this.mainWindow.webContents.send(IPC_CHANNELS.LIBRARY_POSTER_UPDATED, {
+          type: 'movie',
+          id: movie.id,
+          posterPath: localPath
+        });
+      }
+      
       return { success: true, posterUrl, localPath };
     } catch (error) {
-      console.error(`[PosterFetcher] Error fetching poster for ${movie.title}:`, error);
+      // Silent fail - only log in debug mode
+      // console.error(`[PosterFetcher] Error fetching poster for ${movie.title}:`, error);
       return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
     }
   }
@@ -250,13 +305,11 @@ export class PosterFetcher {
 
   private async doFetchShowPoster(show: Show): Promise<PosterFetchResult> {
     try {
-      console.log(`[PosterFetcher] Fetching poster for show: ${show.title}`);
-
-      // Query OMDb API for TV series (shows don't have year in the type)
+      // Query OMDb API for TV series (silently fail on network errors)
       const posterUrl = await this.fetchPosterFromOMDb(show.title, undefined, 'series');
 
       if (!posterUrl) {
-        console.log(`[PosterFetcher] No poster found for: ${show.title}`);
+        // Silent fail - no logging for missing posters
         return { success: false, error: 'No poster found' };
       }
 
@@ -271,10 +324,21 @@ export class PosterFetcher {
 
       await this.database.updateShowPoster(show.id, localPath);
 
-      console.log(`[PosterFetcher] Successfully fetched poster for: ${show.title}`);
+      console.log(`[PosterFetcher] ✓ Downloaded poster: ${show.title}`);
+      
+      // Notify renderer that poster was updated
+      if (this.mainWindow && !this.mainWindow.isDestroyed()) {
+        this.mainWindow.webContents.send(IPC_CHANNELS.LIBRARY_POSTER_UPDATED, {
+          type: 'show',
+          id: show.id,
+          posterPath: localPath
+        });
+      }
+      
       return { success: true, posterUrl, localPath };
     } catch (error) {
-      console.error(`[PosterFetcher] Error fetching poster for ${show.title}:`, error);
+      // Silent fail - only log in debug mode
+      // console.error(`[PosterFetcher] Error fetching poster for ${show.title}:`, error);
       return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
     }
   }
