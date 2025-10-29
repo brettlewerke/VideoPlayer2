@@ -8,7 +8,7 @@
 
 ; General Configuration
 Name "Hoser Video"
-OutFile "Hoser-Video-Setup-2.2.1.exe"
+OutFile "Hoser-Video-Setup-2.4.0.exe"
 Unicode True
 InstallDir "$PROGRAMFILES\Hoser Video"
 InstallDirRegKey HKCU "Software\Hoser Video" ""
@@ -48,12 +48,12 @@ Page custom ShortcutsPage ShortcutsPageLeave
 !insertmacro MUI_LANGUAGE "English"
 
 ; Version Information
-VIProductVersion "2.2.1.0"
+VIProductVersion "2.4.0.0"
 VIAddVersionKey "ProductName" "Hoser Video"
 VIAddVersionKey "CompanyName" "Hoser Video Project"
 VIAddVersionKey "LegalCopyright" "Copyright (c) 2024 Hoser Video Project"
-VIAddVersionKey "FileVersion" "2.2.1.0"
-VIAddVersionKey "ProductVersion" "2.2.1.0"
+VIAddVersionKey "FileVersion" "2.4.0.0"
+VIAddVersionKey "ProductVersion" "2.4.0.0"
 VIAddVersionKey "FileDescription" "Hoser Video - Local Desktop Video Player"
 
 ; Custom page for shortcuts selection
@@ -145,7 +145,7 @@ Section "H Player" SecApp
   WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\Hoser Video" "QuietUninstallString" "$INSTDIR\Uninstall.exe /S"
   WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\Hoser Video" "InstallLocation" "$INSTDIR"
   WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\Hoser Video" "DisplayIcon" "$INSTDIR\\Hoser Video.exe,0"
-  WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\Hoser Video" "Publisher" "Hoser Video Project"
+  WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\Hoser Video" "Publisher" "Brett Lewerke"
   WriteRegStr HKLM "Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Hoser Video" "DisplayVersion" "2.2.0"
   ${GetSize} "$INSTDIR" "/S=0K" $0 $1 $2
   IntFmt $0 "0x%08X" $0
@@ -196,7 +196,7 @@ Section "Uninstall"
   ; Remove .hoser-video database folders from all drives
   DetailPrint " "
   DetailPrint "Removing database folders from all drives..."
-  nsExec::Exec 'powershell -WindowStyle Hidden -Command "Get-PSDrive -PSProvider FileSystem | Where-Object { $_.Root -match ''^[A-Z]:\\$$'' } | ForEach-Object { $path = Join-Path $_.Root ''.hoser-video''; if (Test-Path $path) { Remove-Item $path -Recurse -Force } }"'
+  nsExec::Exec 'powershell -WindowStyle Hidden -Command "Get-PSDrive -PSProvider FileSystem | Where-Object { $$_.Root -match \"^[A-Z]:\\$$\" } | ForEach-Object { $$p = Join-Path $$_.Root \".hoser-video\"; if (Test-Path $$p) { Remove-Item $$p -Recurse -Force } }"'
 
   ; Remove user data (optional - ask user)
   MessageBox MB_YESNO "Remove user data and settings?" IDNO skipUserData
