@@ -1,0 +1,46 @@
+[Unit]
+Description=Hoser Video - Media Center for Raspberry Pi
+Documentation=https://github.com/brettlewerke/VideoPlayer2
+After=network-online.target graphical.target sound.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=%i
+Group=%i
+Environment="DISPLAY=:0"
+Environment="XAUTHORITY=/home/%i/.Xauthority"
+Environment="HOSER_KIOSK_MODE=true"
+Environment="NODE_ENV=production"
+Environment="ELECTRON_ENABLE_LOGGING=1"
+
+# Wait for X server to be ready
+ExecStartPre=/bin/sleep 5
+
+# Start Hoser Video in kiosk mode
+ExecStart=/usr/bin/hoser-video --no-sandbox --kiosk
+
+# Restart on failure
+Restart=on-failure
+RestartSec=10
+
+# Resource limits
+MemoryLimit=2G
+CPUQuota=200%
+
+# Security settings
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/home/%i/.local/share/hoser-video
+ReadWritePaths=/media
+ReadWritePaths=/mnt
+
+# Standard output to journal
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=hoser-video
+
+[Install]
+WantedBy=graphical.target

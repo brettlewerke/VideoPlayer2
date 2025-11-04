@@ -50,6 +50,26 @@ export const IPC_CHANNELS = {
   // File system
   FS_GET_THUMBNAIL: 'fs:getThumbnail',
   FS_GET_ARTWORK: 'fs:getArtwork',
+  
+  // Platform detection
+  PLATFORM_GET_INFO: 'platform:getInfo',
+  PLATFORM_GET_CAPABILITIES: 'platform:getCapabilities',
+  PLATFORM_GET_MPV_CONFIG: 'platform:getMPVConfig',
+  
+  // Linux storage (mount points)
+  STORAGE_GET_MOUNTS: 'storage:getMounts',
+  STORAGE_GET_MEDIA_LOCATIONS: 'storage:getMediaLocations',
+  STORAGE_MOUNT: 'storage:mount',
+  STORAGE_UNMOUNT: 'storage:unmount',
+  
+  // CEC (TV remote control)
+  CEC_GET_STATUS: 'cec:getStatus',
+  CEC_GET_DEVICES: 'cec:getDevices',
+  CEC_TURN_ON_TV: 'cec:turnOnTV',
+  CEC_TURN_OFF_TV: 'cec:turnOffTV',
+  CEC_SET_ACTIVE_SOURCE: 'cec:setActiveSource',
+  CEC_KEY_PRESSED: 'cec:keyPressed',
+  CEC_STATUS_CHANGED: 'cec:statusChanged',
 } as const;
 
 export type IpcChannel = typeof IPC_CHANNELS[keyof typeof IPC_CHANNELS];
