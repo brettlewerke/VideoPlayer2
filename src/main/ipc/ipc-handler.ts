@@ -8,6 +8,9 @@ import { PlayerFactory } from '../player/player-factory.js';
 import { DriveManager } from '../services/drive-manager.js';
 import { MediaScanner } from '../services/media-scanner.js';
 import { PosterFetcher } from '../services/poster-fetcher.js';
+import { platformDetector } from '../services/PlatformDetector.js';
+import { linuxStorageManager } from '../services/LinuxStorageManager.js';
+import { cecController } from '../services/CecController.js';
 import { IPlayer } from '../../shared/player.js';
 import { IPC_CHANNELS, createIpcResponse, validatePath, validateVolume, validatePosition, validateTrackId } from '../../shared/ipc.js';
 import type { PlaybackProgress } from '../../shared/types.js';
@@ -71,6 +74,22 @@ export class IpcHandler {
     ipcMain.handle(IPC_CHANNELS.APP_MAXIMIZE, this.handleAppMaximize.bind(this));
     ipcMain.handle(IPC_CHANNELS.APP_CLOSE, this.handleAppClose.bind(this));
     ipcMain.handle(IPC_CHANNELS.APP_TOGGLE_FULLSCREEN, this.handleToggleFullscreen.bind(this));
+    
+    // Platform handlers
+    ipcMain.handle(IPC_CHANNELS.PLATFORM_GET_INFO, this.handleGetPlatformInfo.bind(this));
+    ipcMain.handle(IPC_CHANNELS.PLATFORM_GET_CAPABILITIES, this.handleGetCapabilities.bind(this));
+    ipcMain.handle(IPC_CHANNELS.PLATFORM_GET_MPV_CONFIG, this.handleGetMPVConfig.bind(this));
+    
+    // Storage handlers (Linux)
+    ipcMain.handle(IPC_CHANNELS.STORAGE_GET_MOUNTS, this.handleGetMounts.bind(this));
+    ipcMain.handle(IPC_CHANNELS.STORAGE_GET_MEDIA_LOCATIONS, this.handleGetMediaLocations.bind(this));
+    
+    // CEC handlers (Raspberry Pi)
+    ipcMain.handle(IPC_CHANNELS.CEC_GET_STATUS, this.handleGetCECStatus.bind(this));
+    ipcMain.handle(IPC_CHANNELS.CEC_GET_DEVICES, this.handleGetCECDevices.bind(this));
+    ipcMain.handle(IPC_CHANNELS.CEC_TURN_ON_TV, this.handleTurnOnTV.bind(this));
+    ipcMain.handle(IPC_CHANNELS.CEC_TURN_OFF_TV, this.handleTurnOffTV.bind(this));
+    ipcMain.handle(IPC_CHANNELS.CEC_SET_ACTIVE_SOURCE, this.handleSetActiveSource.bind(this));
 
     console.log('IPC handlers set up successfully');
   }
@@ -719,6 +738,102 @@ export class IpcHandler {
         window.setFullScreen(!window.isFullScreen());
       }
       return createIpcResponse(event.frameId.toString(), undefined);
+    } catch (error) {
+      return createIpcResponse(event.frameId.toString(), undefined, error instanceof Error ? error.message : 'Unknown error');
+    }
+  }
+
+  // Platform detection handlers
+  private async handleGetPlatformInfo(event: Electron.IpcMainInvokeEvent) {
+    try {
+      const platformInfo = await platformDetector.detectPlatform();
+      return createIpcResponse(event.frameId.toString(), platformInfo);
+    } catch (error) {
+      return createIpcResponse(event.frameId.toString(), undefined, error instanceof Error ? error.message : 'Unknown error');
+    }
+  }
+
+  private async handleGetCapabilities(event: Electron.IpcMainInvokeEvent) {
+    try {
+      const capabilities = await platformDetector.getHardwareCapabilities();
+      return createIpcResponse(event.frameId.toString(), capabilities);
+    } catch (error) {
+      return createIpcResponse(event.frameId.toString(), undefined, error instanceof Error ? error.message : 'Unknown error');
+    }
+  }
+
+  private async handleGetMPVConfig(event: Electron.IpcMainInvokeEvent) {
+    try {
+      const config = await platformDetector.getMPVConfig();
+      return createIpcResponse(event.frameId.toString(), config);
+    } catch (error) {
+      return createIpcResponse(event.frameId.toString(), undefined, error instanceof Error ? error.message : 'Unknown error');
+    }
+  }
+
+  // Linux storage handlers
+  private async handleGetMounts(event: Electron.IpcMainInvokeEvent) {
+    try {
+      const mounts = linuxStorageManager.getMountPoints();
+      return createIpcResponse(event.frameId.toString(), mounts);
+    } catch (error) {
+      return createIpcResponse(event.frameId.toString(), undefined, error instanceof Error ? error.message : 'Unknown error');
+    }
+  }
+
+  private async handleGetMediaLocations(event: Electron.IpcMainInvokeEvent) {
+    try {
+      const locations = await linuxStorageManager.findMediaLocations();
+      return createIpcResponse(event.frameId.toString(), locations);
+    } catch (error) {
+      return createIpcResponse(event.frameId.toString(), undefined, error instanceof Error ? error.message : 'Unknown error');
+    }
+  }
+
+  // CEC handlers
+  private async handleGetCECStatus(event: Electron.IpcMainInvokeEvent) {
+    try {
+      const status = {
+        connected: cecController.isReady(),
+        devices: cecController.getDevices().length,
+      };
+      return createIpcResponse(event.frameId.toString(), status);
+    } catch (error) {
+      return createIpcResponse(event.frameId.toString(), undefined, error instanceof Error ? error.message : 'Unknown error');
+    }
+  }
+
+  private async handleGetCECDevices(event: Electron.IpcMainInvokeEvent) {
+    try {
+      const devices = cecController.getDevices();
+      return createIpcResponse(event.frameId.toString(), devices);
+    } catch (error) {
+      return createIpcResponse(event.frameId.toString(), undefined, error instanceof Error ? error.message : 'Unknown error');
+    }
+  }
+
+  private async handleTurnOnTV(event: Electron.IpcMainInvokeEvent) {
+    try {
+      const success = await cecController.turnOnTV();
+      return createIpcResponse(event.frameId.toString(), { success });
+    } catch (error) {
+      return createIpcResponse(event.frameId.toString(), undefined, error instanceof Error ? error.message : 'Unknown error');
+    }
+  }
+
+  private async handleTurnOffTV(event: Electron.IpcMainInvokeEvent) {
+    try {
+      const success = await cecController.turnOffTV();
+      return createIpcResponse(event.frameId.toString(), { success });
+    } catch (error) {
+      return createIpcResponse(event.frameId.toString(), undefined, error instanceof Error ? error.message : 'Unknown error');
+    }
+  }
+
+  private async handleSetActiveSource(event: Electron.IpcMainInvokeEvent) {
+    try {
+      const success = await cecController.setActiveSource();
+      return createIpcResponse(event.frameId.toString(), { success });
     } catch (error) {
       return createIpcResponse(event.frameId.toString(), undefined, error instanceof Error ? error.message : 'Unknown error');
     }

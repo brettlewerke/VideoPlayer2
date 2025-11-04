@@ -15,6 +15,9 @@ import { PosterFetcher } from './services/poster-fetcher.js';
 import { PlayerFactory } from './player/player-factory.js';
 import { IpcHandler } from './ipc/ipc-handler.js';
 import { DEFAULT_SETTINGS } from '../shared/constants.js';
+import { platformDetector } from './services/PlatformDetector.js';
+import { linuxStorageManager } from './services/LinuxStorageManager.js';
+import { cecController, keyboardFallback } from './services/CecController.js';
 
 class VideoPlayerApp {
   private mainWindow: BrowserWindow | null = null;
@@ -25,6 +28,8 @@ class VideoPlayerApp {
   private mediaScanner: MediaScanner;
   private fileWatcher: FileWatcher;
   private posterFetcher: PosterFetcher;
+  private isRaspberryPi = false;
+  private useCec = false;
 
   constructor() {
     this.database = new DatabaseManager();
@@ -37,6 +42,20 @@ class VideoPlayerApp {
   }
 
   async initialize(): Promise<void> {
+    // Detect platform first
+    const platformInfo = await platformDetector.detectPlatform();
+    this.isRaspberryPi = platformInfo.isRaspberryPi;
+    
+    console.log('[Main] Platform:', {
+      os: platformInfo.isLinux ? 'Linux' : platformInfo.isWindows ? 'Windows' : 'macOS',
+      isRaspberryPi: platformInfo.isRaspberryPi,
+      model: platformInfo.model,
+      arch: platformInfo.arch,
+      ram: `${platformInfo.ramMB}MB`,
+      cores: platformInfo.cpuCores,
+      hwAccel: platformInfo.hasHardwareAcceleration,
+    });
+
     // Migrate user data from old app name (h-player) to new (hoser-video)
     await this.migrateUserData();
     
@@ -45,6 +64,61 @@ class VideoPlayerApp {
     
     // Load settings and apply them
     await this.loadSettings();
+    
+    // Initialize platform-specific services
+    if (platformInfo.isLinux) {
+      // Start Linux storage monitoring
+      console.log('[Main] Initializing Linux storage manager...');
+      await linuxStorageManager.startMonitoring();
+      
+      // Listen to mount/unmount events
+      linuxStorageManager.on('mount', (mountPoint) => {
+        console.log('[Main] Drive mounted:', mountPoint.mountPath);
+        // Trigger media scan on new mount - TODO: Add scanDirectory method or use existing scan
+        // this.mediaScanner.scanMovies().catch((err: Error) => {
+        //   console.error('[Main] Error scanning new mount:', err);
+        // });
+      });
+      
+      linuxStorageManager.on('unmount', (mountPoint) => {
+        console.log('[Main] Drive unmounted:', mountPoint.mountPath);
+      });
+    }
+    
+    // Initialize CEC for Raspberry Pi
+    if (this.isRaspberryPi) {
+      console.log('[Main] Initializing HDMI-CEC controller...');
+      const cecInitialized = await cecController.initialize();
+      this.useCec = cecInitialized;
+      
+      if (cecInitialized) {
+        // Listen to CEC key presses
+        cecController.on('key', (key) => {
+          console.log('[Main] CEC key pressed:', key);
+          // Forward to renderer
+          this.mainWindow?.webContents.send('cec-key', key);
+        });
+        
+        cecController.on('connected', () => {
+          console.log('[Main] CEC connected');
+          this.mainWindow?.webContents.send('cec-status', { connected: true });
+        });
+        
+        cecController.on('disconnected', () => {
+          console.log('[Main] CEC disconnected');
+          this.mainWindow?.webContents.send('cec-status', { connected: false });
+        });
+        
+        // Set this device as active source when window is focused
+        cecController.setActiveSource();
+      } else {
+        console.log('[Main] CEC not available, using keyboard fallback');
+        // Use keyboard fallback for development/testing
+        keyboardFallback.on('key', (key) => {
+          this.mainWindow?.webContents.send('cec-key', key);
+        });
+      }
+    }
     
     // Initialize services
     await this.driveManager.initialize();

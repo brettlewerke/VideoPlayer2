@@ -1,0 +1,21 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Hoser Video
+Comment=Local desktop media player for Movies & TV Shows
+GenericName=Media Player
+Icon=hoser-video
+Exec=/usr/bin/hoser-video %U
+Actions=Kiosk;
+
+Categories=AudioVideo;Player;Video;
+MimeType=video/mp4;video/x-matroska;video/x-msvideo;video/quicktime;video/x-ms-wmv;video/x-flv;video/webm;video/mpeg;
+Keywords=video;player;media;movie;tv;shows;
+Terminal=false
+StartupNotify=true
+StartupWMClass=Hoser Video
+
+# Kiosk Mode Action
+[Desktop Action Kiosk]
+Name=Kiosk Mode
+Exec=/usr/bin/hoser-video --kiosk
