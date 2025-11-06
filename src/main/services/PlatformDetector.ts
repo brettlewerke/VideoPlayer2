@@ -320,18 +320,30 @@ export class PlatformDetector {
    * Get recommended database path for the platform
    */
   getDatabasePath(): string {
-    const platform = this.platformInfo || { isLinux: os.platform() === 'linux' };
-
-    if (platform.isLinux) {
-      // Linux: Use XDG Base Directory specification
-      const xdgDataHome = process.env.XDG_DATA_HOME || `${os.homedir()}/.local/share`;
-      return `${xdgDataHome}/hoser-video`;
-    } else if (platform.isWindows) {
-      // Windows: Use AppData
-      return process.env.APPDATA ? `${process.env.APPDATA}/hoser-video` : '';
+    const currentPlatform = os.platform();
+    
+    if (this.platformInfo) {
+      if (this.platformInfo.isLinux) {
+        // Linux: Use XDG Base Directory specification
+        const xdgDataHome = process.env.XDG_DATA_HOME || `${os.homedir()}/.local/share`;
+        return `${xdgDataHome}/hoser-video`;
+      } else if (this.platformInfo.isWindows) {
+        // Windows: Use AppData
+        return process.env.APPDATA ? `${process.env.APPDATA}/hoser-video` : '';
+      } else {
+        // macOS: Use Application Support
+        return `${os.homedir()}/Library/Application Support/hoser-video`;
+      }
     } else {
-      // macOS: Use Application Support
-      return `${os.homedir()}/Library/Application Support/hoser-video`;
+      // Fallback when platformInfo is not initialized
+      if (currentPlatform === 'linux') {
+        const xdgDataHome = process.env.XDG_DATA_HOME || `${os.homedir()}/.local/share`;
+        return `${xdgDataHome}/hoser-video`;
+      } else if (currentPlatform === 'win32') {
+        return process.env.APPDATA ? `${process.env.APPDATA}/hoser-video` : '';
+      } else {
+        return `${os.homedir()}/Library/Application Support/hoser-video`;
+      }
     }
   }
 }

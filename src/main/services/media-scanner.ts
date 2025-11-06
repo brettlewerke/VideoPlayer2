@@ -99,6 +99,19 @@ export class MediaScanner extends EventEmitter {
       });
       
       return result;
+    } catch (error: any) {
+      // If we can't write to the drive, log it but don't crash
+      if (error.message?.includes('No write access to drive')) {
+        console.warn(`[Scanner] Skipped drive ${drive.label} - ${error.message}`);
+        return {
+          movies: [],
+          shows: [],
+          seasons: [],
+          episodes: [],
+          errors: [error.message],
+        };
+      }
+      throw error;
     } finally {
       this.isScanning = false;
       this.currentScanProgress = null;
@@ -509,10 +522,19 @@ export class MediaScanner extends EventEmitter {
 
   private async saveResults(result: ScanResult, drive: Drive): Promise<void> {
     try {
-      // Clear all existing media for this drive before inserting new scan results
+      // Try to clear all existing media for this drive before inserting new scan results
       // This prevents accumulating duplicate entries on each scan
-      await this.database.clearAllMediaForDrive(drive.id);
-      console.log(`[Scanner] Cleared old media for drive ${drive.id}`);
+      try {
+        await this.database.clearAllMediaForDrive(drive.id);
+        console.log(`[Scanner] Cleared old media for drive ${drive.id}`);
+      } catch (error: any) {
+        // If we can't access the drive database, skip this drive
+        if (error.message?.includes('Cannot write to drive')) {
+          console.warn(`[Scanner] Skipping drive ${drive.label} (${drive.mountPath}) - no write access`);
+          throw new Error(`No write access to drive: ${drive.mountPath}`);
+        }
+        throw error;
+      }
       
       // Save results (each insert goes to the correct per-drive database)
       // No need for transaction since data is on separate drive databases

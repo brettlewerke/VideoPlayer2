@@ -79,6 +79,94 @@ Hoser Video can be run in multiple ways depending on your needs. Choose the meth
    ```
 3. No installation needed - single executable file
 
+#### 🍓 Raspberry Pi - ARM64 AppImage
+
+**Best for**: Raspberry Pi 4/5 running Raspberry Pi OS (64-bit)
+
+Hoser Video is optimized for Raspberry Pi as a dedicated TV kiosk media player with hardware acceleration support.
+
+**Quick Start:**
+
+1. **Download**: `hoser-video-x.x.x-arm64.AppImage`
+2. **Prepare system database directory** (one-time setup):
+   ```bash
+   # Create the database directory on root filesystem with proper permissions
+   sudo mkdir -p /.hoser-video
+   sudo chown $USER:$USER /.hoser-video
+   sudo chmod 755 /.hoser-video
+   ```
+3. **Make executable and run**:
+   ```bash
+   chmod +x hoser-video-x.x.x-arm64.AppImage
+   ./hoser-video-x.x.x-arm64.AppImage
+   ```
+4. The app will launch in fullscreen mode (perfect for TV use)
+
+**System Requirements:**
+- Raspberry Pi 4 (4GB+ RAM recommended) or Raspberry Pi 5
+- Raspberry Pi OS 64-bit (Bookworm or newer)
+- HDMI connection to TV/monitor
+- USB storage or network storage with media files
+
+**Supported Features:**
+- ✅ H.264 hardware decoding
+- ✅ HEVC/H.265 hardware decoding (Pi 4/5)
+- ✅ 4K video playback (Pi 4: 30fps, Pi 5: 60fps)
+- ✅ HDMI-CEC TV remote control (requires `cec-utils`)
+- ✅ Auto-detection of USB drives
+- ✅ MPV player backend with hardware acceleration
+
+**Optional: Enable TV Remote Control (HDMI-CEC):**
+```bash
+# Install CEC utilities
+sudo apt-get install cec-utils
+
+# Test CEC connection
+echo "scan" | cec-client -s -d 1
+
+# Restart the app - TV remote should now work!
+```
+
+**TV Remote Controls:**
+- ↑ ↓ ← → Navigate menus
+- OK/Enter - Select/Play
+- Back - Go back
+- Play/Pause - Toggle playback
+- Stop - Stop playback
+- Fast Forward / Rewind - Skip 10s
+
+**Tips for Raspberry Pi:**
+- Use a high-quality power supply (official Pi power supply recommended)
+- For 4K content, ensure you have adequate cooling (heatsink/fan)
+- GPU memory should be set to 256MB+ in `/boot/config.txt`:
+  ```ini
+  gpu_mem=256
+  ```
+- For dedicated kiosk mode, see [RASPBERRY_PI_SETUP.md](RASPBERRY_PI_SETUP.md) for auto-start configuration
+
+**Building on Raspberry Pi:**
+
+If you want to build from source on your Raspberry Pi:
+
+```bash
+# Clone the repository
+git clone https://github.com/brettlewerke/VideoPlayer2.git
+cd VideoPlayer2
+
+# Install dependencies (this takes ~5-10 minutes on Pi 4)
+npm install
+
+# Build the ARM64 AppImage
+npm run build
+
+# The AppImage will be in dist-packages/
+./dist-packages/hoser-video-*.AppImage
+```
+
+**Note:** Building from source on Raspberry Pi is slow but works! The smart build system automatically detects ARM64 architecture and builds the appropriate package.
+
+For detailed Raspberry Pi setup including auto-start, kiosk mode, and performance tuning, see [RASPBERRY_PI_SETUP.md](RASPBERRY_PI_SETUP.md).
+
 ### Option 2: Portable Bundle
 
 **Best for**: USB drives, temporary use, or no admin rights

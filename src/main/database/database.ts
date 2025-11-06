@@ -83,6 +83,36 @@ export class DatabaseManager {
   }
 
   /**
+   * Check if we can write to a drive
+   */
+  private canWriteToDrive(drivePath: string): boolean {
+    try {
+      const testDir = join(drivePath, '.hoser-video');
+      
+      // Try to create the directory
+      if (!existsSync(testDir)) {
+        mkdirSync(testDir, { recursive: true });
+        console.log(`[Database] Created .hoser-video directory on drive: ${drivePath}`);
+      }
+      
+      // Verify we can write to it
+      const testFile = join(testDir, '.write-test');
+      const { writeFileSync, unlinkSync } = require('fs');
+      writeFileSync(testFile, 'test');
+      unlinkSync(testFile);
+      
+      return true;
+    } catch (error: any) {
+      if (error.code === 'EACCES' || error.code === 'EPERM') {
+        console.warn(`[Database] No write permission for drive: ${drivePath}`);
+      } else {
+        console.error(`[Database] Error testing write access to ${drivePath}:`, error.message);
+      }
+      return false;
+    }
+  }
+
+  /**
    * Get or create database for a specific drive
    */
   private getOrCreateDriveDb(drivePath: string): Database.Database {
@@ -92,26 +122,33 @@ export class DatabaseManager {
       return db;
     }
 
-    // Create .hoser-video folder on the drive
-    const driveDbDir = join(drivePath, '.hoser-video');
-    if (!existsSync(driveDbDir)) {
-      mkdirSync(driveDbDir, { recursive: true });
+    // Verify we can write to this drive
+    if (!this.canWriteToDrive(drivePath)) {
+      throw new Error(`Cannot write to drive: ${drivePath}. Please check permissions or run with appropriate access rights.`);
     }
 
+    // Create .hoser-video folder on the drive
+    const driveDbDir = join(drivePath, '.hoser-video');
     const dbPath = join(driveDbDir, 'media.db');
     const isNewDatabase = !existsSync(dbPath);
 
-    db = new Database(dbPath);
-    this.configureSQLite(db);
+    try {
+      db = new Database(dbPath);
+      this.configureSQLite(db);
 
-    if (isNewDatabase) {
-      this.createMediaSchema(db);
+      if (isNewDatabase) {
+        this.createMediaSchema(db);
+        console.log(`[Database] Created new media database on drive: ${drivePath}`);
+      } else {
+        console.log(`[Database] Opened existing media database on drive: ${drivePath}`);
+      }
+
+      this.driveDbMap.set(drivePath, db);
+      return db;
+    } catch (error: any) {
+      console.error(`[Database] Failed to create database on drive ${drivePath}:`, error.message);
+      throw error;
     }
-
-    this.driveDbMap.set(drivePath, db);
-    console.log(`[Database] Opened database for drive: ${drivePath}`);
-
-    return db;
   }
 
   /**
@@ -125,7 +162,7 @@ export class DatabaseManager {
 
   /**
    * Extract drive path from a file path
-   * Windows: C:\ from C:\path\to\file or C:/path/to/file
+   * Windows: C:\ from C:\path\to\file or C:/path/to\file
    * macOS/Linux: /Volumes/DriveName from /Volumes/DriveName/path/to/file
    */
   private getDrivePathFromFilePath(filePath: string): string {
@@ -144,11 +181,27 @@ export class DatabaseManager {
       }
       return '/'; // Root drive
     } else {
-      // Linux: Similar to macOS
-      const parts = filePath.split('/');
-      if (parts.length >= 3 && (parts[1] === 'media' || parts[1] === 'mnt')) {
-        return `/${parts[1]}/${parts[2]}`; // /media/drivename or /mnt/drivename
+      // Linux: Find the actual mount point by checking registered drives
+      // This handles nested mounts like /media/user/drivename
+      const parts = filePath.split('/').filter(p => p.length > 0);
+      
+      // Try to match against known drive mount paths (longest first)
+      const sortedDrives = Array.from(this.drivePathMap.keys()).sort((a, b) => b.length - a.length);
+      for (const mountPath of sortedDrives) {
+        if (filePath.startsWith(mountPath)) {
+          return mountPath;
+        }
       }
+      
+      // Fallback: extract mount point from path structure
+      if (parts.length >= 3 && (parts[0] === 'media' || parts[0] === 'mnt')) {
+        // Handle /media/username/drivename or /mnt/username/drivename
+        return `/${parts[0]}/${parts[1]}/${parts[2]}`;
+      } else if (parts.length >= 2 && (parts[0] === 'media' || parts[0] === 'mnt')) {
+        // Handle /media/drivename or /mnt/drivename
+        return `/${parts[0]}/${parts[1]}`;
+      }
+      
       return '/'; // Root drive
     }
     
