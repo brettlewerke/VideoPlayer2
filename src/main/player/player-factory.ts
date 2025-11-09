@@ -5,10 +5,10 @@
 import { existsSync } from 'fs';
 import { join } from 'path';
 import { app } from 'electron';
-import { IPlayer, IPlayerFactory, PlayerBackendConfig } from '../../shared/player.js';
-import { MpvPlayer } from './mpv-player.js';
-import { LibVlcPlayer } from './libvlc-player.js';
-import { MockPlayer } from './mock-player.js';
+import { IPlayer, IPlayerFactory, PlayerBackendConfig } from '../../shared/player';
+import { MpvPlayer } from './mpv-player';
+import { LibVlcPlayer } from './libvlc-player';
+import { MockPlayer } from './mock-player';
 
 export class MpvPlayerFactory implements IPlayerFactory {
   constructor(private config: PlayerBackendConfig) {}

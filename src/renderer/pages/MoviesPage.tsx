@@ -40,7 +40,7 @@ export function MoviesPage() {
               We couldn't find any movies in your library. Try scanning for media or check your folder structure.
             </p>
             <button 
-              onClick={() => window.electronAPI.library.scanMedia()}
+              onClick={() => window.electronAPI?.library.scanMedia()}
               className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 
                 text-white font-medium py-3 px-6 rounded-lg transition-all duration-200 
                 focus:outline-none focus:ring-2 focus:ring-blue-500/50"

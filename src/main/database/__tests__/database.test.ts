@@ -205,7 +205,7 @@ describe('Database SQL Validation Tests', () => {
       `);
 
       const result = db.pragma('integrity_check') as any[];
-      expect(result[0]).toBe('ok');
+      expect(result[0].integrity_check).toBe('ok');
     });
 
     test('should support WAL mode', () => {

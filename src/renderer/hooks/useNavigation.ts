@@ -124,10 +124,10 @@ export function usePlayerControls() {
   const togglePlayPause = useCallback(async () => {
     try {
       if (isPlaying) {
-        await window.electronAPI.player.pause();
+        await window.electronAPI?.player.pause();
         setIsPlaying(false);
       } else {
-        await window.electronAPI.player.play();
+        await window.electronAPI?.player.play();
         setIsPlaying(true);
       }
     } catch (error) {
@@ -137,7 +137,7 @@ export function usePlayerControls() {
 
   const stop = useCallback(async () => {
     try {
-      await window.electronAPI.player.stop();
+      await window.electronAPI?.player.stop();
       setIsPlaying(false);
     } catch (error) {
       console.error('Failed to stop playback:', error);

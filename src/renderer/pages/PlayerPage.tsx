@@ -27,10 +27,16 @@ export function PlayerPage() {
 
   const currentMedia = currentMovie || currentEpisode;
 
-  // Convert file path to proper media:// URL for video element
-  // Using custom protocol to bypass Electron's file:// security restrictions
+  // Convert file path to proper URL for video element
+  // For transcoded streams, use the localhost URL directly
+  // For local files, use custom protocol to bypass Electron's file:// security restrictions
   const getVideoUrl = (path: string | null): string => {
     if (!path) return '';
+    
+    // Check if it's already an HTTP URL (transcoded stream)
+    if (path.startsWith('http://') || path.startsWith('https://')) {
+      return path;
+    }
     
     // Convert Windows backslashes to forward slashes
     const normalizedPath = path.replace(/\\/g, '/');
@@ -54,17 +60,24 @@ export function PlayerPage() {
     useExternalPlayer, 
     videoPath,
     videoUrl: getVideoUrl(videoPath),
-    isPlayerLoading 
+    isPlayerLoading,
+    isTranscoded: videoPath?.startsWith('http://')
   });
 
   // Log when video path changes
   React.useEffect(() => {
     if (videoPath) {
+      const isTranscoded = videoPath.startsWith('http://');
       console.log('[PlayerPage] 🎬 Video path set:', videoPath);
-      console.log('[PlayerPage] 📝 Media protocol URL:', getVideoUrl(videoPath));
+      console.log('[PlayerPage] 📝 Video URL:', getVideoUrl(videoPath));
+      console.log('[PlayerPage] 🔄 Transcoded stream:', isTranscoded);
       
-      // Check codec support
-      if (typeof MediaSource !== 'undefined' && MediaSource.isTypeSupported) {
+      if (isTranscoded) {
+        console.log('[PlayerPage] ⚡ Using transcoded stream for unsupported codec');
+      }
+      
+      // Check codec support for non-transcoded streams
+      if (!isTranscoded && typeof MediaSource !== 'undefined' && MediaSource.isTypeSupported) {
         console.group('[PlayerPage] 🔍 Codec Support Check');
         const codecs = [
           { name: 'H.264 + AAC', mime: 'video/mp4; codecs="avc1.42E01E, mp4a.40.2"' },
@@ -88,11 +101,7 @@ export function PlayerPage() {
   const videoRef = React.useRef<HTMLVideoElement>(null);
   const containerRef = React.useRef<HTMLDivElement>(null);
   const lastSavedPositionRef = React.useRef<number>(0);
-  const codecCheckTimerRef = React.useRef<number | null>(null);
-  const hasAttemptedFallbackRef = React.useRef<boolean>(false);
   const hideControlsTimerRef = React.useRef<number | null>(null);
-  const [fallbackNotification, setFallbackNotification] = React.useState<string | null>(null);
-  const [codecWarning, setCodecWarning] = React.useState<string | null>(null);
   const [isFullscreen, setIsFullscreen] = React.useState<boolean>(false);
   const [showControls, setShowControls] = React.useState<boolean>(true);
 
@@ -129,138 +138,6 @@ export function PlayerPage() {
       console.error('[PlayerPage] Failed to save progress:', error);
     }
   }, [currentMedia, currentMovie]);
-
-  // Function to fallback to external player
-  const fallbackToExternalPlayer = React.useCallback(async (reason: string) => {
-    if (hasAttemptedFallbackRef.current || !videoPath || !currentMedia) {
-      return;
-    }
-
-    console.warn('[PlayerPage] 🔄 Codec issue detected, falling back to external player');
-    console.warn('[PlayerPage] Reason:', reason);
-    
-    hasAttemptedFallbackRef.current = true;
-
-    // Show notification to user
-    setFallbackNotification('Codec not supported. Launching external player...');
-
-    try {
-      // Stop HTML5 video
-      const video = videoRef.current;
-      if (video) {
-        video.pause();
-        video.src = '';
-      }
-
-      // Get current position for resume
-      const currentPosition = position || 0;
-
-      console.log('[PlayerPage] Launching external player with position:', currentPosition);
-      
-      // Call player.start with forceExternal flag
-      // Correct signature: player.start(path: string, options?: { start?: number, forceExternal?: boolean })
-      const result = await (window as any).HPlayerAPI.player.start(videoPath, {
-        start: currentPosition,
-        forceExternal: true
-      });
-
-      console.log('[PlayerPage] External player fallback result:', result);
-
-      if (result.success && result.data.useExternalPlayer) {
-        // Update store to reflect external player usage
-        useAppStore.getState().setUseExternalPlayer(true);
-        console.log('[PlayerPage] ✅ Successfully switched to external player');
-        setFallbackNotification('Playing in external player');
-        setTimeout(() => setFallbackNotification(null), 3000);
-      } else {
-        console.error('[PlayerPage] ❌ External player fallback failed:', result);
-        setFallbackNotification('External player not available. Video may not play correctly.');
-        setTimeout(() => setFallbackNotification(null), 5000);
-      }
-    } catch (error) {
-      console.error('[PlayerPage] Failed to fallback to external player:', error);
-      setFallbackNotification('Failed to launch external player');
-      setTimeout(() => setFallbackNotification(null), 5000);
-    }
-  }, [videoPath, currentMedia, position]);
-
-  // Detect codec issues and auto-fallback
-  React.useEffect(() => {
-    const video = videoRef.current;
-    if (!video || useExternalPlayer || !videoPath || hasAttemptedFallbackRef.current) {
-      return;
-    }
-
-    // Reset fallback flag when video changes
-    hasAttemptedFallbackRef.current = false;
-
-    // Check for codec issues after video starts loading
-    const checkCodecIssues = () => {
-      if (codecCheckTimerRef.current) {
-        window.clearTimeout(codecCheckTimerRef.current);
-      }
-
-      codecCheckTimerRef.current = window.setTimeout(() => {
-        if (!video || hasAttemptedFallbackRef.current) return;
-
-        const hasVideo = video.videoWidth > 0 && video.videoHeight > 0;
-        const webkitAudioDecodedByteCount = (video as any).webkitAudioDecodedByteCount;
-        const mozHasAudio = (video as any).mozHasAudio;
-        
-        // Check if we're trying to play but have issues
-        const hasAudio = mozHasAudio !== false && (webkitAudioDecodedByteCount === undefined || webkitAudioDecodedByteCount > 0);
-        const hasValidDuration = video.duration && video.duration > 0 && !isNaN(video.duration);
-
-        console.log('[PlayerPage] 🔍 Codec check:', {
-          hasVideo,
-          hasAudio,
-          hasValidDuration,
-          videoWidth: video.videoWidth,
-          videoHeight: video.videoHeight,
-          webkitAudioDecodedByteCount,
-          mozHasAudio,
-          duration: video.duration,
-          readyState: video.readyState,
-          networkState: video.networkState
-        });
-
-        // Determine if there's a codec issue
-        let codecIssue = false;
-        let reason = '';
-
-        if (hasValidDuration && video.readyState >= 1) {
-          // Video has loaded metadata
-          if (!hasVideo) {
-            codecIssue = true;
-            reason = 'No video stream detected - video codec may not be supported';
-          } else if (!hasAudio && webkitAudioDecodedByteCount === 0) {
-            codecIssue = true;
-            reason = 'No audio stream detected - audio codec may not be supported';
-          }
-        }
-
-        if (codecIssue) {
-          console.warn('[PlayerPage] ⚠️ Codec issue detected:', reason);
-          fallbackToExternalPlayer(reason);
-        }
-      }, 2000); // Wait 2 seconds after canplay event
-    };
-
-    // Listen for canplay event to check codecs
-    const handleCanPlayCheck = () => {
-      console.log('[PlayerPage] 🎬 Can play event - scheduling codec check');
-      checkCodecIssues();
-    };
-
-    video.addEventListener('canplay', handleCanPlayCheck);
-
-    return () => {
-      video.removeEventListener('canplay', handleCanPlayCheck);
-      if (codecCheckTimerRef.current) {
-        window.clearTimeout(codecCheckTimerRef.current);
-      }
-    };
-  }, [videoPath, useExternalPlayer, fallbackToExternalPlayer]);
 
   // Separate effect to handle initial seek to resume position
   const hasSeenRef = React.useRef(false);
@@ -663,16 +540,6 @@ export function PlayerPage() {
       onMouseMove={handleMouseMove}
       onMouseEnter={() => setShowControls(true)}
     >
-      {/* Fallback Notification */}
-      {fallbackNotification && (
-        <div className="absolute top-20 left-1/2 transform -translate-x-1/2 z-50 
-          bg-blue-600 text-white px-6 py-3 rounded-lg shadow-lg
-          animate-fade-in flex items-center space-x-3">
-          <div className="text-2xl">🔄</div>
-          <div className="font-semibold">{fallbackNotification}</div>
-        </div>
-      )}
-
       {/* Loading Overlay */}
       {isPlayerLoading && (
         <div className="absolute inset-0 bg-black/80 flex items-center justify-center z-50">

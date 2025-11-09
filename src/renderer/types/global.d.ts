@@ -14,7 +14,8 @@ import type {
 
 declare global {
   interface Window {
-    HPlayerAPI?: {
+    // Support both naming conventions for compatibility
+    electronAPI?: {
       ping: () => Promise<boolean>;
       
       // Library management
@@ -104,8 +105,9 @@ declare global {
       once: (channel: string, listener: (...args: any[]) => void) => void;
     };
     
-    // Alias for new brand name - points to same API object
-    HoserVideoAPI?: typeof Window.prototype.HPlayerAPI;
+    // Legacy/alternate naming - points to same API object
+    HPlayerAPI?: Window['electronAPI'];
+    HoserVideoAPI?: Window['electronAPI'];
     
     // Development helpers (only in development)
     DEBUG?: {
@@ -118,5 +120,5 @@ declare global {
 }
 
 // Export types for use in components
-export type HPlayerAPI = NonNullable<Window['HPlayerAPI']>;
-export type ElectronAPI = HPlayerAPI;
+export type ElectronAPI = NonNullable<Window['electronAPI']>;
+export type HPlayerAPI = ElectronAPI;

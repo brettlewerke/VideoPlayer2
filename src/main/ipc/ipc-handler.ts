@@ -8,6 +8,7 @@ import { PlayerFactory } from '../player/player-factory.js';
 import { DriveManager } from '../services/drive-manager.js';
 import { MediaScanner } from '../services/media-scanner.js';
 import { PosterFetcher } from '../services/poster-fetcher.js';
+import { transcodingService } from '../services/TranscodingService.js';
 import { IPlayer } from '../../shared/player.js';
 import { IPC_CHANNELS, createIpcResponse, validatePath, validateVolume, validatePosition, validateTrackId } from '../../shared/ipc.js';
 import type { PlaybackProgress } from '../../shared/types.js';
@@ -81,6 +82,9 @@ export class IpcHandler {
       this.player = null;
     }
     
+    // Stop all transcoding sessions
+    transcodingService.stopAll();
+    
     // Remove all listeners (Electron does this automatically on app quit)
     ipcMain.removeAllListeners();
   }
@@ -97,7 +101,7 @@ export class IpcHandler {
   // Player handlers
   private async handlePlayerStart(event: Electron.IpcMainInvokeEvent, payload: { path: string; start?: number; forceExternal?: boolean }) {
     try {
-      console.log('[IPC] Player start requested:', payload.path, 'forceExternal:', payload.forceExternal);
+      console.log('[IPC] Player start requested:', payload.path);
       
       if (!validatePath(payload.path)) {
         console.error('[IPC] Invalid file path:', payload.path);
@@ -116,86 +120,50 @@ export class IpcHandler {
       this.currentMediaType = media?.type || null;
       console.log('[IPC] Media lookup result:', media);
 
-      // AUTO-DETECT CODECS - Check if file requires external player
-      let requiresExternalPlayer = payload.forceExternal || false;
+      // DETECT CODECS - Check if file needs transcoding
+      console.log('[IPC] 🔍 Detecting codecs...');
+      const { codecDetector } = await import('../services/CodecDetector');
+      const codecInfo = await codecDetector.detectCodecs(payload.path);
       
-      if (!payload.forceExternal) {
-        console.log('[IPC] 🔍 Detecting codecs...');
-        const { codecDetector } = await import('../services/CodecDetector');
-        const codecInfo = await codecDetector.detectCodecs(payload.path);
-        
-        console.log('[IPC] Codec detection result:', codecInfo);
-        
-        if (codecInfo.requiresExternalPlayer) {
-          console.log(`[IPC] ⚠️  Unsupported codec detected: ${codecInfo.audioCodec}`);
-          console.log('[IPC] 🎯 Auto-switching to external player');
-          requiresExternalPlayer = true;
-        } else {
-          console.log(`[IPC] ✅ Supported codecs: video=${codecInfo.videoCodec}, audio=${codecInfo.audioCodec}`);
-          console.log('[IPC] 🎬 Using HTML5 video player');
-        }
-      }
-
-      // If forceExternal is true OR codecs require it, try external player
-      if (requiresExternalPlayer) {
-        console.log('[IPC] External player required for unsupported codec');
+      console.log('[IPC] Codec detection result:', codecInfo);
+      
+      let videoPath = payload.path;
+      let needsTranscoding = false;
+      
+      // Check if transcoding is needed
+      if (codecInfo.audioCodec && transcodingService.needsTranscoding(codecInfo.audioCodec)) {
+        console.log(`[IPC] ⚠️  Unsupported audio codec detected: ${codecInfo.audioCodec}`);
+        console.log('[IPC] 🔄 Starting transcoding service...');
         
         try {
-          if (this.player) {
-            console.log('[IPC] Cleaning up existing player');
-            await this.player.cleanup();
-          }
+          // Start transcoding and get the stream URL
+          const streamUrl = await transcodingService.startTranscoding(payload.path, codecInfo.audioCodec);
+          console.log('[IPC] ✅ Transcoding started, stream URL:', streamUrl);
           
-          console.log('[IPC] Creating new external player instance');
-          this.player = this.playerFactory.createPlayer();
-          
-          console.log('[IPC] Setting up player events');
-          this.setupPlayerEvents();
-
-          console.log('[IPC] Loading media into external player');
-          await this.player.loadMedia(payload.path, { start: payload.start });
-          console.log('[IPC] ✅ External player started successfully');
-          
-          return createIpcResponse(event.frameId.toString(), { useExternalPlayer: true });
-        } catch (externalPlayerError) {
-          // External player not available, fall back to HTML5 with warning
-          const errorMessage = externalPlayerError instanceof Error ? externalPlayerError.message : 'Unknown error';
-          console.warn('[IPC] ⚠️  External player not available:', errorMessage);
-          console.warn('[IPC] ⚠️  Falling back to HTML5 video - file may play without audio!');
-          console.warn('[IPC] 💡 Install MPV (https://mpv.io/) or VLC to enable full codec support');
-          
-          // Send notification to renderer
-          const { codecDetector } = await import('../services/CodecDetector');
-          const codecInfo = await codecDetector.detectCodecs(payload.path);
-          const codecName = codecInfo.audioCodec?.toUpperCase() || 'unsupported';
-          
-          // Return HTML5 fallback with warning message
-          const videoData = {
-            useExternalPlayer: false,
-            videoPath: payload.path,
-            startTime: payload.start || 0,
-            mediaId: this.currentMediaId,
-            mediaType: this.currentMediaType,
-            codecWarning: `This video uses ${codecName} audio which is not supported. Video will play without audio. Install MPV (https://mpv.io/) for full codec support.`
-          };
-          
-          return createIpcResponse(event.frameId.toString(), videoData);
+          videoPath = streamUrl;
+          needsTranscoding = true;
+        } catch (error) {
+          console.error('[IPC] ❌ Transcoding failed:', error);
+          // Fall back to original file (may play without audio)
+          console.warn('[IPC] Falling back to original file - audio may not work');
         }
+      } else {
+        console.log(`[IPC] ✅ Supported codecs: video=${codecInfo.videoCodec}, audio=${codecInfo.audioCodec}`);
+        console.log('[IPC] 🎬 Using direct HTML5 video playback');
       }
 
-      // Codecs are supported - use HTML5 video player
-      // OR external player failed - use HTML5 as fallback
-      console.log('[IPC] Using HTML5 video player for supported codecs');
-      
-      // Send the video path to renderer for HTML5 playback
+      // Always return HTML5 video player data
       const videoData = {
-        useExternalPlayer: false,
-        videoPath: payload.path,
+        useExternalPlayer: false, // Always use HTML5 player in UI
+        videoPath: videoPath,
         startTime: payload.start || 0,
         mediaId: this.currentMediaId,
-        mediaType: this.currentMediaType
+        mediaType: this.currentMediaType,
+        isTranscoded: needsTranscoding,
+        originalCodec: codecInfo.audioCodec,
       };
       
+      console.log('[IPC] Returning video data:', videoData);
       return createIpcResponse(event.frameId.toString(), videoData);
     } catch (error) {
       console.error('[IPC] Player start failed:', error);

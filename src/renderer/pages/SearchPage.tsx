@@ -13,8 +13,8 @@ export function SearchPage() {
 
   const searchMedia = async (searchQuery: string) => {
     try {
-      const results = await window.electronAPI.library.searchMedia(searchQuery);
-      setSearchResults(results);
+      const results = await window.electronAPI?.library.searchMedia(searchQuery);
+      setSearchResults(results || []);
     } catch (error) {
       console.error('Search failed:', error);
       setSearchResults([]);
