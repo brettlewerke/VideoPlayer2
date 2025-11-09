@@ -1,6 +1,6 @@
 {
   "name": "hoser-video",
-  "version": "11.0.1",
+  "version": "4.0.0",
   "description": "Hoser Video – local desktop video player for Movies & TV Shows on plugged-in drives (no network services)",
   "main": "dist/main/main/main.js",
   "scripts": {
